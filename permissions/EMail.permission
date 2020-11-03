@@ -1,0 +1,17 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access E-Mail data
+
+whitelist /usr/share/jolla-settings/pages/jolla-email
+whitelist /usr/share/jolla-email
+
+mkdir     ${HOME}/.cache/jolla-email
+whitelist ${HOME}/.cache/jolla-email
+
+mkdir     ${HOME}/.local/share/jolla-email
+whitelist ${HOME}/.local/share/jolla-email
+
+mkdir     ${HOME}/Downloads/mail_attachments
+whitelist ${HOME}/Downloads/mail_attachments

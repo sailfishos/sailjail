@@ -1,0 +1,11 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access Notes data
+
+whitelist /usr/share/jolla-notes
+whitelist /usr/share/jolla-settings/pages/jolla-notes
+
+mkdir     ${HOME}/.local/share/jolla-notes
+whitelist ${HOME}/.local/share/jolla-notes

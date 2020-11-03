@@ -1,0 +1,10 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Change network setup
+
+# BEG systembus-net.connman.resource
+dbus-system.talk net.connman
+dbus-system.broadcast net.connman=net.connman.*@/*
+# END systembus-net.connman.resource

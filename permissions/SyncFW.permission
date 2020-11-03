@@ -1,0 +1,15 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Use synchronization framework
+
+private-etc buteo
+
+mkdir     ${HOME}/.cache/msyncd/sync
+whitelist ${HOME}/.cache/msyncd/sync
+
+# BEG sessionbus-com.meego.msyncd.resource
+dbus-user.talk com.meego.msyncd
+dbus-user.broadcast com.meego.msyncd=com.meego.msyncd.*@/*
+# END sessionbus-com.meego.msyncd.resource

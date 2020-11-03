@@ -1,0 +1,14 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access privileged user data
+
+# We have library code that checks whether privileged
+# data directory uid=privileged and gid=privileged.
+# Which atm is true only if the real directory is visible
+# to the process -> for now we need to whitelist all
+# of privileged data when some portion of it is needed.
+
+mkdir     ${HOME}/.local/share/system/privileged
+whitelist ${HOME}/.local/share/system/privileged

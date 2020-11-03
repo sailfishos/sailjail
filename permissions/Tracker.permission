@@ -1,0 +1,20 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Use Tracker
+
+whitelist /usr/share/tracker
+
+mkdir     ${HOME}/.cache/tracker
+whitelist ${HOME}/.cache/tracker
+
+mkdir     ${HOME}/.local/share/tracker/data
+whitelist ${HOME}/.local/share/tracker/data
+
+# BEG sessionbus-org.freedesktop.Tracker1.resource
+dbus-user.talk org.freedesktop.Tracker1
+dbus-user.broadcast org.freedesktop.Tracker1=org.freedesktop.Tracker1.*@/*
+dbus-user.talk org.freedesktop.Tracker1.*
+dbus-user.broadcast org.freedesktop.Tracker1.*=org.freedesktop.Tracker1.*@/*
+# END sessionbus-org.freedesktop.Tracker1.resource

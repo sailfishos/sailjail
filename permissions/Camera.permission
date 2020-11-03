@@ -1,0 +1,18 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access pictures/videos taken with camera
+
+whitelist /usr/share/jolla-settings/pages/jolla-camera
+whitelist /usr/share/jolla-camera
+
+whitelist /data/vendor/camera
+whitelist /data/misc/camera
+whitelist /vendor/etc/camera
+
+mkdir     ${HOME}/Videos/Camera
+whitelist ${HOME}/Videos/Camera
+
+mkdir     ${HOME}/Pictures/Camera
+whitelist ${HOME}/Pictures/Camera

@@ -1,0 +1,22 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Play audio
+
+private-etc pulse
+
+mkdir     ${HOME}/.config/pulse
+whitelist ${HOME}/.config/pulse
+
+mkdir     ${HOME}/.cache/gstreamer-1.0
+whitelist ${HOME}/.cache/gstreamer-1.0
+
+whitelist ${HOME}/.pulse-cookie
+
+dbus-user.own org.mpris.MediaPlayer2.*
+
+# BEG systembus-org.maemo.resource.manager.resource
+dbus-system.talk org.maemo.resource.manager
+dbus-system.broadcast org.maemo.resource.manager=org.maemo.resource.manager.*@/*
+# END systembus-org.maemo.resource.manager.resource

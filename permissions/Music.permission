@@ -1,0 +1,14 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access Music data
+
+mkdir     ${HOME}/Music
+whitelist ${HOME}/Music
+
+mkdir     ${HOME}/Playlists
+whitelist ${HOME}/Playlists
+
+mkdir     ${HOME}/.cache/media-art
+whitelist ${HOME}/.cache/media-art

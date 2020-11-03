@@ -1,0 +1,56 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Use embedded browser functionality
+
+private-etc ssl,hosts,pki,crypto-policies
+
+# ca-certificates
+whitelist /usr/share/pki
+
+# http proxy config?
+# BEG systembus-org.pacrunner.resource
+dbus-system.talk org.pacrunner
+dbus-system.broadcast org.pacrunner=org.pacrunner.*@/*
+# END systembus-org.pacrunner.resource
+
+# Mozilla
+whitelist /usr/share/mozilla
+
+whitelist /var/tmp
+whitelist /var/lib/_MOZEMBED_CACHE_CLEAN_
+whitelist /var/lock
+
+mkdir     ${HOME}/.mozilla/extensions
+whitelist ${HOME}/.mozilla/extensions
+
+mkdir     ${HOME}/.mozilla/mozembed
+whitelist ${HOME}/.mozilla/mozembed
+
+mkdir     ${HOME}/.qmf
+whitelist ${HOME}/.qmf
+
+# Transferengine
+whitelist /usr/share/nemo-transferengine
+mkdir     ${HOME}/.local/nemo-transferengine
+whitelist ${HOME}/.local/nemo-transferengine
+
+# BEG sessionbus-org.nemo.transferengine.resource
+dbus-user.talk org.nemo.transferengine
+dbus-user.broadcast org.nemo.transferengine=org.nemo.transferengine.*@/*
+# END sessionbus-org.nemo.transferengine.resource
+
+# ConnectionSelector
+# BEG sessionbus-com.jolla.lipstick.ConnectionSelector.resource
+dbus-user.talk com.jolla.lipstick.ConnectionSelector
+dbus-user.broadcast com.jolla.lipstick.ConnectionSelector=com.jolla.lipstick.ConnectionSelectorIf.*@/*
+# END sessionbus-com.jolla.lipstick.ConnectionSelector.resource
+
+### INDIRECT/UNKNOWN
+
+# XXX: QmfClient thing?
+whitelist /tmp/qcop-server-0
+
+# some side effect from some xdg action ?
+whitelist ${HOME}/Desktop

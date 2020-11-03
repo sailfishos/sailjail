@@ -1,0 +1,10 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Start user services
+
+# BEG sessionbus-org.freedesktop.systemd1.resource
+dbus-user.talk org.freedesktop.systemd1
+dbus-user.broadcast org.freedesktop.systemd1=org.freedesktop.systemd1.*@/*
+# END sessionbus-org.freedesktop.systemd1.resource

@@ -1,0 +1,33 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Use Bluetooth and NFC
+
+# BEG sessionbus-org.bluez.obex.resource
+dbus-user.talk org.bluez.obex
+dbus-user.broadcast org.bluez.obex=org.bluez.obex.*@/*
+# END sessionbus-org.bluez.obex.resource
+
+# BEG systembus-org.bluez.resource
+dbus-system.talk org.bluez
+dbus-system.broadcast org.bluez=org.bluez.*@/*
+# END systembus-org.bluez.resource
+
+# BEG systembus-org.sailfishos.nfc.daemon.resource
+dbus-system.talk      org.sailfishos.nfc.daemon
+dbus-system.call      org.sailfishos.nfc.daemon=org.sailfishos.nfc.*@/*
+dbus-system.broadcast org.sailfishos.nfc.daemon=org.sailfishos.nfc.*@/*
+# END systembus-org.sailfishos.nfc.daemon.resource
+# BEG systembus-org.sailfishos.nfc.settings.resource
+dbus-system.talk org.sailfishos.nfc.settings
+dbus-system.call      org.sailfishos.nfc.settings=org.sailfishos.nfc.*@/*
+dbus-system.broadcast org.sailfishos.nfc.settings=org.sailfishos.nfc.*@/*
+# END systembus-org.sailfishos.nfc.settings.resource
+# BEG systembus-org.neard.resource
+dbus-system.talk      org.neard
+dbus-system.call      org.neard=org.neard.*@/*
+dbus-system.broadcast org.neard=org.neard.*@/*
+# END systembus-org.neard.resource
+
+# FIXME: is org.sailfishos.system_nfc introspection denied on purpose or accidentally?

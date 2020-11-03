@@ -1,0 +1,8 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access Video data
+
+mkdir     ${HOME}/Videos
+whitelist ${HOME}/Videos

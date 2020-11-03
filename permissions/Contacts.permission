@@ -1,0 +1,14 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access contacts data
+
+whitelist /usr/share/jolla-settings/pages/jolla-contacts
+whitelist /usr/share/jolla-contacts
+
+mkdir     ${HOME}/.local/share/system/Contacts
+whitelist ${HOME}/.local/share/system/Contacts
+
+mkdir     ${HOME}/.local/share/system/privileged/Contacts
+whitelist ${HOME}/.local/share/system/privileged/Contacts

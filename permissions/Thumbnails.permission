@@ -1,0 +1,17 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Use Thumbnailer
+
+# Thumbnailer service returns paths in thumbnail cache
+# -> service must be callable
+# -> cache directory readable
+
+mkdir     ${HOME}/.cache/org.nemomobile/thumbnails
+whitelist ${HOME}/.cache/org.nemomobile/thumbnails
+
+# BEG sessionbus-org.nemomobile.Thumbnailer.resource
+dbus-user.talk org.nemomobile.Thumbnailer
+dbus-user.broadcast org.nemomobile.Thumbnailer=org.nemomobile.Thumbnailer.*@/*
+# END sessionbus-org.nemomobile.Thumbnailer.resource
