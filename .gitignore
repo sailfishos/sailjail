@@ -1,0 +1,3 @@
+build
+unit/coverage/report
+unit/coverage/*.gcov
