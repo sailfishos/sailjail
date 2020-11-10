@@ -58,6 +58,7 @@ static const char DESKTOP_KEY_DESKTOP_ENTRY_TYPE[] = "Type";
 static const char DESKTOP_ENTRY_TYPE_APPLICATION[] = "Application";
 
 static const char SAILJAIL_SECTION_DEFAULT[] = DEFAULT_PROFILE_SECTION;
+static const char SAILJAIL_LIST_SEPARATORS[] = ":;,";
 
 static const char SAILJAIL_KEY_PERMS[] = "Permissions";
 #define SAILJAIL_KEY_PERM_REQUIRED '!'
@@ -483,7 +484,7 @@ jail_rules_parse_section(
     val = g_key_file_get_string(kf, section, SAILJAIL_KEY_PERMS, NULL);
     if (val) {
         JAIL_PERMIT_TYPE permit;
-        char** vals = g_strsplit_set(val, ":,", -1);
+        char** vals = g_strsplit_set(val, SAILJAIL_LIST_SEPARATORS, -1);
         char** ptr = vals;
 
         for (ptr = vals; *ptr; ptr++) {
@@ -515,7 +516,7 @@ jail_rules_parse_section(
     /* FileAccess= */
     val = g_key_file_get_string(kf, section, SAILJAIL_KEY_FILE_ACCESS, NULL);
     if (val) {
-        char** vals = g_strsplit_set(val, ":,", -1);
+        char** vals = g_strsplit_set(val, SAILJAIL_LIST_SEPARATORS, -1);
         char** ptr = vals;
 
         for (ptr = vals; *ptr; ptr++) {
