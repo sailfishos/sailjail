@@ -47,11 +47,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+static const char SAILJAIL_PERMISSION_SUFFIX[] = ".permission";
 static const char SAILJAIL_PROFILE_SUFFIX[] = ".profile";
 static const char SAILJAIL_DESKTOP_SUFFIX[] = ".desktop";
 #define SAILJAIL_DESKTOP_SUFFIX_LEN (sizeof(SAILJAIL_DESKTOP_SUFFIX) - 1)
 
-static const char SAILJAIL_BASE_PERM[] = "Base.profile";
+static const char SAILJAIL_BASE_PERM[] = "Base.permission";
 
 static const char DESKTOP_GROUP_DESKTOP_ENTRY[] = "Desktop Entry";
 static const char DESKTOP_KEY_DESKTOP_ENTRY_TYPE[] = "Type";
@@ -272,18 +273,27 @@ jail_rules_add_profile(
     const char* name,
     gboolean require)
 {
-    char* path;
+    char* path = NULL;
 
-    if (g_str_has_suffix(name, SAILJAIL_PROFILE_SUFFIX)) {
-        path = g_build_filename(conf->perm_dir, name, NULL);
+    /* Name must have an expected suffix and either have no directory
+     * component at all or be the same absolute path to a file in
+     * permission directory that would be generated here. */
+    if (g_str_has_suffix(name, SAILJAIL_PERMISSION_SUFFIX) ||
+        g_str_has_suffix(name, SAILJAIL_PROFILE_SUFFIX)) {
+        path = g_build_filename(conf->perm_dir, jail_rules_basename(name), NULL);
+        if (strchr(name, '/') && strcmp(name, path)) {
+            GWARN("%s: ignored due to not matching %s", name, path);
+            g_free(path);
+            path = NULL;
+        }
     } else {
-        char* file = g_strconcat(name, SAILJAIL_PROFILE_SUFFIX, NULL);
-
-        path = g_build_filename(conf->perm_dir, file, NULL);
-        g_free(file);
+        GWARN("%s: ignored due to extension", name);
     }
-
-    if (g_file_test(path, G_FILE_TEST_EXISTS)) {
+    if (!path) {
+        /* Ignored, reason is already logged above */
+    } else if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
+        GWARN("%s: profile does not exist", name);
+    } else {
         GPtrArray* list = data->profiles;
         const int prev_index = jail_rules_find_profile(list, path);
 
@@ -299,8 +309,6 @@ jail_rules_add_profile(
             g_ptr_array_remove_index(list, prev_index);
         }
         g_ptr_array_add(list, jail_rules_profile_new(path, require));
-    } else {
-        GWARN("Profile %s doesn't exist", path);
     }
     g_free(path);
 }
@@ -503,11 +511,17 @@ jail_rules_parse_section(
 
             /* Skip the spaces between the modifier and the name */
             while (*name && g_ascii_isspace(*name)) name++;
+
+            /* Note: "Privileged" can trigger both adding a permit
+             *       and including a permission file. */
             permit = jail_rules_permit_parse(name);
             if (permit != JAIL_PERMIT_INVALID) {
                 jail_rules_add_permit(data, permit, require);
-            } else if (*name) {
-                jail_rules_add_profile(data, conf, name, require);
+            }
+            if (*name) {
+                gchar *prof = g_strdup_printf("%s%s", name, SAILJAIL_PERMISSION_SUFFIX);
+                jail_rules_add_profile(data, conf, prof, require);
+                g_free(prof);
             }
         }
         g_strfreev(vals);
@@ -555,12 +569,20 @@ jail_rules_parse_section(
         char* usr = g_build_filename("/usr/share", app, NULL);
         char* app_desktop = g_strconcat(app, SAILJAIL_DESKTOP_SUFFIX, NULL);
         char* desktop = g_build_filename(conf->desktop_dir, app_desktop, NULL);
+        char* app_profile = g_strconcat(app, SAILJAIL_PROFILE_SUFFIX, NULL);
+        char* profile = g_build_filename(conf->perm_dir, app_profile, NULL);
+
+        /* If APPNAME.profile exists, it is implicitly pulled in */
+        if (g_file_test(profile, G_FILE_TEST_EXISTS))
+                jail_rules_add_profile(data, conf, profile, TRUE);
 
         jail_rules_add_path(data, usr, TRUE, FALSE);
         jail_rules_add_path(data, desktop, TRUE, FALSE);
         g_free(usr);
         g_free(desktop);
         g_free(app_desktop);
+        g_free(profile);
+        g_free(app_profile);
 
         if (home) {
             char* local = g_build_filename(home, ".local/share", app, NULL);
