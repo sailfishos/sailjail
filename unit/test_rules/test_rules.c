@@ -432,11 +432,12 @@ test_basic2(
     /*
      * Required Privileged overrides the optional one,
      * but optional Base doesn't overrides the implicit required one.
+     * Also test all possible list separators (:;,)
      */
     static const char profile_data[] =
         "[Section]\n" /* Lonely ? and - are ignored */
-        "Permissions = ?, ? Base, ? Test, ? Privileged, ! Privileged\n"
-        "FileAccess = ?, -, /tmp, /tmp\n" /* Only one path remains */
+        "Permissions = ?: ? Base; ? Test, ? Privileged, ! Privileged\n"
+        "FileAccess = ?: -, /tmp; /tmp\n" /* Only one path remains */
         "DBusUserOwn = foo.bar, ."; /* . is an invalid name and is ignored */
 
     g_assert(g_file_set_contents(profile, profile_data, -1, NULL));
