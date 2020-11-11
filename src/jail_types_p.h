@@ -41,7 +41,6 @@
 
 #include <jail_types.h>
 
-typedef struct jail_app JailApp;
 typedef struct jail_conf JailConf;
 
 /* Macros */
