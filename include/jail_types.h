@@ -43,7 +43,7 @@
 
 G_BEGIN_DECLS
 
-typedef struct jail_fish SailJail;
+typedef struct jail_fish SailJail; /* opaque */
 typedef struct jail_launch_hook JailLaunchHook;
 typedef struct jail_plugin JailPlugin;
 typedef struct jail_plugin_desc JailPluginDesc;
