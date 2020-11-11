@@ -856,7 +856,7 @@ jail_rules_unref(
     }
 }
 
-/* Only leaves requires and the specified optional items */
+/* Only leaves required and the specified optional items */
 JailRules*
 jail_rules_restrict(
     JailRules* rules,
