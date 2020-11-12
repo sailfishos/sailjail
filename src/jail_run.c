@@ -257,10 +257,15 @@ jail_run(
     setfsuid(creds->euid);
     setfsgid(egid);
 
+    /* FIXME: In case of privileged application we want to
+     *        use egid=privileged, but as firejail seems
+     *        to have problems preserving that, for now both
+     *        real and effective gid are set to privileged.
+     */
     if (setgroups(creds->ngroups, creds->groups)) {
         g_propagate_error(error, g_error_new(G_UNIX_ERROR, errno,
             "setgroups error: %s", strerror(errno)));
-    } else if (setresgid(creds->rgid, egid, creds->sgid)) {
+    } else if (setresgid(egid, egid, creds->rgid)) {
         g_propagate_error(error, g_error_new(G_UNIX_ERROR, errno,
             "setresgid(%u,%u,%u) error: %s", (guint)creds->rgid,
             (guint)egid, (guint)creds->sgid, strerror(errno)));
@@ -269,6 +274,7 @@ jail_run(
             "setresuid(%u,%u,%u) error: %s", (guint)creds->ruid,
             (guint)creds->euid, (guint)creds->suid, strerror(errno)));
     } else {
+        fflush(NULL);
         execvp(conf->exec, (char**) args->pdata);
         g_propagate_error(error, g_error_new(G_UNIX_ERROR, errno,
             "exec(%s) error: %s", conf->exec, strerror(errno)));
