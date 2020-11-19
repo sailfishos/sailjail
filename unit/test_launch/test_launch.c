@@ -161,15 +161,17 @@ void
 test_null(
     void)
 {
-    SailJail* jail = jail_launch_new();
+    JailConf* conf = jail_conf_new();
+    SailJail jail = { jail_launch_hooks_new(), conf };
 
-    g_assert(!jail_launch_confirm(jail, NULL, NULL, NULL, NULL));
+    g_assert(!jail_launch_confirm(jail.hooks, NULL, NULL, NULL, NULL));
     g_assert(!jail_launch_hook_add(NULL, NULL));
-    g_assert(!jail_launch_hook_add(jail, NULL));
+    g_assert(!jail_launch_hook_add(&jail, NULL));
     jail_launch_hook_remove(NULL, 0);
-    jail_launch_hook_remove(jail, 0);
-    jail_launch_free(NULL);
-    jail_launch_free(jail);
+    jail_launch_hook_remove(&jail, 0);
+    jail_launch_hooks_free(NULL);
+    jail_launch_hooks_free(jail.hooks);
+    jail_conf_free(conf);
 }
 
 /*==========================================================================*
@@ -181,13 +183,14 @@ void
 test_basic1(
     void)
 {
-    SailJail* jail = jail_launch_new();
+    JailConf* conf = jail_conf_new();
+    SailJail jail = { jail_launch_hooks_new(), conf };
     JailLaunchHook* hook1 = g_object_new(TEST_HOOK_TYPE, NULL);
     JailLaunchHook* hook2 = g_object_new(TEST_HOOK_TYPE, NULL);
     JailLaunchHook* hook3 = g_object_new(TEST_HOOK_TYPE, NULL);
-    guint id1 = jail_launch_hook_add(jail, hook1); /* Adds a ref */
-    guint id2 = jail_launch_hook_add(jail, hook2); /* Adds a ref */
-    guint id3 = jail_launch_hook_add(jail, hook3); /* Adds a ref */
+    guint id1 = jail_launch_hook_add(&jail, hook1); /* Adds a ref */
+    guint id2 = jail_launch_hook_add(&jail, hook2); /* Adds a ref */
+    guint id3 = jail_launch_hook_add(&jail, hook3); /* Adds a ref */
 
     g_assert(id1);
     g_assert(id2);
@@ -195,15 +198,15 @@ test_basic1(
     g_assert_cmpuint(id1, != ,id2);
     g_assert_cmpuint(id1, != ,id3);
     g_assert_cmpuint(id2, != ,id3);
-    jail_launch_hook_remove(jail, 0); /* Does nothing */
-    jail_launch_hook_remove(jail, id2); /* Unrefs */
-    jail_launch_hook_remove(jail, id3); /* Unrefs */
-    jail_launch_hook_remove(jail, id1); /* Unrefs */
-    jail_launch_hook_remove(jail, id1); /* Does nothing (already removed) */
+    jail_launch_hook_remove(&jail, 0); /* Does nothing */
+    jail_launch_hook_remove(&jail, id2); /* Unrefs */
+    jail_launch_hook_remove(&jail, id3); /* Unrefs */
+    jail_launch_hook_remove(&jail, id1); /* Unrefs */
+    jail_launch_hook_remove(&jail, id1); /* Does nothing (already removed) */
 
     /* And again */
-    id1 = jail_launch_hook_add(jail, hook1); /* Adds a ref */
-    id2 = jail_launch_hook_add(jail, hook2); /* Adds a ref */
+    id1 = jail_launch_hook_add(&jail, hook1); /* Adds a ref */
+    id2 = jail_launch_hook_add(&jail, hook2); /* Adds a ref */
     g_assert(id1);
     g_assert(id2);
     g_assert_cmpuint(id1, != ,id2);
@@ -213,7 +216,8 @@ test_basic1(
     jail_launch_hook_unref(hook1);  /* Drop our ref */
     jail_launch_hook_unref(hook2);  /* Drop our ref */
     jail_launch_hook_unref(hook3);  /* Drop our ref */
-    jail_launch_free(jail);
+    jail_launch_hooks_free(jail.hooks);
+    jail_conf_free(conf);
 }
 
 /*==========================================================================*
@@ -225,11 +229,12 @@ void
 test_basic2(
     void)
 {
-    SailJail* jail = jail_launch_new();
+    JailConf* conf = jail_conf_new();
+    SailJail jail = { jail_launch_hooks_new(), conf };
     JailLaunchHook* hook1 = g_object_new(TEST_HOOK_TYPE, NULL);
     JailLaunchHook* hook2 = g_object_new(TEST_HOOK_TYPE, NULL);
-    guint id1 = jail_launch_hook_add(jail, hook1); /* Adds a ref */
-    guint id2 = jail_launch_hook_add(jail, hook2); /* Adds a ref */
+    guint id1 = jail_launch_hook_add(&jail, hook1); /* Adds a ref */
+    guint id2 = jail_launch_hook_add(&jail, hook2); /* Adds a ref */
 
     g_assert(id1);
     g_assert(id2);
@@ -237,8 +242,8 @@ test_basic2(
     jail_launch_hook_unref(hook1);  /* Drop our ref */
     jail_launch_hook_unref(hook2);  /* Drop our ref */
 
-    /* Unrefs both hooks */
-    jail_launch_free(jail);
+    jail_launch_hooks_free(jail.hooks); /* Unrefs both hooks */
+    jail_conf_free(conf);
 }
 
 /*==========================================================================*
@@ -252,10 +257,10 @@ test_confirm(
 {
     char* dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
     char* profile = g_build_filename(dir, "foo.profile", NULL);
-    SailJail* jail = jail_launch_new();
+    JailConf* conf = jail_conf_new();
+    SailJail jail = { jail_launch_hooks_new(), conf };
     JailLaunchHook* hook1 = g_object_new(TEST_HOOK_TYPE, NULL);
     JailLaunchHook* hook2 = g_object_new(TEST_HOOK_TYPE, NULL);
-    JailConf* conf = jail_conf_new();
     JailRules* rules;
     JailRules* rules2;
     JailRulesOpt opt;
@@ -266,7 +271,7 @@ test_confirm(
 
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
-    rules = jail_rules_new("foo", conf, &opt, NULL, NULL);
+    rules = jail_rules_new("foo", conf, &opt, NULL, NULL, NULL);
     g_assert(rules);
 
     memset(&app, 0, sizeof(app));
@@ -280,22 +285,22 @@ test_confirm(
     memset(&user, 0, sizeof(user));
 
     /* Without any hooks it returns unmodified unput */
-    rules2 = jail_launch_confirm(jail, &app, &cmd, &user, rules);
+    rules2 = jail_launch_confirm(jail.hooks, &app, &cmd, &user, rules);
     g_assert(rules == rules2);
     jail_rules_unref(rules2);
 
     /* Add hooks */
-    jail_launch_hook_add(jail, hook1); /* Adds a ref */
-    jail_launch_hook_add(jail, hook2); /* Adds a ref */
+    jail_launch_hook_add(&jail, hook1); /* Adds a ref */
+    jail_launch_hook_add(&jail, hook2); /* Adds a ref */
     jail_launch_hook_unref(hook1);  /* Drop our ref */
     jail_launch_hook_unref(hook2);  /* Drop our ref */
 
     /* Since our test hooks are simple, input is returned unmodified */
-    rules2 = jail_launch_confirm(jail, &app, &cmd, &user, rules);
+    rules2 = jail_launch_confirm(jail.hooks, &app, &cmd, &user, rules);
     g_assert(rules == rules2);
 
     /* Tell the hooks what happened */
-    jail_launch_confirmed(jail, &app, &cmd, &user, rules2);
+    jail_launch_confirmed(jail.hooks, &app, &cmd, &user, rules2);
     g_assert_cmpint(TEST_HOOK(hook1)->confirmed, == ,1);
     g_assert_cmpint(TEST_HOOK(hook2)->confirmed, == ,1);
     g_assert_cmpint(TEST_HOOK(hook1)->denied, == ,0);
@@ -303,7 +308,7 @@ test_confirm(
     jail_rules_unref(rules2);
 
     /* Unrefs both hooks */
-    jail_launch_free(jail);
+    jail_launch_hooks_free(jail.hooks);
     jail_rules_unref(rules);
     jail_conf_free(conf);
 
@@ -325,10 +330,10 @@ test_deny_impl(
 {
     char* dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
     char* profile = g_build_filename(dir, "foo.profile", NULL);
-    SailJail* jail = jail_launch_new();
+    JailConf* conf = jail_conf_new();
+    SailJail jail = { jail_launch_hooks_new(), conf };
     JailLaunchHook* hook1 = g_object_new(type1, NULL);
     JailLaunchHook* hook2 = g_object_new(type2, NULL);
-    JailConf* conf = jail_conf_new();
     JailRules* rules;
     JailRulesOpt opt;
     JailApp app;
@@ -337,14 +342,14 @@ test_deny_impl(
     static const char* argv[] = { "/bin/foo", "bar" };
 
     /* Add hooks */
-    jail_launch_hook_add(jail, hook1); /* Adds a ref */
-    jail_launch_hook_add(jail, hook2); /* Adds a ref */
+    jail_launch_hook_add(&jail, hook1); /* Adds a ref */
+    jail_launch_hook_add(&jail, hook2); /* Adds a ref */
     jail_launch_hook_unref(hook1);  /* Drop our ref */
     jail_launch_hook_unref(hook2);  /* Drop our ref */
 
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
-    rules = jail_rules_new("foo", conf, &opt, NULL, NULL);
+    rules = jail_rules_new("foo", conf, &opt, NULL, NULL, NULL);
     g_assert(rules);
 
     memset(&app, 0, sizeof(app));
@@ -358,17 +363,17 @@ test_deny_impl(
     memset(&user, 0, sizeof(user));
 
     /* Launch is denied */
-    g_assert(!jail_launch_confirm(jail, &app, &cmd, &user, rules));
+    g_assert(!jail_launch_confirm(jail.hooks, &app, &cmd, &user, rules));
 
     /* Tell the hooks what happened */
-    jail_launch_denied(jail, &app, &cmd, &user);
+    jail_launch_denied(jail.hooks, &app, &cmd, &user);
     g_assert_cmpint(TEST_HOOK(hook1)->confirmed, == ,0);
     g_assert_cmpint(TEST_HOOK(hook2)->confirmed, == ,0);
     g_assert_cmpint(TEST_HOOK(hook1)->denied, == ,1);
     g_assert_cmpint(TEST_HOOK(hook2)->denied, == ,1);
 
     /* Unrefs both hooks */
-    jail_launch_free(jail);
+    jail_launch_hooks_free(jail.hooks);
     jail_rules_unref(rules);
     jail_conf_free(conf);
 

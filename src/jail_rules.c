@@ -473,11 +473,10 @@ JailRulesData*
 jail_rules_parse_section(
     GKeyFile* kf,
     const char* section,
-    const JailConf* conf,
-    const JailRulesOpt* opt)
+    const char* app,
+    const JailConf* conf)
 {
     JailRulesData* data = jail_rules_data_new(conf);
-    const char* app = opt->sailfish_app;
     char* val;
 
     /* Permissions= */
@@ -584,12 +583,13 @@ jail_rules_parse_section(
 
 static
 JailRulesData*
-jail_rules_parse(
+jail_rules_parse_file(
     GKeyFile* keyfile,
     const char* fname,
     const char* program,
     const JailConf* conf,
     const JailRulesOpt* opt,
+    char** out_section,
     GError** error)
 {
     JailRulesData* data = NULL;
@@ -617,10 +617,9 @@ jail_rules_parse(
 
     if (section) {
         char* auto_app = NULL;
-        JailRulesOpt auto_opt;
+        const char* app = opt->sailfish_app;
 
-        if (!opt->sailfish_app &&
-            g_str_has_suffix(fname, SAILJAIL_DESKTOP_SUFFIX)) {
+        if (!app && g_str_has_suffix(fname, SAILJAIL_DESKTOP_SUFFIX)) {
             /*
              * If this is a .desktop file with Type=Application in
              * [Desktop Entry] section then assume that the basename
@@ -639,15 +638,17 @@ jail_rules_parse(
                 auto_app[len] = 0;
 
                 GDEBUG("Assuming app name %s", auto_app);
-                auto_opt = *opt;
-                auto_opt.sailfish_app = auto_app;
-                opt = &auto_opt;
+                app = auto_app;
             }
             g_free(type);
         }
 
         GDEBUG("Parsing [%s] section from %s", section, fname);
-        data = jail_rules_parse_section(keyfile, section, conf, opt);
+        data = jail_rules_parse_section(keyfile, section, app, conf);
+        /* jail_rules_parse_section() never returns NULL */
+        if (out_section) {
+            *out_section = g_strdup(section);
+        }
         g_free(auto_app);
     }
 
@@ -717,14 +718,15 @@ jail_rules_build(
     const JailConf* conf,
     const JailRulesOpt* opt,
     char** profile_path,
+    char** section,
     GError** error)
 {
-    char* fname = jail_rules_profile_path(prog, conf, opt, error);
+    char* path = jail_rules_profile_path(prog, conf, opt, error);
 
-    if (fname) {
+    if (path) {
         JailRulesData* data = NULL;
 
-        if (!opt->profile && !g_file_test(fname, G_FILE_TEST_EXISTS)) {
+        if (!opt->profile && !g_file_test(path, G_FILE_TEST_EXISTS)) {
             GDEBUG("No specific profile found for %s", prog);
             data = jail_rules_data_new(conf);
             if (profile_path) {
@@ -733,12 +735,13 @@ jail_rules_build(
         } else {
             GKeyFile* keyfile = g_key_file_new();
 
-            if (g_key_file_load_from_file(keyfile, fname, 0, error)) {
-                data = jail_rules_parse(keyfile, fname, prog, conf, opt, error);
+            if (g_key_file_load_from_file(keyfile, path, 0, error)) {
+                data = jail_rules_parse_file(keyfile, path, prog, conf, opt,
+                    section, error);
             } else if (error) {
                 /* Improve error message by prepending the file name */
                 GError* details = g_error_new((*error)->domain, (*error)->code,
-                    "%s: %s", fname, (*error)->message);
+                    "%s: %s", path, (*error)->message);
 
                 g_error_free(*error);
                 *error = details;
@@ -747,14 +750,14 @@ jail_rules_build(
             if (profile_path) {
                 if (data) {
                     /* Steal fname */
-                    *profile_path = fname;
-                    fname = NULL;
+                    *profile_path = path;
+                    path = NULL;
                 } else {
                     *profile_path = NULL;
                 }
             }
         }
-        g_free(fname);
+        g_free(path);
         return data;
     }
     return NULL;
@@ -813,13 +816,15 @@ jail_rules_from_data(
 
 JailRules*
 jail_rules_new(
-    const char* prog,
+    const char* program,
     const JailConf* conf,
     const JailRulesOpt* opt,
-    char** path,
-    GError** err)
+    char** profile_path,
+    char** section,
+    GError** error)
 {
-    return jail_rules_from_data(jail_rules_build(prog, conf, opt, path, err));
+    return jail_rules_from_data(jail_rules_build(program, conf, opt,
+        profile_path, section, error));
 }
 
 JailRules*
@@ -854,6 +859,20 @@ jail_rules_unref(
             g_free(priv);
         }
     }
+}
+
+JailRules*
+jail_rules_keyfile_parse(
+    SailJail* jail,
+    GKeyFile* keyfile,
+    const char* section,
+    const char* app) /* Since 1.0.2 */
+{
+    if (jail && keyfile) {
+        return jail_rules_from_data(jail_rules_parse_section(keyfile,
+            section ? section : SAILJAIL_SECTION_DEFAULT, app, jail->conf));
+    }
+    return NULL;
 }
 
 /* Only leaves required and the specified optional items */

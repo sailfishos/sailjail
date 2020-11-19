@@ -54,6 +54,7 @@ jail_rules_new(
     const JailConf* conf,
     const JailRulesOpt* opt,
     char** profile_path,
+    char** section,
     GError** error)
     JAIL_INTERNAL;
 

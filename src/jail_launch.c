@@ -48,13 +48,9 @@ struct jail_launch_hook_entry {
     guint id;
 };
 
-typedef struct jail_launch_hooks {
+struct jail_launch_hooks {
     JailLaunchHookEntry* first;
     JailLaunchHookEntry* last;
-} JailLaunchHooks;
-
-struct jail_fish {
-    JailLaunchHooks hooks;
     guint last_id;
 };
 
@@ -67,27 +63,25 @@ jail_launch_entry_free(
     gutil_slice_free(entry);
 }
 
-SailJail*
-jail_launch_new(
+JailLaunchHooks*
+jail_launch_hooks_new(
     void)
 {
-    return g_slice_new0(SailJail);
+    return g_slice_new0(JailLaunchHooks);
 }
 
 void
-jail_launch_free(
-    SailJail* self)
+jail_launch_hooks_free(
+    JailLaunchHooks* hooks)
 {
-    if (self) {
-        JailLaunchHooks* hooks = &self->hooks;
-
+    if (hooks) {
         while (hooks->first) {
             JailLaunchHookEntry* entry = hooks->first;
 
             hooks->first = entry->next;
             jail_launch_entry_free(entry);
         }
-        gutil_slice_free(self);
+        gutil_slice_free(hooks);
     }
 }
 
@@ -98,10 +92,10 @@ jail_launch_hook_add(
 {
     if (self && hook) {
         JailLaunchHookEntry* entry = g_slice_new0(JailLaunchHookEntry);
-        JailLaunchHooks* hooks = &self->hooks;
+        JailLaunchHooks* hooks = self->hooks;
 
         entry->hook = jail_launch_hook_ref(hook);
-        entry->id = ++(self->last_id);
+        entry->id = ++(hooks->last_id);
         if (hooks->last) {
             hooks->last->next = entry;
         } else {
@@ -119,7 +113,7 @@ jail_launch_hook_remove(
     guint id)
 {
     if (self && id) {
-        JailLaunchHooks* hooks = &self->hooks;
+        JailLaunchHooks* hooks = self->hooks;
         JailLaunchHookEntry* entry = hooks->first;
         JailLaunchHookEntry* prev = NULL;
 
@@ -144,14 +138,14 @@ jail_launch_hook_remove(
 
 JailRules*
 jail_launch_confirm(
-    SailJail* self,
+    JailLaunchHooks* hooks,
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user,
     JailRules* rules)
 {
     JailRules* ret = jail_rules_ref(rules);
-    JailLaunchHookEntry* ptr = self->hooks.first;
+    JailLaunchHookEntry* ptr = hooks->first;
 
     while (ptr && ret) {
         JailLaunchHookEntry* next = ptr->next;
@@ -166,13 +160,13 @@ jail_launch_confirm(
 
 void
 jail_launch_confirmed(
-    SailJail* self,
+    JailLaunchHooks* hooks,
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user,
     const JailRules* rules)
 {
-    JailLaunchHookEntry* ptr = self->hooks.first;
+    JailLaunchHookEntry* ptr = hooks->first;
 
     while (ptr) {
         JailLaunchHookEntry* next = ptr->next;
@@ -184,12 +178,12 @@ jail_launch_confirmed(
 
 void
 jail_launch_denied(
-    SailJail* self,
+    JailLaunchHooks* hooks,
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user)
 {
-    JailLaunchHookEntry* ptr = self->hooks.first;
+    JailLaunchHookEntry* ptr = hooks->first;
 
     while (ptr) {
         JailLaunchHookEntry* next = ptr->next;

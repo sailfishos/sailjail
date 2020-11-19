@@ -267,15 +267,26 @@ sailjail_main(
     const JailArgs* args)
 {
     int ret = RET_ERR;
+    SailJail jail;
+    JailConf actual_conf = *conf;
+    JailLaunchHooks* hooks = jail_launch_hooks_new();
+    JailPlugins* plugins;
 
     /* Directory specified on the command line overrides the config */
-    SailJail* jail = jail_launch_new();
-    JailPlugins* plugins = jail_plugins_new(args->plugin_dir ?
-        args->plugin_dir : conf->plugin_dir, NULL, NULL);
+    if (args->plugin_dir) {
+        actual_conf.plugin_dir = args->plugin_dir;
+    }
 
-    if (jail_plugins_start(plugins, jail)) {
+    memset(&jail, 0, sizeof(jail));
+    jail.hooks = hooks;
+    jail.conf = &actual_conf;
+
+    /* Load the plugins */
+    plugins = jail_plugins_new(actual_conf.plugin_dir, NULL, NULL);
+    if (jail_plugins_start(plugins, &jail)) {
         GError* error = NULL;
-        char* profile_path = NULL;
+        char* profile = NULL;
+        char* section = NULL;
         JailRules* rules;
         JailRulesOpt opt;
 
@@ -283,7 +294,7 @@ sailjail_main(
         opt.profile = args->profile;
         opt.section = args->section;
         opt.sailfish_app = args->sailfish_app;
-        rules = jail_rules_new(argv[1], conf, &opt, &profile_path, &error);
+        rules = jail_rules_new(argv[1], conf, &opt, &profile, &section, &error);
         if (rules) {
             const pid_t ppid = getppid();
             JailCreds* creds = jail_get_creds(ppid, &error);
@@ -316,8 +327,8 @@ sailjail_main(
 #endif
 
                 memset(&app, 0, sizeof(app));
-                app.file = profile_path;
-                app.section = opt.section;
+                app.file = profile;
+                app.section = section;
 
                 memset(&cmd, 0, sizeof(cmd));
                 cmd.argc = argc - 1;
@@ -330,16 +341,16 @@ sailjail_main(
                 user.ngroups = creds->ngroups;
 
                 /* Confirm the launch */
-                confirm = jail_launch_confirm(jail, &app, &cmd, &user, rules);
+                confirm = jail_launch_confirm(hooks, &app, &cmd, &user, rules);
                 if (confirm) {
                     /* Any return from jail_run is an error */
-                    jail_launch_confirmed(jail, &app, &cmd, &user, confirm);
+                    jail_launch_confirmed(hooks, &app, &cmd, &user, confirm);
                     jail_run(argc-1, argv+1, conf, confirm, creds, &error);
                     jail_rules_unref(confirm);
                     ret = RET_EXEC;
                 } else {
                     /* Launch denied */
-                    jail_launch_denied(jail, &app, &cmd, &user);
+                    jail_launch_denied(hooks, &app, &cmd, &user);
                     ret = RET_DENIED;
                 }
                 g_free(creds);
@@ -352,12 +363,13 @@ sailjail_main(
             GERR("%s", GERRMSG(error));
             g_error_free(error);
         }
-        g_free(profile_path);
+        g_free(profile);
+        g_free(section);
         jail_plugins_stop(plugins);
     }
 
     jail_plugins_free(plugins);
-    jail_launch_free(jail);
+    jail_launch_hooks_free(hooks);
     return ret;
 }
 

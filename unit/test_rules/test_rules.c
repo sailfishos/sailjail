@@ -69,10 +69,13 @@ void
 test_null(
     void)
 {
+    SailJail jail = { NULL, NULL };
     g_assert_cmpint(jail_rules_permit_parse(NULL), == ,JAIL_PERMIT_INVALID);
-    g_assert(!jail_rules_ref(NULL));
+    g_assert_null(jail_rules_keyfile_parse(NULL, NULL, NULL, NULL));
+    g_assert_null(jail_rules_keyfile_parse(&jail, NULL, NULL, NULL));
+    g_assert_null(jail_rules_ref(NULL));
     jail_rules_unref(NULL);
-    g_assert(!jail_rules_restrict(NULL, NULL, NULL, NULL, NULL, NULL));
+    g_assert_null(jail_rules_restrict(NULL, NULL, NULL, NULL, NULL, NULL));
 }
 
 /*==========================================================================*
@@ -108,13 +111,15 @@ test_missing_profile(
     JailRulesOpt opt;
     GError* error = NULL;
     char* path = NULL;
+    char* section = NULL;
 
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
 
-    rules = jail_rules_new("foo", conf, &opt, &path, &error);
+    rules = jail_rules_new("foo", conf, &opt, &path, &section, &error);
     test_assert_rules_not_null(rules);
     g_assert_null(path);
+    g_assert_null(section);
     g_assert_null(error);
 
     /* There's nothing there, not even Base */
@@ -149,6 +154,7 @@ test_default_profile(
     JailRules* rules;
     JailRulesOpt opt;
     char* path = NULL;
+    char* section = NULL;
     GError* error = NULL;
     static const char dummy_data[] = "dummy";
     static const char profile_data[] =
@@ -160,11 +166,13 @@ test_default_profile(
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
 
-    rules = jail_rules_new("foo", conf, &opt, &path, &error);
+    rules = jail_rules_new("foo", conf, &opt, &path, &section, &error);
     test_assert_rules_not_null(rules);
     g_assert_cmpstr(path, == ,profile);
+    g_assert_cmpstr(section, == ,"Sailjail");
     g_assert_null(error);
     g_free(path);
+    g_free(section);
 
     /* There's nothing there except Base and optional /tmp dir */
     g_assert_null(rules->permits[0]);
@@ -229,7 +237,7 @@ test_desktop(
 
     /* Make sure HOME is defined */
     setenv("HOME", "/home", FALSE);
-    rules = jail_rules_new("foo", conf, &opt, NULL, &error);
+    rules = jail_rules_new("foo", conf, &opt, NULL, NULL, &error);
     g_assert_null(error);
 
     test_assert_rules_not_null(rules);
@@ -287,19 +295,21 @@ test_bad_profile_name(
     JailRulesOpt opt;
     GError* error = NULL;
     char* path = NULL;
+    char* section = NULL;
 
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
     opt.profile = "foo.bar";
 
     /* This is a relative path pointing to a non-existent file */
-    g_assert(!jail_rules_new("foo", conf, &opt, &path, &error));
+    g_assert_null(jail_rules_new("foo", conf, &opt, &path, &section, &error));
     g_assert(error);
     g_assert_null(path);
+    g_assert_null(section);
     g_error_free(error);
 
     /* Error and path are optional */
-    g_assert(!jail_rules_new("foo", conf, &opt, NULL, NULL));
+    g_assert_null(jail_rules_new("foo", conf, &opt, NULL, NULL, NULL));
 
     jail_conf_free(conf);
 
@@ -322,20 +332,23 @@ test_bad_profile(
     JailRulesOpt opt;
     GError* error = NULL;
     char* path = NULL;
+    char* section = NULL;
 
     g_assert(g_file_set_contents(profile, profile_data, -1, NULL));
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
     opt.profile = profile;
+    opt.section = "No such section";
 
     /* We fail to load this profile */
-    g_assert(!jail_rules_new("foo", conf, &opt, &path, &error));
+    g_assert_null(jail_rules_new("foo", conf, &opt, &path, &section, &error));
     g_assert(error);
     g_assert_null(path);
+    g_assert_null(section);
     g_error_free(error);
 
     /* Error and path is optional */
-    g_assert(!jail_rules_new("foo", conf, &opt, &path, NULL));
+    g_assert_null(jail_rules_new("foo", conf, &opt, NULL, NULL, NULL));
 
     jail_conf_free(conf);
 
@@ -350,6 +363,73 @@ static const char* const bad_profile_tests[] = {
     "[Whatever]\nfoo=bar",
     "not a key-value file at all"
 };
+
+/*==========================================================================*
+ * keyfile
+ *==========================================================================*/
+
+static
+void
+test_keyfile(
+    void)
+{
+    char* dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
+    char* base_profile = g_build_filename(dir, "Base.profile", NULL);
+    char* test_profile = g_build_filename(dir, "Test.profile", NULL);
+    GKeyFile* keyfile = g_key_file_new();
+    JailConf* conf = jail_conf_new();
+    SailJail jail = { NULL, conf };
+    JailRules* rules;
+    static const char profile_data[] =
+        "[Sailjail]\n"
+        "Permissions=Test\n"
+        "FileAccess=";
+
+    g_assert(g_key_file_load_from_data(keyfile, profile_data, -1, 0, NULL));
+
+    /* Create Base.profile and Test.profile */
+    conf->profile_dir = conf->perm_dir = dir;
+    g_assert(g_file_set_contents(base_profile, NULL, 0, NULL));
+    g_assert(g_file_set_contents(test_profile, NULL, 0, NULL));
+
+    rules = jail_rules_keyfile_parse(&jail, keyfile, NULL, NULL);
+    test_assert_rules_not_null(rules);
+
+    g_assert_null(rules->permits[0]);
+    g_assert_null(rules->paths[0]);
+
+    /* Both Base and Test profiles must be there */
+    g_assert(rules->profiles[0]);
+    g_assert_cmpstr(rules->profiles[0]->path, == ,base_profile);
+    g_assert(rules->profiles[1]);
+    g_assert_cmpstr(rules->profiles[1]->path, == ,test_profile);
+    g_assert_null(rules->profiles[2]);
+
+    /* Now try non-existen section */
+    jail_rules_unref(rules);
+    rules = jail_rules_keyfile_parse(&jail, keyfile, "foo", NULL);
+    test_assert_rules_not_null(rules);
+
+    g_assert_null(rules->permits[0]);
+    g_assert_null(rules->paths[0]);
+
+    /* Only Base must be there */
+    g_assert(rules->profiles[0]);
+    g_assert_cmpstr(rules->profiles[0]->path, == ,base_profile);
+    g_assert_null(rules->profiles[1]);
+
+    jail_rules_unref(rules);
+    jail_conf_free(conf);
+    g_key_file_unref(keyfile);
+
+    remove(base_profile);
+    remove(test_profile);
+    remove(dir);
+
+    g_free(base_profile);
+    g_free(test_profile);
+    g_free(dir);
+}
 
 /*==========================================================================*
  * basic/1
@@ -368,6 +448,7 @@ test_basic1(
     JailRules* rules2;
     JailRulesOpt opt;
     char* path = NULL;
+    char* section = NULL;
     static const char profile_data[] =
         "[Sailjail]\n"
         "Permissions=Test\n"
@@ -377,10 +458,12 @@ test_basic1(
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
     opt.profile = "foo.profile"; /* Not the full path */
-    rules = jail_rules_new("foo", conf, &opt, &path, NULL);
+    rules = jail_rules_new("foo", conf, &opt, &path, &section, NULL);
     test_assert_rules_not_null(rules);
     g_assert_cmpstr(path, == ,profile);
+    g_assert_cmpstr(section, == ,"Sailjail");
     g_free(path);
+    g_free(section);
 
     /* There's nothing there */
     g_assert_null(rules->permits[0]);
@@ -428,6 +511,7 @@ test_basic2(
     JailRules* rules;
     JailRulesOpt opt;
     char* path = NULL;
+    char* section = NULL;
     static const char dummy_data[] = "dummy";
     /*
      * Required Privileged overrides the optional one,
@@ -447,9 +531,11 @@ test_basic2(
     conf->profile_dir = conf->perm_dir = dir;
     opt.profile = profile;
     opt.section = "Section";
-    rules = jail_rules_new("foo", conf, &opt, &path, NULL);
+    rules = jail_rules_new("foo", conf, &opt, &path, &section, NULL);
     g_assert_cmpstr(path, == ,profile);
+    g_assert_cmpstr(section, == ,"Section");
     g_free(path);
+    g_free(section);
 
     test_assert_rules_not_null(rules);
     g_assert(rules->permits[0]);
@@ -512,6 +598,7 @@ test_restrict_basic(
     JailRules* rules2;
     JailRulesOpt opt;
     char* path = NULL;
+    char* section = NULL;
     static const char dummy_data[] = "dummy";
     /*
      * Required Privileged overrides the optional one,
@@ -537,9 +624,11 @@ test_restrict_basic(
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
     opt.profile = profile;
-    rules = jail_rules_new("foo", conf, &opt, &path, NULL);
+    rules = jail_rules_new("foo", conf, &opt, &path, &section, NULL);
     g_assert_cmpstr(path, == ,profile);
+    g_assert_cmpstr(section, == ,"Sailjail");
     g_free(path);
+    g_free(section);
 
     test_assert_rules_not_null(rules);
     g_assert(rules->permits[0]);
@@ -848,6 +937,7 @@ int main(int argc, char* argv[])
         g_test_add_data_func(name, bad_profile_tests[i], test_bad_profile);
         g_free(name);
     }
+    g_test_add_func(TEST_("keyfile"), test_keyfile);
     g_test_add_func(TEST_("basic/1"), test_basic1);
     g_test_add_func(TEST_("basic/2"), test_basic2);
     g_test_add_func(TEST_("restrict/basic"), test_restrict_basic);

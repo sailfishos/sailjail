@@ -42,6 +42,12 @@
 #include <jail_types.h>
 
 typedef struct jail_conf JailConf;
+typedef struct jail_launch_hooks JailLaunchHooks;
+
+struct jail_fish {
+    JailLaunchHooks* hooks;
+    const JailConf* conf;
+};
 
 /* Macros */
 #define JAIL_INTERNAL G_GNUC_INTERNAL
