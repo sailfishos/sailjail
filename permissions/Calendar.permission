@@ -1,0 +1,10 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access calendar data
+
+whitelist /usr/share/jolla-calendar
+
+mkdir     ${HOME}/.local/share/system/privileged/Calendar
+whitelist ${HOME}/.local/share/system/privileged/Calendar

@@ -1,0 +1,17 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access location data
+
+whitelist /usr/share/GConf/gsettings/geoclue
+
+mkdir     ${HOME}/.local/share/system/privileged/Location
+whitelist ${HOME}/.local/share/system/privileged/Location
+
+private-etc location
+
+# BEG sessionbus-org.freedesktop.GeoClue.resource
+dbus-user.talk org.freedesktop.Geoclue.*
+dbus-user.broadcast org.freedesktop.Geoclue.*=org.freedesktop.Geoclue.*@/*
+# END sessionbus-org.freedesktop.GeoClue.resource

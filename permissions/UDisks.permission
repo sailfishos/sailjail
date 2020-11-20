@@ -1,0 +1,14 @@
+# -*- mode: sh -*-
+
+# FIXME: what exactly requires udisks???
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Use UDisks2
+
+# BEG systembus-org.freedesktop.UDisks2.resource
+dbus-system.talk org.freedesktop.UDisks2
+dbus-system.broadcast org.freedesktop.UDisks2=org.freedesktop.UDisks2.*@/*
+dbus-system.talk org.freedesktop.UDisks2.*
+dbus-system.broadcast org.freedesktop.UDisks2.*=org.freedesktop.UDisks2.*@/*
+# END systembus-org.freedesktop.UDisks2.resource

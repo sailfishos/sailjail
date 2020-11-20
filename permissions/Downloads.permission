@@ -1,0 +1,8 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access downloaded data
+
+mkdir     ${HOME}/Downloads
+whitelist ${HOME}/Downloads

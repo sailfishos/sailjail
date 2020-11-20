@@ -149,7 +149,7 @@ test_default_profile(
 {
     char* dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
     char* profile = g_build_filename(dir, "foo.profile", NULL);
-    char* base_profile = g_build_filename(dir, "Base.profile", NULL);
+    char* base_profile = g_build_filename(dir, "Base.permission", NULL);
     JailConf* conf = jail_conf_new();
     JailRules* rules;
     JailRulesOpt opt;
@@ -217,7 +217,7 @@ test_desktop(
 {
     char* dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
     char* profile = g_build_filename(dir, "foo.desktop", NULL);
-    char* base_profile = g_build_filename(dir, "Base.profile", NULL);
+    char* base_profile = g_build_filename(dir, "Base.permission", NULL);
     JailConf* conf = jail_conf_new();
     JailRules* rules;
     JailRulesOpt opt;
@@ -433,8 +433,8 @@ test_keyfile(
     void)
 {
     char* dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
-    char* base_profile = g_build_filename(dir, "Base.profile", NULL);
-    char* test_profile = g_build_filename(dir, "Test.profile", NULL);
+    char* base_profile = g_build_filename(dir, "Base.permission", NULL);
+    char* test_profile = g_build_filename(dir, "Test.permission", NULL);
     GKeyFile* keyfile = g_key_file_new();
     JailConf* conf = jail_conf_new();
     SailJail jail = { NULL, conf };
@@ -446,7 +446,7 @@ test_keyfile(
 
     g_assert(g_key_file_load_from_data(keyfile, profile_data, -1, 0, NULL));
 
-    /* Create Base.profile and Test.profile */
+    /* Create Base.permission and Test.permission */
     conf->profile_dir = conf->perm_dir = dir;
     g_assert(g_file_set_contents(base_profile, NULL, 0, NULL));
     g_assert(g_file_set_contents(test_profile, NULL, 0, NULL));
@@ -564,8 +564,8 @@ test_basic2(
 {
     char* dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
     char* profile = g_build_filename(dir, "foo.profile", NULL);
-    char* base_profile = g_build_filename(dir, "Base.profile", NULL);
-    char* test_profile = g_build_filename(dir, "Test.profile", NULL);
+    char* base_profile = g_build_filename(dir, "Base.permission", NULL);
+    char* test_profile = g_build_filename(dir, "Test.permission", NULL);
     JailConf* conf = jail_conf_new();
     JailRules* rules;
     JailRulesOpt opt;
@@ -649,9 +649,9 @@ test_restrict_basic(
 {
     char* dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
     char* profile = g_build_filename(dir, "foo.profile", NULL);
-    char* base_profile = g_build_filename(dir, "Base.profile", NULL);
-    char* foo_profile = g_build_filename(dir, "Foo.profile", NULL);
-    char* bar_profile = g_build_filename(dir, "Bar.profile", NULL);
+    char* base_profile = g_build_filename(dir, "Base.permission", NULL);
+    char* foo_profile = g_build_filename(dir, "Foo.permission", NULL);
+    char* bar_profile = g_build_filename(dir, "Bar.permission", NULL);
     JailConf* conf = jail_conf_new();
     JailRules* rules;
     JailRules* rules2;

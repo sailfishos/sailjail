@@ -1,0 +1,11 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access Internet
+
+# XXX: does "netlink" really belong here?
+### network
+protocol inet,inet6,netlink
+#net eth0
+#netfilter

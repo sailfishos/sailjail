@@ -1,0 +1,145 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Base permissions
+
+writable-run-user
+
+# If something is both in "blacklist" and "whitelist", blacklisting
+# wins regardless of which comes 1st or last. If something is in both
+# "blacklist" and "noblacklist", whichever is defined 1st wins.
+# -> If standard includes blacklist something we need to give apps
+#    access into (e.g. /etc/selinux directory), we need to mark it
+#    "noblacklist" before including the blacklist rules...
+
+# we use "private-etc selinux" -> must not blacklist it
+noblacklist /etc/selinux
+
+# Persistent local customizations
+# Persistent global definitions
+#include globals.local
+### basic blacklisting
+include disable-common.inc
+# include disable-devel.inc
+# include disable-exec.inc
+# include disable-interpreters.inc
+include disable-passwdmgr.inc
+# include disable-programs.inc
+# include disable-xdg.inc
+
+### home directory whitelisting
+whitelist ${HOME}/.cursors/default
+whitelist ${HOME}/.local/share/glib-2.0/schemas
+include whitelist-common.inc
+
+### filesystem
+# /usr/share:
+whitelist /usr/share/X11
+whitelist /usr/share/cursors
+whitelist /usr/share/fontconfig
+whitelist /usr/share/fonts
+whitelist /usr/share/icons
+whitelist /usr/share/locale
+whitelist /usr/share/pixmaps
+whitelist /usr/share/qt5
+whitelist /usr/share/themes
+whitelist /usr/share/translations
+whitelist /usr/share/zoneinfo
+whitelist /usr/share/glib-2.0
+whitelist /usr/share/mime
+
+include whitelist-usr-share-common.inc
+
+# /var:
+whitelist /var/lib/timed
+blacklist /var/lib/timed/shared_events
+blacklist /var/lib/timed/shared_settings
+# FIXME: /var handling needs more thought
+
+# /etc:
+private-etc fonts,xdg,system-fips,selinux
+private-etc dconf
+private-etc passwd,group
+private-etc os-release
+private-etc localtime
+private-etc mtab
+private-etc mime.types
+
+### D-Bus
+# BEG systembus-filter.resource
+dbus-system filter
+dbus-system.talk org.freedesktop.DBus
+dbus-system.call org.freedesktop.DBus=org.freedesktop.DBus@/*
+dbus-system.broadcast org.freedesktop.DBus=org.freedesktop.DBus@/*
+dbus-system.call *=org.freedesktop.DBus.Introspectable.Introspect@/*
+dbus-system.call *=org.freedesktop.DBus.Peer@/*
+dbus-system.call *=org.freedesktop.DBus.Properties@/*
+dbus-system.call *=org.freedesktop.DBus.ObjectManager@/*
+dbus-system.broadcast *=org.freedesktop.DBus.Introspectable.Introspect@/*
+dbus-system.broadcast *=org.freedesktop.DBus.Peer@/*
+dbus-system.broadcast *=org.freedesktop.DBus.Properties@/*
+dbus-system.broadcast *=org.freedesktop.DBus.ObjectManager@/*
+# END systembus-filter.resource
+# BEG systembus-com.nokia.mce.resource
+dbus-system.talk com.nokia.mce
+dbus-system.broadcast com.nokia.mce=com.nokia.mce.*@/*
+# END systembus-com.nokia.mce.resource
+# BEG systembus-com.nokia.time.resource
+dbus-system.talk com.nokia.time
+dbus-system.broadcast com.nokia.time=com.nokia.time.*@/*
+# END systembus-com.nokia.time.resource
+# BEG systembus-com.nokia.NonGraphicFeedback1.Backend.resource
+dbus-system.talk com.nokia.NonGraphicFeedback1.Backend
+dbus-system.broadcast com.nokia.NonGraphicFeedback1.Backend=com.nokia.NonGraphicFeedback1.Backend.*@/*
+# END systembus-com.nokia.NonGraphicFeedback1.Backend.resource
+
+# BEG sessionbus-filter.resource
+dbus-user filter
+dbus-user.talk org.freedesktop.DBus
+dbus-user.call org.freedesktop.DBus=org.freedesktop.DBus@/*
+dbus-user.broadcast org.freedesktop.DBus=org.freedesktop.DBus@/*
+dbus-user.call *=org.freedesktop.DBus.Introspectable.Introspect@/*
+dbus-user.call *=org.freedesktop.DBus.Peer@/*
+dbus-user.call *=org.freedesktop.DBus.Properties@/*
+dbus-user.call *=org.freedesktop.DBus.ObjectManager@/*
+dbus-user.broadcast *=org.freedesktop.DBus.Introspectable.Introspect@/*
+dbus-user.broadcast *=org.freedesktop.DBus.Peer@/*
+dbus-user.broadcast *=org.freedesktop.DBus.Properties@/*
+dbus-user.broadcast *=org.freedesktop.DBus.ObjectManager@/*
+# END sessionbus-filter.resource
+# BEG sessionbus-ca.desrt.dconf.Writer.resource
+dbus-user.talk ca.desrt.dconf
+dbus-user.call ca.desrt.dconf=ca.desrt.dconf.*@/*
+dbus-user.broadcast ca.desrt.dconf=ca.desrt.dconf.*@/*
+# END sessionbus-ca.desrt.dconf.Writer.resource
+# BEG sessionbus-com.jolla.lipstick.resource
+dbus-user.broadcast com.jolla.lipstick=com.jolla.lipstick.*@/*
+dbus-user.own       org.sailfishos.coveraction.*
+dbus-user.talk      org.sailfishos.coveraction
+dbus-user.broadcast org.sailfishos.coveraction.*=org.sailfishos.coveraction.*@/*
+# END sessionbus-com.jolla.lipstick.resource
+# BEG sessionbus-com.nokia.profiled.resource
+dbus-user.talk com.nokia.profiled
+dbus-user.broadcast com.nokia.profiled=com.nokia.profiled.*@/*
+# END sessionbus-com.nokia.profiled.resource
+# BEG sessionbus-com.nokia.time.resource
+dbus-user.talk com.nokia.time
+dbus-user.broadcast com.nokia.time=com.nokia.time.*@/*
+# END sessionbus-com.nokia.time.resource
+# BEG sessionbus-org.maliit.server.resource
+dbus-user.talk org.maliit.server
+dbus-user.broadcast org.maliit.server=org.maliit.server.*@/*
+# END sessionbus-org.maliit.server.resource
+
+### network
+protocol unix
+# net none <== can't be used as "net none" breaks maliit
+
+### environment
+shell none
+
+### security filters
+caps.drop all
+nonewprivs
+seccomp

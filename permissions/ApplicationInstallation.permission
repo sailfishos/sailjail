@@ -1,0 +1,12 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Install software packages
+
+whitelist /var/cache/PackageKit/downloads
+
+# BEG sessionbus-org.sailfishos.installationhandler.resource
+dbus-user.talk org.sailfishos.installationhandler
+dbus-user.broadcast org.sailfishos.installationhandler=org.sailfishos.installationhandler.*@/*
+# END sessionbus-org.sailfishos.installationhandler.resource

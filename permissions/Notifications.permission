@@ -1,0 +1,17 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access Notification data
+
+whitelist /usr/share/lipstick-jolla-home-qt5/notifications
+
+# FIXME: we probably should not expose privileged dirs here
+#        does app even need fs access? lipstick does it?
+mkdir     ${HOME}/.local/share/system/privileged/Notifications
+whitelist ${HOME}/.local/share/system/privileged/Notifications
+
+# BEG sessionbus-org.freedesktop.Notifications.resource
+dbus-user.talk org.freedesktop.Notifications
+dbus-user.broadcast org.freedesktop.Notifications=org.freedesktop.Notifications.*@/*
+# END sessionbus-org.freedesktop.Notifications.resource
