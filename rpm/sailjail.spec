@@ -47,7 +47,7 @@ make -C unit test
 %files
 %defattr(-,root,root,-)
 %dir %attr(755,root,root) %{permissions_dir}
-%attr(4755,root,root) %{_bindir}/sailjail
+%attr(6755,root,root) %{_bindir}/sailjail
 %{_bindir}/sailjail
 %{permissions_dir}/*
 
