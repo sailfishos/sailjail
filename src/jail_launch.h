@@ -39,19 +39,19 @@
 
 #include "jail_types_p.h"
 
-SailJail*
-jail_launch_new(
+JailLaunchHooks*
+jail_launch_hooks_new(
     void)
     JAIL_INTERNAL;
 
 void
-jail_launch_free(
-    SailJail* jail)
+jail_launch_hooks_free(
+    JailLaunchHooks* hooks)
     JAIL_INTERNAL;
 
 JailRules*
 jail_launch_confirm(
-    SailJail* jail,
+    JailLaunchHooks* hooks,
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user,
@@ -60,7 +60,7 @@ jail_launch_confirm(
 
 void
 jail_launch_confirmed(
-    SailJail* jail,
+    JailLaunchHooks* hooks,
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user,
@@ -69,7 +69,7 @@ jail_launch_confirmed(
 
 void
 jail_launch_denied(
-    SailJail* jail,
+    JailLaunchHooks* hooks,
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user)

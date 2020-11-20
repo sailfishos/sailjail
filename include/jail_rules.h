@@ -98,6 +98,13 @@ jail_rules_permit_parse(
     SAILJAIL_EXPORT;
 
 JailRules*
+jail_rules_keyfile_parse(
+    SailJail* jail,
+    GKeyFile* keyfile,
+    const char* section,
+    const char* app); /* Since 1.0.2 */
+
+JailRules*
 jail_rules_ref(
     JailRules* rules)
     SAILJAIL_EXPORT;
