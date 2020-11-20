@@ -227,7 +227,9 @@ test_desktop(
         "[Desktop Entry]\n"
         "Type = Application\n"
         "[foo]\n"
-        "DBusUserOwn = foo.bar";
+        "DBusUserOwn = foo.bar\n"
+        "[X-Sailjail]\n"
+        "DBusSystemOwn = x.y\n";
 
     g_assert(g_file_set_contents(base_profile, dummy_data, -1, NULL));
     g_assert(g_file_set_contents(profile, profile_data, -1, NULL));
@@ -239,7 +241,6 @@ test_desktop(
     setenv("HOME", "/home", FALSE);
     rules = jail_rules_new("foo", conf, &opt, NULL, NULL, &error);
     g_assert_null(error);
-
     test_assert_rules_not_null(rules);
     g_assert_null(rules->permits[0]);
 
@@ -270,6 +271,22 @@ test_desktop(
     g_assert_null(rules->dbus_system->talk[0]);
 
     jail_rules_unref(rules);
+
+    /* Now it should find the "X-Sailjail" section */
+    rules = jail_rules_new("bar", conf, &opt, NULL, NULL, &error);
+    g_assert_null(error);
+    test_assert_rules_not_null(rules);
+
+    /* Just check the D-Bus name */
+    g_assert(rules->dbus_system->own[0]);
+    g_assert_cmpstr(rules->dbus_system->own[0]->name, == ,"x.y");
+    g_assert_true(rules->dbus_system->own[0]->require);
+    g_assert_null(rules->dbus_system->own[1]);
+    g_assert_null(rules->dbus_user->own[0]);
+    g_assert_null(rules->dbus_user->talk[0]);
+    g_assert_null(rules->dbus_system->talk[0]);
+
+    jail_rules_unref(rules);
     jail_conf_free(conf);
 
     remove(base_profile);
@@ -277,6 +294,48 @@ test_desktop(
     remove(dir);
 
     g_free(base_profile);
+    g_free(profile);
+    g_free(dir);
+}
+
+/*==========================================================================*
+ * bad_desktop
+ *==========================================================================*/
+
+static
+void
+test_bad_desktop(
+    void)
+{
+    char* dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
+    char* profile = g_build_filename(dir, "foo.desktop", NULL);
+    JailConf* conf = jail_conf_new();
+    JailRulesOpt opt;
+    GError* error = NULL;
+    char* path = NULL;
+    char* section = NULL;
+    static const char profile_data[] =
+        "[Desktop Entry]\n"
+        "Type = Application\n";
+
+    g_assert(g_file_set_contents(profile, profile_data, -1, NULL));
+    memset(&opt, 0, sizeof(opt));
+    conf->profile_dir = conf->perm_dir = dir;
+    opt.profile = profile;
+    opt.section = NULL;
+
+    /* We fail to load this profile */
+    g_assert_null(jail_rules_new("foo", conf, &opt, &path, &section, &error));
+    g_assert(error);
+    g_assert_null(path);
+    g_assert_null(section);
+    g_error_free(error);
+
+    jail_conf_free(conf);
+
+    remove(profile);
+    remove(dir);
+
     g_free(profile);
     g_free(dir);
 }
@@ -930,6 +989,7 @@ int main(int argc, char* argv[])
     g_test_add_func(TEST_("missing_profile"), test_missing_profile);
     g_test_add_func(TEST_("default_profile"), test_default_profile);
     g_test_add_func(TEST_("desktop"), test_desktop);
+    g_test_add_func(TEST_("bad_desktop"), test_bad_desktop);
     g_test_add_func(TEST_("bad_profile_name"), test_bad_profile_name);
     for (i = 0; i < G_N_ELEMENTS(bad_profile_tests); i++) {
         char* name = g_strdup_printf(TEST_("bad_profile/%d"), i + 1);

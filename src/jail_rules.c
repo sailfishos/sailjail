@@ -57,6 +57,8 @@ static const char DESKTOP_GROUP_DESKTOP_ENTRY[] = "Desktop Entry";
 static const char DESKTOP_KEY_DESKTOP_ENTRY_TYPE[] = "Type";
 static const char DESKTOP_ENTRY_TYPE_APPLICATION[] = "Application";
 
+/* desktop-file-install wants X- prefix */
+static const char SAILJAIL_SECTION_DESKTOP_DEFAULT[] = "X-Sailjail";
 static const char SAILJAIL_SECTION_DEFAULT[] = DEFAULT_PROFILE_SECTION;
 static const char SAILJAIL_LIST_SEPARATORS[] = ":;,";
 
@@ -606,12 +608,20 @@ jail_rules_parse_file(
 
         /*
          * If no section is defined, try the one matching the program name
-         * and then [Sailjail]
+         * and then [X-Sailjail] for .desktop files and [Sailjail] for
+         * everything else.
          */
         if (gutil_strv_contains(groups, basename)) {
             section = basename;
-        } else if (gutil_strv_contains(groups, SAILJAIL_SECTION_DEFAULT)) {
-            section = SAILJAIL_SECTION_DEFAULT;
+        } else {
+            const char* default_section =
+                g_str_has_suffix(fname, SAILJAIL_DESKTOP_SUFFIX) ?
+                    SAILJAIL_SECTION_DESKTOP_DEFAULT :
+                    SAILJAIL_SECTION_DEFAULT;
+
+            if (gutil_strv_contains(groups, default_section)) {
+                section = default_section;
+            }
         }
     }
 
