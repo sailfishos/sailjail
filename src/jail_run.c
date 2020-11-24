@@ -38,6 +38,7 @@
 
 #include "jail_run.h"
 #include "jail_conf.h"
+#include "jail_creds.h"
 #include "jail_rules.h"
 
 #include <gutil_log.h>

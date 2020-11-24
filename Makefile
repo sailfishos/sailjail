@@ -24,6 +24,7 @@ all: debug release pkgconfig
 
 TEST_SRC = \
   jail_conf.c \
+  jail_creds.c \
   jail_launch.c \
   jail_launch_hook.c \
   jail_plugin.c \

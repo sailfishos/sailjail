@@ -39,19 +39,6 @@
 
 #include "jail_types_p.h"
 
-typedef struct jail_creds {
-    uid_t ruid;  /* Real UID */
-    uid_t euid;  /* Effective UID */
-    uid_t suid;  /* Saved set UID */
-    uid_t fsuid; /* Filesystem UID */
-    gid_t rgid;  /* Real GID */
-    gid_t egid;  /* Effective GID */
-    gid_t sgid;  /* Saved set GID */
-    gid_t fsgid; /* Filesystem GID */
-    const gid_t* groups;
-    guint ngroups;
-} JailCreds;
-
 void
 jail_run(
     int argc,
