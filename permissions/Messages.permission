@@ -1,0 +1,29 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access Messages
+
+# BEG systembus-org.ofono.resource
+dbus-system.talk org.ofono
+dbus-system.broadcast org.ofono=org.ofono.*@/*
+# END systembus-org.ofono.resource
+
+# BEG sessionbus-org.freedesktop.Telepathy.resource
+dbus-user.talk org.freedesktop.Telepathy
+dbus-user.broadcast org.freedesktop.Telepathy=org.freedesktop.Telepathy.*@/*
+dbus-user.talk org.freedesktop.Telepathy.*
+dbus-user.broadcast org.freedesktop.Telepathy.*=org.freedesktop.Telepathy.*@/*
+# END sessionbus-org.freedesktop.Telepathy.resource
+
+mkdir     ${HOME}/.local/share/commhistory
+whitelist ${HOME}/.local/share/commhistory
+
+# BEG sessionbus-org.nemomobile.CommHistory.resource
+dbus-user.talk org.nemomobile.CommHistory
+dbus-user.broadcast org.nemomobile.CommHistory=org.nemomobile.CommHistory.*@/*
+# END sessionbus-org.nemomobile.CommHistory.resource
+
+# BEG systembus-org.ofono.SmartMessagingAgent.resource
+dbus-system.talk org.ofono.SmartMessagingAgent
+# END systembus-org.ofono.SmartMessagingAgent.resource
