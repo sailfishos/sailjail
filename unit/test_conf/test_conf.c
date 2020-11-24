@@ -184,7 +184,7 @@ static const TestLoadData load_tests[] = {
  * Common
  *==========================================================================*/
 
-#define TEST_(name) "/launch/" name
+#define TEST_(name) "/conf/" name
 
 int main(int argc, char* argv[])
 {
