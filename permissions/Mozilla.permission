@@ -28,9 +28,6 @@ whitelist ${HOME}/.mozilla/extensions
 mkdir     ${HOME}/.mozilla/mozembed
 whitelist ${HOME}/.mozilla/mozembed
 
-mkdir     ${HOME}/.qmf
-whitelist ${HOME}/.qmf
-
 # Transferengine
 whitelist /usr/share/nemo-transferengine
 mkdir     ${HOME}/.local/nemo-transferengine
@@ -48,9 +45,6 @@ dbus-user.broadcast com.jolla.lipstick.ConnectionSelector=com.jolla.lipstick.Con
 # END sessionbus-com.jolla.lipstick.ConnectionSelector.resource
 
 ### INDIRECT/UNKNOWN
-
-# XXX: QmfClient thing?
-whitelist /tmp/qcop-server-0
 
 # some side effect from some xdg action ?
 whitelist ${HOME}/Desktop
