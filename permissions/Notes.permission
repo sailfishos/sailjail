@@ -7,5 +7,5 @@
 whitelist /usr/share/jolla-notes
 whitelist /usr/share/jolla-settings/pages/jolla-notes
 
-mkdir     ${HOME}/.local/share/jolla-notes
-whitelist ${HOME}/.local/share/jolla-notes
+mkdir     ${HOME}/.local/share/com.jolla/notes
+whitelist ${HOME}/.local/share/com.jolla/notes
