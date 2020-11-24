@@ -73,6 +73,9 @@ static const char SAILJAIL_KEY_FILE_ACCESS[] = "FileAccess";
 #define SAILJAIL_KEY_FILE_DISALLOW_REQUIRED '!'
 #define SAILJAIL_KEY_FILE_DISALLOW_OPTIONAL '-'
 
+static const char SAILJAIL_KEY_ORGANIZATION_NAME[] = "OrganizationName";
+static const char SAILJAIL_KEY_APPLICATION_NAME[] = "ApplicationName";
+
 static const char SAILJAIL_KEY_DBUS_USER_OWN[] = "DBusUserOwn";
 static const char SAILJAIL_KEY_DBUS_USER_TALK[] = "DBusUserTalk";
 static const char SAILJAIL_KEY_DBUS_SYSTEM_OWN[] = "DBusSystemOwn";
@@ -606,6 +609,49 @@ jail_rules_parse_section(
         SAILJAIL_KEY_DBUS_SYSTEM_OWN, data->dbus_system_own);
     jail_rules_parse_dbus_names(kf, section,
         SAILJAIL_KEY_DBUS_SYSTEM_TALK, data->dbus_system_talk);
+
+
+    /* D-Bus / whitelist rules derived from Orgnanization/ApplicationName */
+    {
+        char *org_name = g_key_file_get_string(kf, section, SAILJAIL_KEY_ORGANIZATION_NAME, NULL);
+        char *app_name = g_key_file_get_string(kf, section, SAILJAIL_KEY_APPLICATION_NAME, NULL);
+        if (org_name && app_name) {
+            char *tmp;
+            if ((tmp = g_strdup_printf("%s.%s", org_name, app_name))) {
+                if (g_dbus_is_name(tmp)) {
+                    GDEBUG("Allowing dbus-user.own %s", tmp);
+                    g_ptr_array_add(data->dbus_user_own, jail_rules_dbus_name_new(tmp, TRUE));
+                }
+                g_free(tmp);
+            }
+            /* If it is left up to the application to create these
+             * directories, they might end up being in tmpfs mounts
+             * that disappears in thin air when application exits.
+             * Make an attempt to ensure that the directories get
+             * created during sanbox setup, so that whitelisting
+             * is applied to already existing real directories.
+             *
+             * FIXME: This should utilize explicit separate list for
+             *        "mkdir directory" options, but for now jail_run()
+             *        just assumes that all required whitelistings
+             *        under $HOME are directories and adds a mkdir too.
+             */
+            if ((tmp = g_strdup_printf("${HOME}/.cache/%s/%s", org_name, app_name))) {
+                jail_rules_add_path(data, tmp, TRUE, SAILJAIL_KEY_FILE_ALLOW_REQUIRED);
+                g_free(tmp);
+            }
+            if ((tmp = g_strdup_printf("${HOME}/.local/share/%s/%s", org_name, app_name))) {
+                jail_rules_add_path(data, tmp, TRUE, SAILJAIL_KEY_FILE_ALLOW_REQUIRED);
+                g_free(tmp);
+            }
+            if ((tmp = g_strdup_printf("${HOME}/.config/%s/%s", org_name, app_name))) {
+                jail_rules_add_path(data, tmp, TRUE, SAILJAIL_KEY_FILE_ALLOW_REQUIRED);
+                g_free(tmp);
+            }
+        }
+        g_free(app_name);
+        g_free(org_name);
+    }
 
     return data;
 }
