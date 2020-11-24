@@ -246,8 +246,14 @@ jail_run(
             const struct group* gr = getgrnam(group);
 
             if (gr) {
-                egid = gr->gr_gid;
-                GDEBUG("Setting effective GID to %s (%u)", group, (uint)egid);
+                if (egid == 0) {
+                    egid = gr->gr_gid;
+                    GDEBUG("Setting effective GID to %s (%u)", group,
+                        (uint)egid);
+                } else if (egid != gr->gr_gid) {
+                    GWARN("Refusing to set effective GID for a process with "
+                        "effective GID %u", (uint)egid);
+                }
             } else {
                 GWARN("Group '%s' is missing", group);
             }
