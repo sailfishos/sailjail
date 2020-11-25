@@ -1,0 +1,19 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog =
+# x-sailjail-translation-key =
+# x-sailjail-description = Access to sharing methods
+
+# Transferengine
+whitelist /usr/share/nemo-transferengine
+mkdir     ${HOME}/.local/nemo-transferengine
+whitelist ${HOME}/.local/nemo-transferengine
+
+# BEG sessionbus-org.nemo.transferengine.resource
+dbus-user.talk org.nemo.transferengine
+dbus-user.broadcast org.nemo.transferengine=org.nemo.transferengine.*@/*
+# END sessionbus-org.nemo.transferengine.resource
+
+include /etc/sailjail/permissions/Bluetooth.permission
+include /etc/sailjail/permissions/Accounts.permission
+include /etc/sailjail/permissions/EMail.permission
