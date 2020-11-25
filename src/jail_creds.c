@@ -184,26 +184,6 @@ jail_creds_free(
     g_free(creds);
 }
 
-gboolean
-jail_creds_check_egid(
-    pid_t pid,
-    const char* group)
-{
-    gboolean match = FALSE;
-
-    if (group) {
-        JailCreds* creds = jail_creds_for_pid(pid, NULL);
-
-        if (creds) {
-            struct group* gr = getgrgid(creds->egid);
-
-            match = (gr && !g_strcmp0(gr->gr_name, group));
-            jail_creds_free(creds);
-        }
-    }
-    return match;
-}
-
 /*
  * Local Variables:
  * mode: C
