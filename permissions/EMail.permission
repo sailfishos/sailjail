@@ -22,3 +22,20 @@ whitelist /tmp/qcop-server-0
 # Messaging framework
 mkdir     ${HOME}/.qmf
 whitelist ${HOME}/.qmf
+
+# Starting Messaging framework
+include /etc/sailjail/permissions/AppLaunch.permission
+
+# Connectivity
+include /etc/sailjail/permissions/Internet.permission
+include /etc/sailjail/permissions/Connman.permission
+
+# Adding attachments
+include /etc/sailjail/permissions/Documents.permission
+include /etc/sailjail/permissions/Pictures.permission
+include /etc/sailjail/permissions/Videos.permission
+include /etc/sailjail/permissions/Music.permission
+include /etc/sailjail/permissions/Downloads.permission
+
+# Media Indexing for above
+include /etc/sailjail/permissions/MediaIndexing.permission
