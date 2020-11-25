@@ -233,6 +233,18 @@ jail_arg_quiet(
 }
 
 static
+gboolean
+jail_arg_trace(
+    const gchar* name,
+    const gchar* value,
+    gpointer data,
+    GError** error)
+{
+    jail_run_enable_trace();
+    return TRUE;
+}
+
+static
 void
 jail_args_clear(
     JailArgs* args)
@@ -408,6 +420,9 @@ int main(int argc, char* argv[])
         { "quiet", 'q',
           G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, jail_arg_quiet,
           "Disable all sailjail output", NULL },
+        { "trace", 't',
+          G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, jail_arg_trace,
+          "Enable libtrace and dbus proxy logging", NULL },
         { NULL }
     };
 

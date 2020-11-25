@@ -61,6 +61,9 @@ jail_run(
     const JailCreds* creds,
     GError** error);
 
+void
+jail_run_enable_trace(void);
+
 #endif /* _JAIL_RUN_H_ */
 
 /*
