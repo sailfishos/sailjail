@@ -21,7 +21,7 @@
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
  * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
- * OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
  * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
  * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
  * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
@@ -34,39 +34,42 @@
  * any official policies, either expressed or implied.
  */
 
-#ifndef TEST_COMMON_H
-#define TEST_COMMON_H
+#ifndef _JAIL_CREDS_H_
+#define _JAIL_CREDS_H_
 
-#include <glib.h>
+#include "jail_types_p.h"
 
-/*
- * For whatever reason, g_assert() is a special case and can be disabled
- * with G_DISABLE_ASSERT macro, unlike all other g_assert_* macros. Make
- * sure that it actually works.
- */
-#ifdef G_DISABLE_ASSERT
-#  error "g_assert is required by unit tests"
-#endif
+struct jail_creds {
+    uid_t ruid;  /* Real UID */
+    uid_t euid;  /* Effective UID */
+    uid_t suid;  /* Saved set UID */
+    uid_t fsuid; /* Filesystem UID */
+    gid_t rgid;  /* Real GID */
+    gid_t egid;  /* Effective GID */
+    gid_t sgid;  /* Saved set GID */
+    gid_t fsgid; /* Filesystem GID */
+    const gid_t* groups;
+    guint ngroups;
+};
 
-#define TEST_FLAG_DEBUG (0x01)
+JailCreds*
+jail_creds_for_pid(
+    pid_t pid,
+    GError** error)
+    JAIL_INTERNAL;
 
-typedef struct test_opt {
-    int flags;
-} TestOpt;
+JailCreds*
+jail_creds_from_file(
+    const char* fname,
+    GError** error)
+    JAIL_INTERNAL;
 
-/* Should be invoked after g_test_init */
 void
-test_init(
-    TestOpt* opt,
-    int argc,
-    char* argv[]);
+jail_creds_free(
+    JailCreds* creds)
+    JAIL_INTERNAL;
 
-/* Helper macros */
-
-#define TEST_ARRAY_AND_COUNT(a) a, G_N_ELEMENTS(a)
-#define TEST_ARRAY_AND_SIZE(a) a, sizeof(a)
-
-#endif /* TEST_COMMON_H */
+#endif /* _JAIL_CREDS_H_ */
 
 /*
  * Local Variables:

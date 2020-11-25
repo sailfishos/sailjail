@@ -3,6 +3,7 @@
 all:
 %:
 	@$(MAKE) -C test_conf $*
+	@$(MAKE) -C test_creds $*
 	@$(MAKE) -C test_launch $*
 	@$(MAKE) -C test_launch_hook $*
 	@$(MAKE) -C test_rules $*

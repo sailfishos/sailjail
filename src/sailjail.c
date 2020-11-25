@@ -37,12 +37,10 @@
 #include "jail_rules_p.h"
 #include "jail_plugins.h"
 #include "jail_launch.h"
+#include "jail_creds.h"
 #include "jail_conf.h"
 #include "jail_run.h"
 
-#include <gutil_intarray.h>
-#include <gutil_ints.h>
-#include <gutil_misc.h>
 #include <gutil_log.h>
 
 #include <sys/types.h>
@@ -80,114 +78,6 @@ typedef struct jail_args {
 } JailArgs;
 
 static int verbose_level = 0;
-
-static
-GUtilInts*
-jail_parse_ids(
-    const char* status,
-    gsize len,
-    const char* prefix)
-{
-    /* Find the prefix */
-    const char* ptr = g_strstr_len(status, len, prefix);
-    GUtilInts* result = NULL;
-
-    if (ptr) {
-        gboolean ok = TRUE;
-        GString* buf = g_string_sized_new(7);
-        GUtilIntArray* parsed = gutil_int_array_new();
-        const char* end;
-
-        /* Skip the prefix */
-        ptr += strlen(prefix);
-
-        /* Find the end of line */
-        len -= ptr - status;
-        end = g_strstr_len(ptr, len, "\n");
-        if (!end) end = ptr + len;
-
-        /* Skip the spaces */
-        while (ptr < end && g_ascii_isspace(*ptr)) ptr++;
-
-        /* Read the numbers */
-        while (ptr < end) {
-            int val;
-
-            /* Read and parse the number (only expecting positives) */
-            g_string_set_size(buf, 0);
-            while (ptr < end && g_ascii_isdigit(*ptr)) {
-                g_string_append_c(buf, *ptr++);
-            }
-            if (gutil_parse_int(buf->str, 0, &val) && val >= 0) {
-                /* Store the value, skip the spaces and continue */
-                gutil_int_array_append(parsed, val);
-                while (ptr < end && g_ascii_isspace(*ptr)) ptr++;
-                continue;
-            }
-            /* Bummer */
-            ok = FALSE;
-            break;
-        }
-
-        /* Expecting at least one number */
-        if (ok && parsed->count > 0) {
-            result = gutil_int_array_free_to_ints(parsed);
-        } else {
-            gutil_int_array_free(parsed, TRUE);
-        }
-        g_string_free(buf, TRUE);
-    }
-    return result;
-}
-
-static
-JailCreds*
-jail_get_creds(
-    pid_t pid,
-    GError** error)
-{
-    char* fname = g_strdup_printf("/proc/%u/status", (guint)pid);
-    JailCreds* creds = NULL;
-    char* status;
-    gsize len;
-
-    if (g_file_get_contents(fname, &status, &len, error)) {
-        guint nuids, ngids, ngroups;
-        GUtilInts* puids = jail_parse_ids(status, len, "\nUid:");
-        GUtilInts* pgids = jail_parse_ids(status, len, "\nGid:");
-        GUtilInts* pgroups = jail_parse_ids(status, len, "\nGroups:");
-        const int* uids = gutil_ints_get_data(puids, &nuids);
-        const int* gids = gutil_ints_get_data(pgids, &ngids);
-        const int* groups = gutil_ints_get_data(pgroups, &ngroups);
-
-        if (nuids == 4 && ngids == 4 && ngroups > 0) {
-            gid_t* cred_groups;
-            guint i;
-
-            creds = g_malloc(sizeof(*creds) + ngroups * sizeof(gid_t));
-            cred_groups = (gid_t*)(creds + 1);
-            for (i = 0; i < ngroups; i++) {
-                cred_groups[i] = groups[i];
-            }
-
-            creds->ruid = uids[0];
-            creds->euid = uids[1];
-            creds->suid = uids[2];
-            creds->fsuid = uids[3];
-            creds->rgid = gids[0];
-            creds->egid = gids[1];
-            creds->sgid = gids[2];
-            creds->fsgid = gids[3];
-            creds->groups = cred_groups;
-            creds->ngroups = ngroups;
-        }
-        gutil_ints_unref(puids);
-        gutil_ints_unref(pgids);
-        gutil_ints_unref(pgroups);
-    }
-    g_free(fname);
-    return creds;
-}
 
 static
 gboolean
@@ -297,7 +187,7 @@ sailjail_main(
         rules = jail_rules_new(argv[1], conf, &opt, &profile, &section, &error);
         if (rules) {
             const pid_t ppid = getppid();
-            JailCreds* creds = jail_get_creds(ppid, &error);
+            JailCreds* creds = jail_creds_for_pid(ppid, &error);
 
             if (creds) {
                 JailApp app;
@@ -353,7 +243,7 @@ sailjail_main(
                     jail_launch_denied(hooks, &app, &cmd, &user);
                     ret = RET_DENIED;
                 }
-                g_free(creds);
+                jail_creds_free(creds);
             }
             jail_rules_unref(rules);
         } else {

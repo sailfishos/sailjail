@@ -42,6 +42,7 @@
 #include <jail_types.h>
 
 typedef struct jail_conf JailConf;
+typedef struct jail_creds JailCreds;
 typedef struct jail_launch_hooks JailLaunchHooks;
 
 struct jail_fish {

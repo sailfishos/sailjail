@@ -5,6 +5,7 @@
 
 TESTS="\
 test_conf \
+test_creds \
 test_launch \
 test_launch_hook \
 test_rules"
