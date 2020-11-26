@@ -30,4 +30,8 @@ dbus-system.call      org.neard=org.neard.*@/*
 dbus-system.broadcast org.neard=org.neard.*@/*
 # END systembus-org.neard.resource
 
+dbus-user.talk      com.jolla.Bluetooth
+dbus-user.call      com.jolla.Bluetooth=com.jolla.Bluetooth.*@/*
+dbus-user.broadcast com.jolla.Bluetooth=com.jolla.Bluetooth.*@/*
+
 # FIXME: is org.sailfishos.system_nfc introspection denied on purpose or accidentally?
