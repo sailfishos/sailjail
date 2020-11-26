@@ -9,8 +9,14 @@ Source0:  %{name}-%{version}.tar.bz2
 %define glib_version 2.44
 %define libglibutil_version 1.0.43
 
+%{!?jailfish: %define jailfish 1}
+%if %{jailfish}
 Requires: firejail
 Requires: xdg-dbus-proxy
+%else
+Provides: sailjail-launch-approval
+%endif
+
 Requires: glib2 >= %{glib_version}
 Requires: libglibutil >= %{libglibutil_version}
 
@@ -35,19 +41,25 @@ This package contains development files for %{name} plugins.
 %setup -q -n %{name}-%{version}
 
 %build
-make %{_smp_mflags} LIBDIR=%{_libdir} KEEP_SYMBOLS=1 release pkgconfig
+make %{_smp_mflags} \
+  LIBDIR=%{_libdir} \
+  KEEP_SYMBOLS=1 \
+  HAVE_FIREJAIL=%{jailfish} \
+  release pkgconfig
 
 %install
 rm -rf %{buildroot}
 make DESTDIR=%{buildroot} LIBDIR=%{_libdir} install install-dev
 
 %check
-make -C unit test
+make HAVE_FIREJAIL=%{jailfish} -C unit test
 
 %files
 %defattr(-,root,root,-)
 %dir %attr(755,root,root) %{permissions_dir}
+%if %{jailfish}
 %attr(6755,root,root) %{_bindir}/sailjail
+%endif
 %{_bindir}/sailjail
 %{permissions_dir}/*
 

@@ -44,6 +44,7 @@
 #define DEFAULT_PROFILE_DIR "/etc/sailjail"
 #define DEFAULT_PERM_SUBDIR "permissions"
 #define DEFAULT_PERM_DIR DEFAULT_PROFILE_DIR "/" DEFAULT_PERM_SUBDIR
+#define DEFAULT_PASSTHROUGH FALSE
 
 #define SECTION "Settings"
 #define KEY_EXEC "Exec"
@@ -51,6 +52,7 @@
 #define KEY_DESKTOP_DIR "DesktopDir"
 #define KEY_PROFILE_DIR "ProfileDir"
 #define KEY_PERM_DIR "PermissionsDir"
+#define KEY_PASSTHROUGH "Passthrough"
 
 typedef struct jail_conf_priv {
     JailConf pub;
@@ -76,6 +78,8 @@ jail_conf_parse(
     JailConfPriv* priv)
 {
     JailConf* conf = &priv->pub;
+    GError* error = NULL;
+    gboolean b;
     char* str;
     char* perm_dir;
 
@@ -121,6 +125,14 @@ jail_conf_parse(
         conf->perm_dir = priv->perm_dir = perm_dir;
         GDEBUG("  %s=%s", KEY_PERM_DIR, conf->perm_dir);
     }
+
+    b = g_key_file_get_boolean(f, SECTION, KEY_PASSTHROUGH, &error);
+    if (error) {
+        g_error_free(error);
+    } else {
+        conf->passthrough = b;
+        GDEBUG("  %s=%s", KEY_PASSTHROUGH, b ? "true" : "false");
+    }
 }
 
 static
@@ -147,6 +159,7 @@ jail_conf_new(
     conf->desktop_dir = DEFAULT_DESKTOP_DIR;
     conf->profile_dir = DEFAULT_PROFILE_DIR;
     conf->perm_dir = DEFAULT_PERM_DIR;
+    conf->passthrough = DEFAULT_PASSTHROUGH;
     return conf;
 }
 

@@ -10,6 +10,8 @@ ifndef EXE
 ${error EXE not defined}
 endif
 
+HAVE_FIREJAIL ?= 1
+
 SRC ?= $(EXE).c
 COMMON_SRC ?= test_common.c
 
@@ -44,6 +46,7 @@ COVERAGE_BUILD_DIR = $(BUILD_DIR)/coverage
 CC = $(CROSS_COMPILE)gcc
 LD = $(CC)
 WARNINGS += -Wall
+DEFINES += -DHAVE_FIREJAIL=$(HAVE_FIREJAIL)
 INCLUDES += -I$(COMMON_DIR) -I$(LIB_DIR)/src -I$(LIB_DIR)/include
 BASE_FLAGS = -fPIC
 BASE_LDFLAGS = $(BASE_FLAGS) $(LDFLAGS)
@@ -175,10 +178,10 @@ $(COVERAGE_EXE): $(COVERAGE_LIB) $(COVERAGE_BUILD_DIR) $(COVERAGE_OBJS)
 	$(LD) $(COVERAGE_LDFLAGS) $(COVERAGE_OBJS) $< $(LIBS) -o $@
 
 debug_lib:
-	@make $(SUBMAKE_OPTS) -C $(LIB_DIR) debug_test_lib
+	@$(MAKE) $(SUBMAKE_OPTS) -C $(LIB_DIR) debug_test_lib
 
 release_lib:
-	@make $(SUBMAKE_OPTS) -C $(LIB_DIR) release_test_lib
+	@$(MAKE) $(SUBMAKE_OPTS) -C $(LIB_DIR) release_test_lib
 
 coverage_lib:
-	@make $(SUBMAKE_OPTS) -C $(LIB_DIR) coverage_test_lib
+	@$(MAKE) $(SUBMAKE_OPTS) -C $(LIB_DIR) coverage_test_lib

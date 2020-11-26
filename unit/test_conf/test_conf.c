@@ -45,6 +45,7 @@ static const char DEFAULT_EXEC[] = "/usr/bin/firejail";
 static const char DEFAULT_DESKTOP_DIR[] = "/usr/share/applications";
 static const char DEFAULT_PROFILE_DIR[] = "/etc/sailjail";
 static const char DEFAULT_PERM_DIR[] = "/etc/sailjail/permissions";
+#define DEFAULT_PASSTHROUGH FALSE
 
 #define SECTION "Settings"
 #define KEY_EXEC "Exec"
@@ -52,6 +53,7 @@ static const char DEFAULT_PERM_DIR[] = "/etc/sailjail/permissions";
 #define KEY_DESKTOP_DIR "DesktopDir"
 #define KEY_PROFILE_DIR "ProfileDir"
 #define KEY_PERM_DIR "PermissionsDir"
+#define KEY_PASSTHROUGH "Passthrough"
 
 /*==========================================================================*
  * basic
@@ -66,10 +68,11 @@ test_basic(
 
     g_assert(conf);
     g_assert(conf->plugin_dir); /* This one may depend on the architecture */
-    g_assert(!g_strcmp0(conf->exec, DEFAULT_EXEC));
-    g_assert(!g_strcmp0(conf->desktop_dir, DEFAULT_DESKTOP_DIR));
-    g_assert(!g_strcmp0(conf->profile_dir, DEFAULT_PROFILE_DIR));
-    g_assert(!g_strcmp0(conf->perm_dir, DEFAULT_PERM_DIR));
+    g_assert_cmpstr(conf->exec, == ,DEFAULT_EXEC);
+    g_assert_cmpstr(conf->desktop_dir, == ,DEFAULT_DESKTOP_DIR);
+    g_assert_cmpstr(conf->profile_dir, == ,DEFAULT_PROFILE_DIR);
+    g_assert_cmpstr(conf->perm_dir, == ,DEFAULT_PERM_DIR);
+    g_assert_cmpint(conf->passthrough, == ,DEFAULT_PASSTHROUGH);
     jail_conf_free(conf);
 }
 
@@ -133,6 +136,7 @@ test_load(
         test->out.profile_dir : default_conf->profile_dir);
     g_assert_cmpstr(conf->perm_dir, == ,test->out.perm_dir ?
         test->out.perm_dir : default_conf->perm_dir);
+    g_assert_cmpint(conf->passthrough, == ,test->out.passthrough);
 
     jail_conf_free(default_conf);
     jail_conf_free(conf);
@@ -148,26 +152,39 @@ static const TestLoadData load_tests[] = {
     {
         .name = KEY_EXEC,
         .in = "[" SECTION "]\n" KEY_EXEC "=/bin/false\n",
-        .out.exec = "/bin/false"
+        .out = {
+            .exec = "/bin/false",
+            .passthrough = DEFAULT_PASSTHROUGH
+        }
     },{
         .name = KEY_PLUGIN_DIR,
         .in = "[" SECTION "]\n" KEY_PLUGIN_DIR "=/plugin_dir\n",
-        .out.plugin_dir = "/plugin_dir"
+        .out = {
+            .plugin_dir = "/plugin_dir",
+            .passthrough = DEFAULT_PASSTHROUGH
+        }
     },{
         .name = KEY_DESKTOP_DIR,
         .in = "[" SECTION "]\n" KEY_DESKTOP_DIR "=/desktop_dir\n",
-        .out.desktop_dir = "/desktop_dir"
+        .out = {
+            .desktop_dir = "/desktop_dir",
+            .passthrough = DEFAULT_PASSTHROUGH
+        }
     },{
         .name = KEY_PROFILE_DIR,
         .in = "[" SECTION "]\n" KEY_PROFILE_DIR "=/profile_dir\n",
         .out = { /* ProfileDir affects PermissionsDir */
             .profile_dir = "/profile_dir",
-            .perm_dir = "/profile_dir/permissions"
+            .perm_dir = "/profile_dir/permissions",
+            .passthrough = DEFAULT_PASSTHROUGH
         }
     },{
         .name = KEY_PERM_DIR,
         .in = "[" SECTION "]\n" KEY_PERM_DIR "=/perm_dir\n",
-        .out.perm_dir = "/perm_dir"
+        .out = {
+            .perm_dir = "/perm_dir",
+            .passthrough = DEFAULT_PASSTHROUGH
+        }
     },{
         .name = KEY_PROFILE_DIR "+" KEY_PERM_DIR,
         .in = "[" SECTION "]\n"
@@ -175,7 +192,29 @@ static const TestLoadData load_tests[] = {
             KEY_PERM_DIR "=/perm_dir\n",
         .out = {
             .profile_dir = "/profile_dir",
-            .perm_dir = "/perm_dir"
+            .perm_dir = "/perm_dir",
+            .passthrough = DEFAULT_PASSTHROUGH
+        }
+    },{
+        .name = KEY_PASSTHROUGH "/True",
+        .in = "[" SECTION "]\n"
+            KEY_PASSTHROUGH "=true\n",
+        .out = {
+            .passthrough = TRUE
+        }
+    },{
+        .name = KEY_PASSTHROUGH "/False",
+        .in = "[" SECTION "]\n"
+            KEY_PASSTHROUGH "=false\n",
+        .out = {
+            .passthrough = FALSE
+        }
+    },{
+        .name = KEY_PASSTHROUGH "/Error",
+        .in = "[" SECTION "]\n"
+            KEY_PASSTHROUGH "=foo\n",
+        .out = {
+            .passthrough = DEFAULT_PASSTHROUGH
         }
     }
 };

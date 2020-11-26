@@ -32,8 +32,13 @@ TEST_SRC = \
   jail_rules.c
 
 SRC = $(TEST_SRC) \
-  jail_run.c \
+  jail_free.c \
   sailjail.c
+
+HAVE_FIREJAIL ?= 1
+ifneq ($(HAVE_FIREJAIL),0)
+SRC += jail_run.c
+endif
 
 #
 # Directories
@@ -76,7 +81,8 @@ RELEASE_FLAGS =
 COVERAGE_FLAGS = -g
 RELEASE_DEFS =
 WARNINGS = -Wall -Wstrict-aliasing -Wunused-result
-DEFINES += -DDEFAULT_PLUGIN_DIR='"$(DEFAULT_PLUGIN_DIR)"'
+DEFINES += -DDEFAULT_PLUGIN_DIR='"$(DEFAULT_PLUGIN_DIR)"' \
+  -DHAVE_FIREJAIL=$(HAVE_FIREJAIL)
 INCLUDES = -I$(SRC_DIR) -I$(INCLUDE_DIR)
 FULL_CFLAGS = -fPIC $(CFLAGS) $(DEFINES) $(WARNINGS) $(INCLUDES) \
   -MMD -MP $(shell pkg-config --cflags $(PKGS))

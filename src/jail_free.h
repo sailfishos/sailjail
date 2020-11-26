@@ -34,30 +34,20 @@
  * any official policies, either expressed or implied.
  */
 
-#ifndef _JAIL_DEFS_H_
-#define _JAIL_DEFS_H_
+#ifndef _JAIL_FREE_H_
+#define _JAIL_FREE_H_
 
-#define SAILJAIL_EXPORT __attribute__((visibility ("default")))
+#include "jail_types_p.h"
 
-#include <jail_types.h>
+void
+jail_free(
+    int argc,
+    char* argv[],
+    const JailCreds* creds,
+    GError** error)
+    JAIL_INTERNAL;
 
-typedef struct jail_conf JailConf;
-typedef struct jail_creds JailCreds;
-typedef struct jail_launch_hooks JailLaunchHooks;
-
-struct jail_fish {
-    JailLaunchHooks* hooks;
-    const JailConf* conf;
-};
-
-/* Macros */
-#define JAIL_INTERNAL G_GNUC_INTERNAL
-
-#ifndef HAVE_FIREJAIL
-#  define HAVE_FIREJAIL 1
-#endif
-
-#endif /* _JAIL_DEFS_H_ */
+#endif /* _JAIL_FREE_H_ */
 
 /*
  * Local Variables:
