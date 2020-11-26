@@ -52,6 +52,7 @@ struct jail_conf {              /* Defaults: */
     const char* desktop_dir;    /* /usr/share/applications */
     const char* profile_dir;    /* /etc/sailjail */
     const char* perm_dir;       /* /etc/sailjail/permission */
+    gboolean passthrough;       /* FALSE */
 };
 
 JailConf*

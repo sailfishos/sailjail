@@ -39,6 +39,7 @@
 #include "jail_launch.h"
 #include "jail_creds.h"
 #include "jail_conf.h"
+#include "jail_free.h"
 #include "jail_run.h"
 
 #include <gutil_log.h>
@@ -172,13 +173,16 @@ jail_opt_context_new(
     return options;
 }
 
+#if HAVE_FIREJAIL
+
 static
 int
-sailjail_main(
+sailjail_sandbox(
     int argc,
     char* argv[],
     const JailConf* conf,
-    const JailArgs* args)
+    const JailArgs* args,
+    const JailCreds* creds)
 {
     int ret = RET_ERR;
     SailJail jail;
@@ -210,64 +214,38 @@ sailjail_main(
         opt.sailfish_app = args->sailfish_app;
         rules = jail_rules_new(argv[1], conf, &opt, &profile, &section, &error);
         if (rules) {
-            const pid_t ppid = getppid();
-            JailCreds* creds = jail_creds_for_pid(ppid, &error);
+            JailApp app;
+            JailCmdLine cmd;
+            JailRunUser user;
+            JailRules* confirm;
 
-            if (creds) {
-                JailApp app;
-                JailCmdLine cmd;
-                JailRunUser user;
-                JailRules* confirm;
+            memset(&app, 0, sizeof(app));
+            app.file = profile;
+            app.section = section;
 
-#if GUTIL_LOG_DEBUG
-                GDEBUG("Parent PID: %u", (guint)ppid);
-                GDEBUG("  rUID:%u eUID:%u sUID:%u fsUID:%u",
-                    (guint)creds->ruid, (guint)creds->euid,
-                    (guint)creds->suid, (guint)creds->fsuid);
-                GDEBUG("  rGID:%u eGID:%u sGID:%u fsGID:%u",
-                    (guint)creds->rgid, (guint)creds->egid,
-                    (guint)creds->sgid, (guint)creds->fsgid);
-                if (GLOG_ENABLED(GLOG_LEVEL_DEBUG)) {
-                    GString* buf = g_string_new(NULL);
-                    guint i;
+            memset(&cmd, 0, sizeof(cmd));
+            cmd.argc = argc - 1;
+            cmd.argv = (const char**)argv + 1;
 
-                    for (i = 0; i < creds->ngroups; i++) {
-                        g_string_append_printf(buf, " %u", (guint)
-                            creds->groups[i]);
-                    }
-                    GDEBUG("  Groups:%s", buf->str);
-                    g_string_free(buf, TRUE);
-                }
-#endif
+            memset(&user, 0, sizeof(user));
+            user.euid = creds->euid;
+            user.egid = creds->egid;
+            user.groups = creds->groups;
+            user.ngroups = creds->ngroups;
 
-                memset(&app, 0, sizeof(app));
-                app.file = profile;
-                app.section = section;
-
-                memset(&cmd, 0, sizeof(cmd));
-                cmd.argc = argc - 1;
-                cmd.argv = (const char**)argv + 1;
-
-                memset(&user, 0, sizeof(user));
-                user.euid = creds->euid;
-                user.egid = creds->egid;
-                user.groups = creds->groups;
-                user.ngroups = creds->ngroups;
-
-                /* Confirm the launch */
-                confirm = jail_launch_confirm(hooks, &app, &cmd, &user, rules);
-                if (confirm) {
-                    /* Any return from jail_run is an error */
-                    jail_launch_confirmed(hooks, &app, &cmd, &user, confirm);
-                    jail_run(argc-1, argv+1, conf, confirm, creds, args->trace_dir, &error);
-                    jail_rules_unref(confirm);
-                    ret = RET_EXEC;
-                } else {
-                    /* Launch denied */
-                    jail_launch_denied(hooks, &app, &cmd, &user);
-                    ret = RET_DENIED;
-                }
-                jail_creds_free(creds);
+            /* Confirm the launch */
+            confirm = jail_launch_confirm(hooks, &app, &cmd, &user, rules);
+            if (confirm) {
+                /* Any return from jail_run is an error */
+                jail_launch_confirmed(hooks, &app, &cmd, &user, confirm);
+                jail_run(argc-1, argv+1, conf, confirm, creds, args->trace_dir,
+                    &error);
+                jail_rules_unref(confirm);
+                ret = RET_EXEC;
+            } else {
+                /* Launch denied */
+                jail_launch_denied(hooks, &app, &cmd, &user);
+                ret = RET_DENIED;
             }
             jail_rules_unref(rules);
         } else {
@@ -284,6 +262,61 @@ sailjail_main(
 
     jail_plugins_free(plugins);
     jail_launch_hooks_free(hooks);
+    return ret;
+}
+
+#endif
+
+static
+int
+sailjail_main(
+    int argc,
+    char* argv[],
+    const JailConf* conf,
+    const JailArgs* args)
+{
+    int ret = RET_ERR;
+    GError* error = NULL;
+    const pid_t ppid = getppid();
+    JailCreds* creds = jail_creds_for_pid(ppid, &error);
+
+    if (creds) {
+#if GUTIL_LOG_DEBUG
+        GDEBUG("Parent PID: %u", (guint)ppid);
+        GDEBUG("  rUID:%u eUID:%u sUID:%u fsUID:%u",
+            (guint)creds->ruid, (guint)creds->euid,
+            (guint)creds->suid, (guint)creds->fsuid);
+        GDEBUG("  rGID:%u eGID:%u sGID:%u fsGID:%u",
+            (guint)creds->rgid, (guint)creds->egid,
+            (guint)creds->sgid, (guint)creds->fsgid);
+        if (GLOG_ENABLED(GLOG_LEVEL_DEBUG)) {
+            GString* buf = g_string_new(NULL);
+            guint i;
+
+            for (i = 0; i < creds->ngroups; i++) {
+                g_string_append_printf(buf, " %u", (guint) creds->groups[i]);
+            }
+            GDEBUG("  Groups:%s", buf->str);
+            g_string_free(buf, TRUE);
+        }
+#endif
+
+#if HAVE_FIREJAIL
+        if (!conf->passthrough) {
+            ret = sailjail_sandbox(argc, argv, conf, args, creds);
+        } else
+#endif
+        {
+            /* Any return from jail_free is an error */
+            jail_free(argc-1, argv+1, creds, &error);
+            ret = RET_EXEC;
+        }
+        jail_creds_free(creds);
+    }
+    if (error) {
+        GERR("%s", GERRMSG(error));
+        g_error_free(error);
+    }
     return ret;
 }
 

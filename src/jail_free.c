@@ -34,30 +34,46 @@
  * any official policies, either expressed or implied.
  */
 
-#ifndef _JAIL_DEFS_H_
-#define _JAIL_DEFS_H_
+#define _GNU_SOURCE /* setresuid() and setresgid() */
 
-#define SAILJAIL_EXPORT __attribute__((visibility ("default")))
+#include "jail_free.h"
+#include "jail_creds.h"
 
-#include <jail_types.h>
+#include <glib-unix.h>
 
-typedef struct jail_conf JailConf;
-typedef struct jail_creds JailCreds;
-typedef struct jail_launch_hooks JailLaunchHooks;
+#include <grp.h>
+#include <unistd.h>
+#include <sys/fsuid.h>
 
-struct jail_fish {
-    JailLaunchHooks* hooks;
-    const JailConf* conf;
-};
+void
+jail_free(
+    int argc,
+    char* argv[],
+    const JailCreds* creds,
+    GError** error)
+{
+    const gboolean root = (!geteuid() || !getegid());
 
-/* Macros */
-#define JAIL_INTERNAL G_GNUC_INTERNAL
-
-#ifndef HAVE_FIREJAIL
-#  define HAVE_FIREJAIL 1
-#endif
-
-#endif /* _JAIL_DEFS_H_ */
+    setfsuid(creds->fsuid);
+    setfsgid(creds->fsgid);
+    if (setgroups(creds->ngroups, creds->groups) && root) {
+        g_propagate_error(error, g_error_new(G_UNIX_ERROR, errno,
+            "setgroups error: %s", strerror(errno)));
+    } else if (setresgid(creds->rgid, creds->egid, creds->sgid) && root) {
+        g_propagate_error(error, g_error_new(G_UNIX_ERROR, errno,
+            "setresgid(%u,%u,%u) error: %s", (guint)creds->rgid,
+            (guint)creds->egid, (guint)creds->sgid, strerror(errno)));
+    } else if (setresuid(creds->ruid, creds->euid, creds->suid) && root) {
+        g_propagate_error(error, g_error_new(G_UNIX_ERROR, errno,
+            "setresuid(%u,%u,%u) error: %s", (guint)creds->ruid,
+            (guint)creds->euid, (guint)creds->suid, strerror(errno)));
+    } else {
+        fflush(NULL);
+        execvp(argv[0], (char**) argv);
+        g_propagate_error(error, g_error_new(G_UNIX_ERROR, errno,
+            "exec(%s) error: %s", argv[0], strerror(errno)));
+    }
+}
 
 /*
  * Local Variables:
