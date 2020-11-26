@@ -57,6 +57,10 @@ static const char FIREJAIL_PROFILE_OPT[] = "--profile=";
 static const char FIREJAIL_WHITELIST_OPT[] = "--whitelist=";
 static const char FIREJAIL_BLACKLIST_OPT[] = "--blacklist=";
 
+static const char FIREJAIL_OUTPUT_STDERR_OPT_FMT[] = "--output-stderr=%s/firejail-stderr.log";
+static const char FIREJAIL_TRACE_OPT_FMT[] = "--trace=%s/firejail-trace.log";
+static const char FIREJAIL_DBUS_LOG_OPT_FMT[] = "--dbus-log=%s/firejail-dbus.log";
+
 static const char FIREJAIL_DBUS_USER_FILTER[] = "--dbus-user=filter";
 static const char FIREJAIL_DBUS_USER_LOG[] = "--dbus-user.log";
 static const char FIREJAIL_DBUS_USER_SEE[] = "--dbus-user.see=";
@@ -72,14 +76,6 @@ static const char FIREJAIL_DBUS_SYSTEM_OWN[] = "--dbus-system.own=";
 static const char FIREJAIL_FINISH_OPT[] = "--";
 
 static const char PRIVILEGED_GROUP[] = "privileged";
-
-static gboolean jail_run_trace_enabled = FALSE;
-
-void
-jail_run_enable_trace(void)
-{
-    jail_run_trace_enabled = TRUE;
-}
 
 static
 guint
@@ -143,6 +139,7 @@ jail_run(
     const JailConf* conf,
     const JailRules* rules,
     const JailCreds* creds,
+    const char* trace_dir,
     GError** error)
 {
     /*
@@ -150,7 +147,7 @@ jail_run(
      *
      * 1. firejail
      * 2. --quiet or --debug (optional)
-    * ... options
+     * ... options
      * 3. --
      * ... program name and arguments
      * 4. NULL terminator
@@ -174,9 +171,11 @@ jail_run(
     g_ptr_array_add(args, (gpointer) conf->exec);
 
     /* Debug options */
-    if (jail_run_trace_enabled) {
+    if (trace_dir) {
         /* Do stderr redirect as early as possible */
-        g_ptr_array_add(args, "--output-stderr=firejail-stderr.log");
+        char *opt = g_strdup_printf(FIREJAIL_OUTPUT_STDERR_OPT_FMT, trace_dir);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
     }
 
     /* 2. --quiet (optional) */
@@ -231,13 +230,18 @@ jail_run(
     }
 
     /* Debug options */
-    if (jail_run_trace_enabled) {
-        /* Trap and log some libc functions & syscalls */
-        g_ptr_array_add(args, "--trace=firejail-trace.log");
-        /* D-Bus activity, both in system and session bus */
-        g_ptr_array_add(args, "--dbus-log=firejail-dbus.log");
-        g_ptr_array_add(args, "--dbus-system.log");
-        g_ptr_array_add(args, "--dbus-user.log");
+    if (trace_dir) {
+        /* Use libtrace to trap and log some libc functions & syscalls */
+        char *opt = g_strdup_printf(FIREJAIL_TRACE_OPT_FMT, trace_dir);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
+
+        /* Log D-Bus activity, both in system and session buses */
+        opt = g_strdup_printf(FIREJAIL_DBUS_LOG_OPT_FMT, trace_dir);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
+        g_ptr_array_add(args, FIREJAIL_DBUS_SYSTEM_LOG);
+        g_ptr_array_add(args, FIREJAIL_DBUS_USER_LOG);
     }
 
     /* 3. Done with firejail options */
