@@ -1,8 +1,8 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Access to sharing methods
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-sharing
+# x-sailjail-description = Access sharing methods
 
 # Transferengine
 whitelist /usr/share/nemo-transferengine

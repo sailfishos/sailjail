@@ -1,7 +1,7 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-app_launch
 # x-sailjail-description = Start user services
 
 # BEG sessionbus-org.freedesktop.systemd1.resource

@@ -1,8 +1,8 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Access pictures/videos taken with camera
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-camera
+# x-sailjail-description = Access camera
 
 whitelist /usr/share/jolla-settings/pages/jolla-camera
 whitelist /usr/share/jolla-camera

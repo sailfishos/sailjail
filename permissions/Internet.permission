@@ -1,7 +1,7 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-internet
 # x-sailjail-description = Access Internet
 
 # XXX: does "netlink" really belong here?
@@ -9,3 +9,5 @@
 protocol inet,inet6,netlink
 #net eth0
 #netfilter
+
+include /etc/sailjail/permissions/Connman.permission

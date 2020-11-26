@@ -1,8 +1,8 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Access account data
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-accounts
+# x-sailjail-description = Access accounts
 
 whitelist /usr/share/jolla-settings/pages/accounts
 whitelist /usr/share/xml/accounts

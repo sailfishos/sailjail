@@ -1,8 +1,8 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Use Thumbnailer
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-thumbnails
+# x-sailjail-description = Access thumbnails
 
 # Thumbnailer service returns paths in thumbnail cache
 # -> service must be callable

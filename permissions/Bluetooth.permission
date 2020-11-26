@@ -1,8 +1,8 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Use Bluetooth and NFC
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-bluetooth_and_nfc
+# x-sailjail-description = Access Bluetooth and NFC
 
 # BEG sessionbus-org.bluez.obex.resource
 dbus-user.talk org.bluez.obex
