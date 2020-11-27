@@ -44,21 +44,17 @@ static TestOpt test_opt;
 
 #define TMP_DIR_TEMPLATE "sailjail-test-rules-XXXXXX"
 
-static
-void
-test_assert_rules_not_null(
-    const JailRules* rules)
-{
-    g_assert(rules);
-    g_assert(rules->permits);
-    g_assert(rules->profiles);
-    g_assert(rules->paths);
-    g_assert(rules->dbus_user);
-    g_assert(rules->dbus_user->own);
-    g_assert(rules->dbus_user->talk);
-    g_assert(rules->dbus_system->own);
-    g_assert(rules->dbus_system->talk);
-}
+/* Macro to print the line number where it's being used */
+#define test_assert_rules_not_null(rules) \
+    g_assert((rules)); \
+    g_assert((rules)->permits); \
+    g_assert((rules)->profiles); \
+    g_assert((rules)->paths); \
+    g_assert((rules)->dbus_user); \
+    g_assert((rules)->dbus_user->own); \
+    g_assert((rules)->dbus_user->talk); \
+    g_assert((rules)->dbus_system->own); \
+    g_assert((rules)->dbus_system->talk)
 
 /*==========================================================================*
  * null
@@ -156,12 +152,12 @@ test_default_profile(
     char* path = NULL;
     char* section = NULL;
     GError* error = NULL;
-    static const char dummy_data[] = "dummy";
     static const char profile_data[] =
         "[Sailjail]\n"
-        "FileAccess=?/tmp,/tmp"; /* Required overrides optional */
+        "FileAccess=?/tmp,/tmp\n" /* Required overrides optional */
+        "Permissions=/tmp/badpath"; /* Ignored */
 
-    g_assert(g_file_set_contents(base_profile, dummy_data, -1, NULL));
+    g_assert(g_file_set_contents(base_profile, NULL, 0, NULL));
     g_assert(g_file_set_contents(profile, profile_data, -1, NULL));
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
@@ -207,6 +203,84 @@ test_default_profile(
 }
 
 /*==========================================================================*
+ * app_profile
+ *==========================================================================*/
+
+static
+void
+test_app_profile(
+    void)
+{
+    char* dir = g_dir_make_tmp(TMP_DIR_TEMPLATE, NULL);
+    char* foo_profile = g_build_filename(dir, "foo.profile", NULL);
+    char* bar_profile = g_build_filename(dir, "bar.profile", NULL);
+    char* base_profile = g_build_filename(dir, "Base.permission", NULL);
+    JailConf* conf = jail_conf_new();
+    JailRules* rules;
+    JailRulesOpt opt;
+    char* path = NULL;
+    char* section = NULL;
+    GError* error = NULL;
+    static const char profile_data[] = "[bar]\n";
+
+    g_assert(g_file_set_contents(base_profile, NULL, 0, NULL));
+    g_assert(g_file_set_contents(foo_profile, profile_data, -1, NULL));
+    g_assert(g_file_set_contents(bar_profile, NULL, 0, NULL));
+    memset(&opt, 0, sizeof(opt));
+    opt.sailfish_app = "bar";
+    conf->profile_dir = conf->perm_dir = dir;
+
+    rules = jail_rules_new("foo", conf, &opt, &path, &section, &error);
+    test_assert_rules_not_null(rules);
+    g_assert_cmpstr(path, == ,foo_profile);
+    g_assert_cmpstr(section, == ,"bar");
+    g_assert_null(error);
+    g_free(path);
+    g_free(section);
+
+    g_assert_null(rules->permits[0]);
+
+    /* Base and foo.profile must be there */
+    g_assert(rules->profiles[0]);
+    g_assert_true(rules->profiles[0]->require);
+    g_assert_cmpstr(rules->profiles[0]->path, == ,base_profile);
+    g_assert_true(rules->profiles[1]->require);
+    g_assert_cmpstr(rules->profiles[1]->path, == ,bar_profile);
+    g_assert_null(rules->profiles[2]);
+
+    /* App dirs */
+    g_assert(rules->paths[0]);
+    g_assert(rules->paths[1]);
+    g_assert(rules->paths[2]);
+    g_assert_cmpstr(rules->paths[0]->path, == ,"/usr/share/bar");
+    g_assert_false(rules->paths[0]->require);
+    g_assert_cmpstr(rules->paths[1]->path, == ,
+        "/usr/share/applications/bar.desktop");
+    g_assert_false(rules->paths[1]->require);
+    g_assert(g_str_has_suffix(rules->paths[2]->path,"/.local/share/bar"));
+    g_assert_false(rules->paths[2]->require);
+    g_assert(!rules->paths[3]);
+
+    g_assert_null(rules->dbus_user->own[0]);
+    g_assert_null(rules->dbus_user->talk[0]);
+    g_assert_null(rules->dbus_system->own[0]);
+    g_assert_null(rules->dbus_system->talk[0]);
+
+    jail_rules_unref(rules);
+    jail_conf_free(conf);
+
+    remove(base_profile);
+    remove(foo_profile);
+    remove(bar_profile);
+    remove(dir);
+
+    g_free(base_profile);
+    g_free(foo_profile);
+    g_free(bar_profile);
+    g_free(dir);
+}
+
+/*==========================================================================*
  * desktop
  *==========================================================================*/
 
@@ -222,7 +296,6 @@ test_desktop(
     JailRules* rules;
     JailRulesOpt opt;
     GError* error = NULL;
-    static const char dummy_data[] = "dummy";
     static const char profile_data[] =
         "[Desktop Entry]\n"
         "Type = Application\n"
@@ -231,7 +304,7 @@ test_desktop(
         "[X-Sailjail]\n"
         "DBusSystemOwn = x.y\n";
 
-    g_assert(g_file_set_contents(base_profile, dummy_data, -1, NULL));
+    g_assert(g_file_set_contents(base_profile, NULL, 0, NULL));
     g_assert(g_file_set_contents(profile, profile_data, -1, NULL));
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = conf->desktop_dir = dir;
@@ -253,6 +326,7 @@ test_desktop(
     /* Three optional app directories */
     g_assert(rules->paths[0]);
     g_assert(rules->paths[1]);
+    g_assert(rules->paths[2]);
     g_assert_cmpstr(rules->paths[0]->path, == ,"/usr/share/foo");
     g_assert_false(rules->paths[0]->require);
     g_assert_cmpstr(rules->paths[1]->path, == ,profile);
@@ -571,7 +645,6 @@ test_basic2(
     JailRulesOpt opt;
     char* path = NULL;
     char* section = NULL;
-    static const char dummy_data[] = "dummy";
     /*
      * Required Privileged overrides the optional one,
      * but optional Base doesn't overrides the implicit required one.
@@ -584,8 +657,8 @@ test_basic2(
         "DBusUserOwn = foo.bar, ."; /* . is an invalid name and is ignored */
 
     g_assert(g_file_set_contents(profile, profile_data, -1, NULL));
-    g_assert(g_file_set_contents(base_profile, dummy_data, -1, NULL));
-    g_assert(g_file_set_contents(test_profile, dummy_data, -1, NULL));
+    g_assert(g_file_set_contents(base_profile, NULL, 0, NULL));
+    g_assert(g_file_set_contents(test_profile, NULL, 0, NULL));
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
     opt.profile = profile;
@@ -658,7 +731,6 @@ test_restrict_basic(
     JailRulesOpt opt;
     char* path = NULL;
     char* section = NULL;
-    static const char dummy_data[] = "dummy";
     /*
      * Required Privileged overrides the optional one,
      * but optional Base doesn't overrides the implicit required one.
@@ -677,9 +749,9 @@ test_restrict_basic(
     static const JailDBusRestrict remain_dbus = { remain_dbus_names, NULL };
 
     g_assert(g_file_set_contents(profile, profile_data, -1, NULL));
-    g_assert(g_file_set_contents(base_profile, dummy_data, -1, NULL));
-    g_assert(g_file_set_contents(foo_profile, dummy_data, -1, NULL));
-    g_assert(g_file_set_contents(bar_profile, dummy_data, -1, NULL));
+    g_assert(g_file_set_contents(base_profile, NULL, 0, NULL));
+    g_assert(g_file_set_contents(foo_profile, NULL, 0, NULL));
+    g_assert(g_file_set_contents(bar_profile, NULL, 0, NULL));
     memset(&opt, 0, sizeof(opt));
     conf->profile_dir = conf->perm_dir = dir;
     opt.profile = profile;
@@ -988,6 +1060,7 @@ int main(int argc, char* argv[])
     g_test_add_func(TEST_("permit_name"), test_permit_name);
     g_test_add_func(TEST_("missing_profile"), test_missing_profile);
     g_test_add_func(TEST_("default_profile"), test_default_profile);
+    g_test_add_func(TEST_("app_profile"), test_app_profile);
     g_test_add_func(TEST_("desktop"), test_desktop);
     g_test_add_func(TEST_("bad_desktop"), test_bad_desktop);
     g_test_add_func(TEST_("bad_profile_name"), test_bad_profile_name);

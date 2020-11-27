@@ -273,24 +273,15 @@ jail_rules_add_profile(
     const char* name,
     gboolean require)
 {
-    char* path = NULL;
+    /*
+     * The name here is guaranteed to have either .permission or .profile
+     * suffix.
+     */
+    const char* base = jail_rules_basename(name);
+    char* path = g_build_filename(conf->perm_dir, base, NULL);
 
-    /* Name must have an expected suffix and either have no directory
-     * component at all or be the same absolute path to a file in
-     * permission directory that would be generated here. */
-    if (g_str_has_suffix(name, SAILJAIL_PERMISSION_SUFFIX) ||
-        g_str_has_suffix(name, SAILJAIL_PROFILE_SUFFIX)) {
-        path = g_build_filename(conf->perm_dir, jail_rules_basename(name), NULL);
-        if (strchr(name, '/') && strcmp(name, path)) {
-            GWARN("%s: ignored due to not matching %s", name, path);
-            g_free(path);
-            path = NULL;
-        }
-    } else {
-        GWARN("%s: ignored due to extension", name);
-    }
-    if (!path) {
-        /* Ignored, reason is already logged above */
+    if (strchr(name, '/') && strcmp(name, path)) {
+        GWARN("%s: ignored due to not matching %s", name, conf->perm_dir);
     } else if (!g_file_test(path, G_FILE_TEST_EXISTS)) {
         GWARN("%s: profile does not exist", name);
     } else {
@@ -512,16 +503,23 @@ jail_rules_parse_section(
             /* Skip the spaces between the modifier and the name */
             while (*name && g_ascii_isspace(*name)) name++;
 
-            /* Note: "Privileged" can trigger both adding a permit
-             *       and including a permission file. */
+            /*
+             * Note: "Privileged" can trigger both adding a permit and
+             * including a permission file if one exists.
+             */
             permit = jail_rules_permit_parse(name);
             if (permit != JAIL_PERMIT_INVALID) {
                 jail_rules_add_permit(data, permit, require);
             }
             if (*name) {
-                gchar *prof = g_strdup_printf("%s%s", name, SAILJAIL_PERMISSION_SUFFIX);
-                jail_rules_add_profile(data, conf, prof, require);
-                g_free(prof);
+                char* file = g_strconcat(name, SAILJAIL_PERMISSION_SUFFIX,
+                    NULL);
+
+                if (permit == JAIL_PERMIT_INVALID ||
+                    g_file_test(file, G_FILE_TEST_EXISTS)) {
+                    jail_rules_add_profile(data, conf, file, require);
+                }
+                g_free(file);
             }
         }
         g_strfreev(vals);
@@ -572,9 +570,14 @@ jail_rules_parse_section(
         char* app_profile = g_strconcat(app, SAILJAIL_PROFILE_SUFFIX, NULL);
         char* profile = g_build_filename(conf->perm_dir, app_profile, NULL);
 
-        /* If APPNAME.profile exists, it is implicitly pulled in */
-        if (g_file_test(profile, G_FILE_TEST_EXISTS))
-                jail_rules_add_profile(data, conf, profile, TRUE);
+        /*
+         * If APPNAME.profile exists, it's implicitly pulled in
+         * unless it's already there.
+         */
+        if (g_file_test(profile, G_FILE_TEST_EXISTS) &&
+            jail_rules_find_profile(data->profiles, profile) < 0) {
+            jail_rules_add_profile(data, conf, profile, TRUE);
+        }
 
         jail_rules_add_path(data, usr, TRUE, FALSE);
         jail_rules_add_path(data, desktop, TRUE, FALSE);
@@ -618,6 +621,7 @@ jail_rules_parse_file(
 {
     JailRulesData* data = NULL;
     const char* section = opt->section;
+    const char* app = opt->sailfish_app;
     char** groups = g_key_file_get_groups(keyfile, NULL);
 
     if (section) {
@@ -635,6 +639,8 @@ jail_rules_parse_file(
          */
         if (gutil_strv_contains(groups, basename)) {
             section = basename;
+        } else if (app && gutil_strv_contains(groups, app)) {
+            section = app;
         } else {
             const char* default_section =
                 g_str_has_suffix(fname, SAILJAIL_DESKTOP_SUFFIX) ?
@@ -649,7 +655,6 @@ jail_rules_parse_file(
 
     if (section) {
         char* auto_app = NULL;
-        const char* app = opt->sailfish_app;
 
         if (!app && g_str_has_suffix(fname, SAILJAIL_DESKTOP_SUFFIX)) {
             /*
