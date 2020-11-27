@@ -241,8 +241,8 @@ jail_run(
         opt = g_strdup_printf(FIREJAIL_DBUS_LOG_OPT_FMT, trace_dir);
         g_ptr_array_add(args, opt);
         g_ptr_array_add(args_alloc, opt);
-        g_ptr_array_add(args, FIREJAIL_DBUS_SYSTEM_LOG);
-        g_ptr_array_add(args, FIREJAIL_DBUS_USER_LOG);
+        g_ptr_array_add(args, (gpointer) FIREJAIL_DBUS_SYSTEM_LOG);
+        g_ptr_array_add(args, (gpointer) FIREJAIL_DBUS_USER_LOG);
     }
 
     /* 3. Done with firejail options */
