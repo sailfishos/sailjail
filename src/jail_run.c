@@ -58,6 +58,10 @@ static const char FIREJAIL_PROFILE_OPT[] = "--profile=";
 static const char FIREJAIL_WHITELIST_OPT[] = "--whitelist=";
 static const char FIREJAIL_BLACKLIST_OPT[] = "--blacklist=";
 
+static const char FIREJAIL_OUTPUT_STDERR_OPT_FMT[] = "--output-stderr=%s/firejail-stderr.log";
+static const char FIREJAIL_TRACE_OPT_FMT[] = "--trace=%s/firejail-trace.log";
+static const char FIREJAIL_DBUS_LOG_OPT_FMT[] = "--dbus-log=%s/firejail-dbus.log";
+
 static const char FIREJAIL_DBUS_USER_FILTER[] = "--dbus-user=filter";
 static const char FIREJAIL_DBUS_USER_LOG[] = "--dbus-user.log";
 static const char FIREJAIL_DBUS_USER_SEE[] = "--dbus-user.see=";
@@ -136,6 +140,7 @@ jail_run(
     const JailConf* conf,
     const JailRules* rules,
     const JailCreds* creds,
+    const char* trace_dir,
     GError** error)
 {
     /*
@@ -143,7 +148,7 @@ jail_run(
      *
      * 1. firejail
      * 2. --quiet or --debug (optional)
-    * ... options
+     * ... options
      * 3. --
      * ... program name and arguments
      * 4. NULL terminator
@@ -165,6 +170,14 @@ jail_run(
 
     /* 1. firejail */
     g_ptr_array_add(args, (gpointer) conf->exec);
+
+    /* Debug options */
+    if (trace_dir) {
+        /* Do stderr redirect as early as possible */
+        char *opt = g_strdup_printf(FIREJAIL_OUTPUT_STDERR_OPT_FMT, trace_dir);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
+    }
 
     /* 2. --quiet (optional) */
     if (gutil_log_default.level < GLOG_LEVEL_DEBUG) {
@@ -215,6 +228,21 @@ jail_run(
             FIREJAIL_DBUS_SYSTEM_OWN,
             FIREJAIL_DBUS_SYSTEM_SEE,
             FIREJAIL_DBUS_SYSTEM_TALK);
+    }
+
+    /* Debug options */
+    if (trace_dir) {
+        /* Use libtrace to trap and log some libc functions & syscalls */
+        char *opt = g_strdup_printf(FIREJAIL_TRACE_OPT_FMT, trace_dir);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
+
+        /* Log D-Bus activity, both in system and session buses */
+        opt = g_strdup_printf(FIREJAIL_DBUS_LOG_OPT_FMT, trace_dir);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
+        g_ptr_array_add(args, FIREJAIL_DBUS_SYSTEM_LOG);
+        g_ptr_array_add(args, FIREJAIL_DBUS_USER_LOG);
     }
 
     /* 3. Done with firejail options */

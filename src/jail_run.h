@@ -46,6 +46,7 @@ jail_run(
     const JailConf* conf,
     const JailRules* rules,
     const JailCreds* creds,
+    const char* trace_dir,
     GError** error);
 
 #endif /* _JAIL_RUN_H_ */
