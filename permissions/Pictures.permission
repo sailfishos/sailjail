@@ -6,3 +6,5 @@
 
 mkdir     ${HOME}/Pictures
 whitelist ${HOME}/Pictures
+
+include /etc/sailjail/permissions/Thumbnails.permission
