@@ -1,8 +1,8 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Use embedded browser functionality
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-webview
+# x-sailjail-description = Access webview
 
 private-etc ssl,hosts,pki,crypto-policies
 

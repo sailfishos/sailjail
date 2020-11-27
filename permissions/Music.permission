@@ -1,8 +1,8 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Access Music data
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-music
+# x-sailjail-description = Access music
 
 mkdir     ${HOME}/Music
 whitelist ${HOME}/Music

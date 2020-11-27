@@ -1,8 +1,8 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Access Video data
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-videos
+# x-sailjail-description = Access videos
 
 mkdir     ${HOME}/Videos
 whitelist ${HOME}/Videos

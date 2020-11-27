@@ -2,7 +2,7 @@
 
 # x-sailjail-translation-catalog =
 # x-sailjail-translation-key =
-# x-sailjail-description = Access Notes data
+# x-sailjail-description = Access notes
 
 whitelist /usr/share/jolla-notes
 whitelist /usr/share/jolla-settings/pages/jolla-notes

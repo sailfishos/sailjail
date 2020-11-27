@@ -1,8 +1,8 @@
 # -*- mode: sh -*-
 
-# x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Access documents data
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-documents
+# x-sailjail-description = Access documents
 
 mkdir     ${HOME}/Documents
 whitelist ${HOME}/Documents
