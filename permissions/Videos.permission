@@ -6,3 +6,5 @@
 
 mkdir     ${HOME}/Videos
 whitelist ${HOME}/Videos
+
+include /etc/sailjail/permissions/Thumbnails.permission
