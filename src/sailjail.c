@@ -75,6 +75,7 @@ typedef struct jail_args {
     char* profile;
     char* section;
     char* sailfish_app;
+    char* trace_dir;
 } JailArgs;
 
 static int verbose_level = 0;
@@ -123,6 +124,24 @@ jail_arg_quiet(
 }
 
 static
+gboolean
+jail_arg_trace(
+    const gchar* name,
+    const gchar* value,
+    gpointer data,
+    GError** error)
+{
+    JailArgs* args = data;
+    g_free(args->trace_dir);
+    args->trace_dir = value ? g_strdup(value) : g_get_current_dir();
+    if (!g_file_test(args->trace_dir, G_FILE_TEST_IS_DIR)) {
+        GWARN("%s: is not a directory", args->trace_dir);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+static
 void
 jail_args_clear(
     JailArgs* args)
@@ -132,17 +151,22 @@ jail_args_clear(
     g_free(args->profile);
     g_free(args->section);
     g_free(args->sailfish_app);
+    g_free(args->trace_dir);
     memset(args, 0, sizeof(*args));
 }
 
 static
 GOptionContext *
 jail_opt_context_new(
-    const GOptionEntry* entries)
+    const GOptionEntry* entries,
+    JailArgs* args)
 {
     GOptionContext* options = g_option_context_new("PROGRAM [ARGS...]");
 
-    g_option_context_add_main_entries(options, entries, NULL);
+    GOptionGroup* group = g_option_group_new (NULL, NULL, NULL, args, NULL);
+    g_option_group_add_entries(group, entries);
+    g_option_context_set_main_group(options, group);
+
     g_option_context_set_strict_posix(options, TRUE);
     g_option_context_set_summary(options, "Runs PROGRAM in a sandbox.");
     return options;
@@ -235,7 +259,7 @@ sailjail_main(
                 if (confirm) {
                     /* Any return from jail_run is an error */
                     jail_launch_confirmed(hooks, &app, &cmd, &user, confirm);
-                    jail_run(argc-1, argv+1, conf, confirm, creds, &error);
+                    jail_run(argc-1, argv+1, conf, confirm, creds, args->trace_dir, &error);
                     jail_rules_unref(confirm);
                     ret = RET_EXEC;
                 } else {
@@ -298,6 +322,9 @@ int main(int argc, char* argv[])
         { "quiet", 'q',
           G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, jail_arg_quiet,
           "Disable all sailjail output", NULL },
+        { "trace", 't',
+          G_OPTION_FLAG_OPTIONAL_ARG, G_OPTION_ARG_CALLBACK, jail_arg_trace,
+          "Enable libtrace and dbus proxy logging", "DIR" },
         { NULL }
     };
 
@@ -312,7 +339,7 @@ int main(int argc, char* argv[])
      * real one later, when we actually parse the command line.
      */
     memset(&args, 0, sizeof(args));
-    options = jail_opt_context_new(entries);
+    options = jail_opt_context_new(entries, &args);
     pre_argc = argc;
     pre_argv = g_memdup(argv, sizeof(argv[0]) * argc);
     ok = g_option_context_parse(options, &pre_argc, &pre_argv, &error);
@@ -344,7 +371,7 @@ int main(int argc, char* argv[])
             gutil_log_default.level = GLOG_LEVEL_DEFAULT;
 
             /* Re-parse the command line */
-            options = jail_opt_context_new(entries);
+            options = jail_opt_context_new(entries, &args);
             ok = g_option_context_parse(options, &argc, &argv, &error);
         } else if (error) {
             /* Improve error message by prepending the file name */
