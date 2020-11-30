@@ -39,3 +39,7 @@ include /etc/sailjail/permissions/Downloads.permission
 
 # Media Indexing for above
 include /etc/sailjail/permissions/MediaIndexing.permission
+
+# Global address list
+dbus-user.talk org.sailfishos.easdaemon
+dbus-user.broadcast org.sailfishos.easdaemon=org.sailfishos.easdaemon.*@/*
