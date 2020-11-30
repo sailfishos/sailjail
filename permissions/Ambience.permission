@@ -1,0 +1,11 @@
+# -*- mode: sh -*-
+
+# x-sailjail-translation-catalog = sailjail-permissions
+# x-sailjail-translation-key = permission-la-ambience
+# x-sailjail-description = Ambience
+
+mkdir     ${HOME}/.local/share/ambienced/wallpapers
+whitelist ${HOME}/.local/share/ambienced/wallpapers
+
+dbus-user.talk com.jolla.ambienced
+dbus-user.broadcast com.jolla.ambienced=com.jolla.ambienced.*@/*
