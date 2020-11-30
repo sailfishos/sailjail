@@ -2,17 +2,10 @@
 
 # x-sailjail-translation-catalog = sailjail-permissions
 # x-sailjail-translation-key = permission-la-camera
-# x-sailjail-description = Access camera
+# x-sailjail-description = Take photos and videos
+# This is about access to device's camera hardware, not data
 
-whitelist /usr/share/jolla-settings/pages/jolla-camera
-whitelist /usr/share/jolla-camera
-
-whitelist /data/vendor/camera
-whitelist /data/misc/camera
-whitelist /vendor/etc/camera
-
-mkdir     ${HOME}/Videos/Camera
-whitelist ${HOME}/Videos/Camera
-
-mkdir     ${HOME}/Pictures/Camera
-whitelist ${HOME}/Pictures/Camera
+# BEG systembus-org.maemo.resource.manager
+dbus-system.talk org.maemo.resource.manager
+dbus-system.broadcast org.maemo.resource.manager=org.maemo.resource.manager.*@/*
+# END systembus-org.maemo.resource.manager
