@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
+# x-sailjail-translation-key-description =
 # x-sailjail-description = Base permissions
+# x-sailjail-translation-key-long-description =
+# x-sailjail-long-description =
 
 writable-run-user
 

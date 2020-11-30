@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-ambience
+# x-sailjail-translation-key-description = permission-la-ambience
 # x-sailjail-description = Ambience
+# x-sailjail-translation-key-long-description = permission-la-ambience_description
+# x-sailjail-long-description = Create, modify and delete ambiences
 
 mkdir     ${HOME}/.local/share/ambienced/wallpapers
 whitelist ${HOME}/.local/share/ambienced/wallpapers

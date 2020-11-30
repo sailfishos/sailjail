@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-positioning
-# x-sailjail-description = Access positioning
+# x-sailjail-translation-key-description = permission-la-positioning
+# x-sailjail-description = Positioning
+# x-sailjail-translation-key-long-description = permission-la-positioning_description
+# x-sailjail-long-description = Use high and low accuracy positioning
 
 whitelist /usr/share/GConf/gsettings/geoclue
 

@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-camera
-# x-sailjail-description = Take photos and videos
+# x-sailjail-translation-key-description = permission-la-camera
+# x-sailjail-description = Camera
+# x-sailjail-translation-key-long-description = permission-la-camera_description
+# x-sailjail-long-description = Take photos and videos
 # This is about access to device's camera hardware, not data
 
 # BEG systembus-org.maemo.resource.manager

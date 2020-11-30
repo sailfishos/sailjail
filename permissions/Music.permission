@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-music
-# x-sailjail-description = Access music
+# x-sailjail-translation-key-description = permission-la-music
+# x-sailjail-description = Music
+# x-sailjail-translation-key-long-description = permission-la-music_description
+# x-sailjail-long-description = Use stored music files
 
 mkdir     ${HOME}/Music
 whitelist ${HOME}/Music

@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-sharing
-# x-sailjail-description = Access sharing methods
+# x-sailjail-translation-key-description = permission-la-sharing
+# x-sailjail-description = Sharing
+# x-sailjail-translation-key-long-description = permission-la-sharing_description
+# x-sailjail-long-description = Share data via bluetooth, email and other accounts
 
 # Transferengine
 whitelist /usr/share/nemo-transferengine

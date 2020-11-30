@@ -1,5 +1,7 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Access removable media
+# x-sailjail-translation-key-description =
+# x-sailjail-description = Removable media
+# x-sailjail-translation-key-long-description =
+# x-sailjail-long-description = Use memory cards and USB sticks

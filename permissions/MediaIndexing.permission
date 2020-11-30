@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-media_indexing
-# x-sailjail-description = Access media index
+# x-sailjail-translation-key-description = permission-la-media_indexing
+# x-sailjail-description = Media index
+# x-sailjail-translation-key-long-description = permission-la-media_indexing_description
+# x-sailjail-long-description = List files stored on device
 
 whitelist /usr/share/tracker
 
