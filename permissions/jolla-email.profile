@@ -9,7 +9,7 @@
 ### PERMISSIONS
 # x-sailjail-permission = Accounts
 # x-sailjail-permission = Phone
-# x-sailjail-permission = EMail
+# x-sailjail-permission = Email
 # x-sailjail-permission = Mozilla
 # x-sailjail-permission = Location
 # x-sailjail-permission = Privileged

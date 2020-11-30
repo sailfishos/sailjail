@@ -16,4 +16,4 @@ dbus-user.broadcast org.nemo.transferengine=org.nemo.transferengine.*@/*
 
 include /etc/sailjail/permissions/Bluetooth.permission
 include /etc/sailjail/permissions/Accounts.permission
-include /etc/sailjail/permissions/EMail.permission
+include /etc/sailjail/permissions/Email.permission
