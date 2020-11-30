@@ -15,7 +15,6 @@
 # x-sailjail-permission = Privileged
 # x-sailjail-permission = Internet
 # x-sailjail-permission = Connman
-# x-sailjail-permission = UDisks
 # for starting messageserver5
 # x-sailjail-permission = AppLaunch
 
