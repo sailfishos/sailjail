@@ -7,8 +7,8 @@
 # x-sailjail-description = Execute jolla-camera application
 
 ### PERMISSIONS
-# x-sailjail-permission = Camera,Pictures,Vides,MediaIndexing,Location,UDisks,Privileged
+# x-sailjail-permission = Camera,Pictures,Videos,MediaIndexing,Location,UDisks,Privileged
 
 ### APPLICATION
-private-bin jolla-camera
+private-bin jolla-camera,jolla-camera-lockscreen
 dbus-user.own com.jolla.camera
