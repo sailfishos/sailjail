@@ -10,7 +10,6 @@
 # x-sailjail-permission = Contacts
 # x-sailjail-permission = Notifications
 # x-sailjail-permission = Phone
-# x-sailjail-permission = UDisks
 
 ### APPLICATION
 private-bin jolla-messages

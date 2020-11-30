@@ -143,3 +143,6 @@ shell none
 caps.drop all
 nonewprivs
 seccomp
+
+### udisks2
+include /etc/sailjail/permissions/UDisks.permission

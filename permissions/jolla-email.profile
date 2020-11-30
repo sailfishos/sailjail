@@ -9,13 +9,12 @@
 ### PERMISSIONS
 # x-sailjail-permission = Accounts
 # x-sailjail-permission = Phone
-# x-sailjail-permission = EMail
+# x-sailjail-permission = Email
 # x-sailjail-permission = Mozilla
 # x-sailjail-permission = Location
 # x-sailjail-permission = Privileged
 # x-sailjail-permission = Internet
 # x-sailjail-permission = Connman
-# x-sailjail-permission = UDisks
 # for starting messageserver5
 # x-sailjail-permission = AppLaunch
 

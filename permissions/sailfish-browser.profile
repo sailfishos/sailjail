@@ -21,7 +21,6 @@
 # x-sailjail-permission = Connman
 # for starting messageserver5
 # x-sailjail-permission = AppLaunch
-# x-sailjail-permission = UDisks
 # x-sailjail-permission = SyncFW
 
 ### APPLICATION

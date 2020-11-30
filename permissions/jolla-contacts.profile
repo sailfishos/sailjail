@@ -17,7 +17,6 @@
 # x-sailjail-permission = Contacts
 # x-sailjail-permission = SyncFW
 # x-sailjail-permission = Privileged
-# x-sailjail-permission = UDisks
 
 ### APPLICATION
 private-bin jolla-contacts
