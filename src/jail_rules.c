@@ -514,12 +514,14 @@ jail_rules_parse_section(
             if (*name) {
                 char* file = g_strconcat(name, SAILJAIL_PERMISSION_SUFFIX,
                     NULL);
+                char* file_path = g_build_filename(conf->perm_dir, file, NULL);
 
                 if (permit == JAIL_PERMIT_INVALID ||
-                    g_file_test(file, G_FILE_TEST_EXISTS)) {
+                    g_file_test(file_path, G_FILE_TEST_EXISTS)) {
                     jail_rules_add_profile(data, conf, file, require);
                 }
                 g_free(file);
+                g_free(file_path);
             }
         }
         g_strfreev(vals);
