@@ -11,7 +11,7 @@ Source0:  %{name}-%{version}.tar.bz2
 
 %{!?jailfish: %define jailfish 1}
 %if %{jailfish}
-Requires: firejail
+Requires: firejail >= 0.9.63+git3
 Requires: xdg-dbus-proxy
 %else
 Provides: sailjail-launch-approval
