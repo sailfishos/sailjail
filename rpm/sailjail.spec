@@ -16,6 +16,7 @@ Requires: xdg-dbus-proxy
 %else
 Provides: sailjail-launch-approval
 %endif
+Requires: sailjail-permissions
 
 Requires: glib2 >= %{glib_version}
 Requires: libglibutil >= %{libglibutil_version}
@@ -23,8 +24,6 @@ Requires: libglibutil >= %{libglibutil_version}
 # libglibutil >= 1.0.49 is required for gutil_slice_free() macro
 BuildRequires: pkgconfig(libglibutil) >= 1.0.49
 BuildRequires: pkgconfig(glib-2.0) >= %{glib_version}
-
-%define permissions_dir /etc/sailjail/permissions
 
 %description
 Firejail-based sanboxing for Sailfish OS.
@@ -56,12 +55,10 @@ make HAVE_FIREJAIL=%{jailfish} -C unit test
 
 %files
 %defattr(-,root,root,-)
-%dir %attr(755,root,root) %{permissions_dir}
 %if %{jailfish}
 %attr(6755,root,root) %{_bindir}/sailjail
 %endif
 %{_bindir}/sailjail
-%{permissions_dir}/*
 
 %files plugin-devel
 %defattr(-,root,root,-)
