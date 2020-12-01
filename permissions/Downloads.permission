@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-downloads
-# x-sailjail-description = Access downloads
+# x-sailjail-translation-key-description = permission-la-downloads
+# x-sailjail-description = Downloads
+# x-sailjail-translation-key-long-description = permission-la-downloads_description
+# x-sailjail-long-description = Use downloaded files
 
 mkdir     ${HOME}/Downloads
 whitelist ${HOME}/Downloads

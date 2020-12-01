@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-videos
-# x-sailjail-description = Access videos
+# x-sailjail-translation-key-description = permission-la-videos
+# x-sailjail-description = Videos
+# x-sailjail-translation-key-long-description = permission-la-videos_description
+# x-sailjail-long-description = Use stored video files
 
 mkdir     ${HOME}/Videos
 whitelist ${HOME}/Videos

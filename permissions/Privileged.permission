@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
-# x-sailjail-description = Access privileged user data
+# x-sailjail-translation-key-description =
+# x-sailjail-description = Privileged user data
+# x-sailjail-translation-key-long-description =
+# x-sailjail-long-description =
 
 # We have library code that checks whether privileged
 # data directory uid=privileged and gid=privileged.

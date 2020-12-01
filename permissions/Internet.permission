@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-internet
-# x-sailjail-description = Access Internet
+# x-sailjail-translation-key-description = permission-la-internet
+# x-sailjail-description = Internet
+# x-sailjail-translation-key-long-description = permission-la-internet_description
+# x-sailjail-long-description = Use and control internet connectivity
 
 # XXX: does "netlink" really belong here?
 ### network

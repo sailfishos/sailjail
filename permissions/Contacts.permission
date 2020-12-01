@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-contacts
-# x-sailjail-description = Access contacts
+# x-sailjail-translation-key-description = permission-la-contacts
+# x-sailjail-description = Contacts
+# x-sailjail-translation-key-long-description = permission-la-contacts_description
+# x-sailjail-long-description = Display and edit contacts
 
 whitelist /usr/share/jolla-settings/pages/jolla-contacts
 whitelist /usr/share/jolla-contacts

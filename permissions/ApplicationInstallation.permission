@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-application_installation
+# x-sailjail-translation-key-description = permission-la-application_installation
 # x-sailjail-description = Install apps
+# x-sailjail-translation-key-long-description = permission-la-application_installation_description
+# x-sailjail-long-description = Install and uninstall applications
 
 whitelist /var/cache/PackageKit/downloads
 

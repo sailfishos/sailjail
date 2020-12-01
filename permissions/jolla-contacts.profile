@@ -3,8 +3,10 @@
 # Firejail profile for /usr/bin/jolla-contacts
 
 # x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
+# x-sailjail-translation-key-description =
 # x-sailjail-description = Execute jolla-contacts application
+# x-sailjail-translation-key-long-description =
+# x-sailjail-long-description =
 
 ### PERMISSIONS
 # x-sailjail-permission = Bluetooth

@@ -3,8 +3,10 @@
 # FIXME: what exactly requires udisks???
 
 # x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
+# x-sailjail-translation-key-description =
 # x-sailjail-description = Use UDisks2
+# x-sailjail-translation-key-long-description =
+# x-sailjail-long-description =
 
 # BEG systembus-org.freedesktop.UDisks2.resource
 dbus-system.talk org.freedesktop.UDisks2

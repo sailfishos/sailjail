@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-phone
-# x-sailjail-description = Access phone
+# x-sailjail-translation-key-description = permission-la-phone
+# x-sailjail-description = Phone
+# x-sailjail-translation-key-long-description = permission-la-phone_description
+# x-sailjail-long-description = Make phone calls
 
 # BEG systembus-org.ofono.resource
 dbus-system.talk org.ofono

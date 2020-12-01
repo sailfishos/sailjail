@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-webview
-# x-sailjail-description = Access webview
+# x-sailjail-translation-key-description = permission-la-webview
+# x-sailjail-description = Web content
+# x-sailjail-translation-key-long-description = permission-la-webview_description
+# x-sailjail-long-description = Viewing web content
 
 private-etc ssl,hosts,pki,crypto-policies
 

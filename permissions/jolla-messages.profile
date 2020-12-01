@@ -3,8 +3,10 @@
 # Firejail profile for /usr/bin/jolla-messages
 
 # x-sailjail-translation-catalog =
-# x-sailjail-translation-key =
+# x-sailjail-translation-key-description =
 # x-sailjail-description = Execute jolla-messages application
+# x-sailjail-translation-key-long-description =
+# x-sailjail-long-description =
 
 ### PERMISSIONS
 # x-sailjail-permission = Contacts

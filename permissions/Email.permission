@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-email
-# x-sailjail-description = Access email
+# x-sailjail-translation-key-description = permission-la-email
+# x-sailjail-description = Email
+# x-sailjail-translation-key-long-description = permission-la-email_description
+# x-sailjail-long-description = Read and send email
 
 whitelist /usr/share/jolla-settings/pages/jolla-email
 whitelist /usr/share/jolla-email

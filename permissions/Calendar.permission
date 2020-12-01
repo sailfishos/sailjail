@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-calendar
-# x-sailjail-description = Access calendar
+# x-sailjail-translation-key-description = permission-la-calendar
+# x-sailjail-description = Calendar
+# x-sailjail-translation-key-long-description = permission-la-calendar_description
+# x-sailjail-long-description = Display and edit calendar events
 
 whitelist /usr/share/jolla-calendar
 

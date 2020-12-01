@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-messages
-# x-sailjail-description = Access messages
+# x-sailjail-translation-key-description = permission-la-messages
+# x-sailjail-description = Messages
+# x-sailjail-translation-key-long-description = permission-la-messages_description
+# x-sailjail-long-description = Display and send SMS and other types of messages
 
 # BEG systembus-org.ofono.resource
 dbus-system.talk org.ofono

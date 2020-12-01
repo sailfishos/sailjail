@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-notification
-# x-sailjail-description = Access notifications
+# x-sailjail-translation-key-description = permission-la-notification
+# x-sailjail-description = Notifications
+# x-sailjail-translation-key-long-description = permission-la-notification_description
+# x-sailjail-long-description = Display notifications
 
 whitelist /usr/share/lipstick-jolla-home-qt5/notifications
 

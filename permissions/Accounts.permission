@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-accounts
-# x-sailjail-description = Access accounts
+# x-sailjail-translation-key-description = permission-la-accounts
+# x-sailjail-description = Accounts
+# x-sailjail-translation-key-long-description = permission-la-accounts_description
+# x-sailjail-long-description = Create, modify and delete accounts
 
 whitelist /usr/share/jolla-settings/pages/accounts
 whitelist /usr/share/xml/accounts

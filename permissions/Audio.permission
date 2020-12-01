@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-audio
+# x-sailjail-translation-key-description = permission-la-audio
 # x-sailjail-description = Play audio
+# x-sailjail-translation-key-long-description = permission-la-audio_description
+# x-sailjail-long-description = Play audio and show audio controls on lockscreen
 
 private-etc pulse
 

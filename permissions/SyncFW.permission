@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-synchronization
-# x-sailjail-description = Use data synchronization
+# x-sailjail-translation-key-description = permission-la-synchronization
+# x-sailjail-description = Synchronization
+# x-sailjail-translation-key-long-description = permission-la-synchronization_description
+# x-sailjail-long-description = Synchronize data between device and online accounts
 
 private-etc buteo
 

@@ -1,8 +1,10 @@
 # -*- mode: sh -*-
 
 # x-sailjail-translation-catalog = sailjail-permissions
-# x-sailjail-translation-key = permission-la-pictures
-# x-sailjail-description = Access pictures
+# x-sailjail-translation-key-description = permission-la-pictures
+# x-sailjail-description = Pictures
+# x-sailjail-translation-key-long-description = permission-la-pictures_description
+# x-sailjail-long-description = Use stored picture files
 
 mkdir     ${HOME}/Pictures
 whitelist ${HOME}/Pictures
