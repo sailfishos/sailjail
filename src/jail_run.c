@@ -196,7 +196,21 @@ jail_run(
 
     /* Files and directories */
     for (path_ptr = rules->paths; *path_ptr; path_ptr++) {
+        static const char home_prefix[] = "${HOME}/";
         const JailPath* jp = *path_ptr;
+        /* FIXME: Whitelisting can be about directories or files.
+         *        This works in the expected manner only as long as
+         *        sailjail features are used only for whitelisting
+         *        directories. See jail_rules_parse_section().
+         */
+        if (jp->allow && jp->require) {
+            if (!strncmp(jp->path, home_prefix, sizeof home_prefix - 1)) {
+                char* opt = g_strconcat("--mkdir=", jp->path, NULL);
+                g_ptr_array_add(args, opt);
+                g_ptr_array_add(args_alloc, opt);
+            }
+        }
+
         char* opt = g_strconcat(jp->allow ? FIREJAIL_WHITELIST_OPT :
             FIREJAIL_BLACKLIST_OPT, jp->path, NULL);
 
