@@ -12,4 +12,10 @@ protocol inet,inet6,netlink
 #net eth0
 #netfilter
 
+# ConnectionSelector
+# BEG sessionbus-com.jolla.lipstick.ConnectionSelector.resource
+dbus-user.talk com.jolla.lipstick.ConnectionSelector
+dbus-user.broadcast com.jolla.lipstick.ConnectionSelector=com.jolla.lipstick.ConnectionSelectorIf.*@/*
+# END sessionbus-com.jolla.lipstick.ConnectionSelector.resource
+
 include /etc/sailjail/permissions/Connman.permission

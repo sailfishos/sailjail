@@ -30,7 +30,6 @@ include /etc/sailjail/permissions/AppLaunch.permission
 
 # Connectivity
 include /etc/sailjail/permissions/Internet.permission
-include /etc/sailjail/permissions/Connman.permission
 
 # Adding attachments
 include /etc/sailjail/permissions/Documents.permission
