@@ -1,6 +1,6 @@
 Name:     sailjail
 Summary:  Firejail-based sanboxing tool
-Version:  1.0.17
+Version:  1.0.18
 Release:  1
 License:  BSD
 URL:      https://github.com/sailfishos/sailjail
