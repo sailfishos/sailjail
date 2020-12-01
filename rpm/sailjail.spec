@@ -55,6 +55,7 @@ make HAVE_FIREJAIL=%{jailfish} -C unit test
 
 %files
 %defattr(-,root,root,-)
+%license COPYING
 %if %{jailfish}
 %attr(6755,root,root) %{_bindir}/sailjail
 %endif
