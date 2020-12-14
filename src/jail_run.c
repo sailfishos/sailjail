@@ -259,6 +259,22 @@ jail_run(
         g_ptr_array_add(args, (gpointer) FIREJAIL_DBUS_USER_LOG);
     }
 
+    /* Add --private-bin=<this application>
+     *
+     * Makes sure private-bin feature is activated, so that
+     * by default only the application binary is visible in sandbox.
+     *
+     * If application has a legitimated need to execute helper binaries
+     * in /bin or /usr/bin dirs, those need to be added to private-bin
+     * via configuration files.
+     */
+    {
+        const char *appname = basename(*argv);
+        char *opt = g_strdup_printf("--private-bin=%s", appname);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
+    }
+
     /* 3. Done with firejail options */
     g_ptr_array_add(args, (gpointer) FIREJAIL_FINISH_OPT);
 
