@@ -10,7 +10,7 @@ Application [permissions](https://github.com/sailfishos/sailjail-permissions#sai
 
 Application desktop file changes are described in the [Sailjail Permissions documentation](https://github.com/sailfishos/sailjail-permissions#enable-sandboxing-for-an-application).
 
-Sailjail parses requested permissions and builds Firejail command line arguments out of the requested permissions.
+Sailjail parses the permissions and builds Firejail command line arguments out of the requested permissions.
 
 ## Application data structure
 
@@ -44,11 +44,11 @@ With above example application desktop file Firejail command line arguments cont
 
 ## Homescreen integration
 
-The Sailjail package contains sailjail-plugin-devel sub-package that provides interfaces for building a homescreen integration plugin. Idea is that the plugin adds launching hooks and Sailjail triggers a hook to confirm the launch. The plugin in turn replies by denying or accepting the application launch. In case the plugin replies that permissions are not granted (denied) Sailjail refuses to start the application.
+The Sailjail package contains sailjail-plugin-devel subpackage that provides interfaces for building homescreen integration plugins. The idea is that plugin adds launching hooks and Sailjail triggers a hook to confirm the launch. The plugin in turn replies by denying or accepting the application launch. In case the plugin replies that permissions are not granted (i.e. are denied) Sailjail refuses to start the application.
 
-Sailfish OS implements a homescreen integration plugin. Application permission are requested upon first application launch and accepted permissions are stored to root readable directory under */var/lib/sailjail-homescreen/\<uid\>/\<full-desktop-file-path\>/X-Sailjail*. Subsequential application launches do not re-trigger permission request.
+Sailfish OS implements a homescreen integration plugin. Application permission are requested from user upon first application launch and accepted permissions are stored to root readable directory under */var/lib/sailjail-homescreen/\<uid\>/\<full-desktop-file-path\>/X-Sailjail*. Subsequent application launches do not re-trigger the permission request.
 
-When an application is upgraded and new permissions are introduced, permissions are requested again from the user. If permissions are removed from the application during upgrade, already approved permissions are considered sufficient and an intersection of Permissions defined in the application desktop and approved permissions are applied to the application.
+When an application is upgraded and new permissions are introduced, permissions are requested again from the user. If permissions are removed from the application during upgrade, already approved permissions are considered sufficient and an intersection of permissions defined in the application desktop file and approved permissions are applied to the application.
 
 When going forward we are working towards more dynamic permission management system. Requested application permissions are visible in Settings -> Apps -> Application when application is sandboxed.
 

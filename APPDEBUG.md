@@ -3,7 +3,7 @@
 Basically debugging existing saljail application profiles is very
 similar to creating and debugging firejail profile in learn mode: enable
 sufficiently verbose tracing, reproduce the problem and inspect traces
-to find out what is causing the sandboxed application to mishehave.
+to find out what is causing the sandboxed application to misbehave.
 
 The biggest difference is that the process needs to be adjusted to take
 into account the fact that all permission mapping and granting
@@ -84,7 +84,7 @@ In this example we use "/tmp/notest-trace" as destination directory.
 Create trace output directory, make sure it is writable by appropriate
 user:
 
-> Note: Sailjail exits if trace destionation directory does not exist
+> Note: Sailjail exits if trace destination directory does not exist
 > -&gt; If tmpfs destinations are used, these directories must be
 > recreated after each reboot.
 
@@ -147,7 +147,7 @@ application.
 
 After the traced application has exited, the trace directory should
 contain following kinds of files: firejail output, listing of libc
-function calls trapped via libtrace preload library, dbus traffic
+function calls trapped via libtrace preload library and dbus traffic
 logging from xdg-dbus-proxy instance.
 
 Brief outline of content is listed below.
