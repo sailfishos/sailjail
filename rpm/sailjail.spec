@@ -36,6 +36,14 @@ Requires: pkgconfig(libglibutil)
 %description plugin-devel
 This package contains development files for %{name} plugins.
 
+%package tools
+Summary: Tools for developing %{name}'d apps
+Requires: python3-base
+
+%description tools
+%{summary}.
+Contains a script to measure launching time.
+
 %prep
 %setup -q -n %{name}-%{version}
 
@@ -49,6 +57,9 @@ make %{_smp_mflags} \
 %install
 rm -rf %{buildroot}
 make DESTDIR=%{buildroot} LIBDIR=%{_libdir} install install-dev
+
+install -D -m755 tools/measure_launch_time.py \
+        %{buildroot}%{_bindir}/measure_launch_time
 
 %check
 make HAVE_FIREJAIL=%{jailfish} -C unit test
@@ -66,3 +77,7 @@ make HAVE_FIREJAIL=%{jailfish} -C unit test
 %dir %{_includedir}/%{name}
 %{_includedir}/%{name}/*.h
 %{_libdir}/pkgconfig/*.pc
+
+%files tools
+%defattr(-,root,root,-)
+%{_bindir}/measure_launch_time
