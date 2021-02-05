@@ -159,7 +159,7 @@ jail_run(
     const JailPath* const* path_ptr;
     const JailPermit* const* perm_ptr;
     const JailProfile* const* pro_ptr;
-    gid_t egid = creds->egid;
+    gid_t egid = creds->rgid;
     guint i;
     GPtrArray* args = g_ptr_array_new(); /* All arguments */
     GPtrArray* args_alloc = g_ptr_array_new(); /* Only the allocated ones */
@@ -312,9 +312,6 @@ jail_run(
             }
         }
     }
-
-    setfsuid(creds->euid);
-    setfsgid(egid);
 
     /* FIXME: In case of privileged application we want to
      *        use egid=privileged, but as firejail seems
