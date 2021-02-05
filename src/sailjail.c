@@ -71,8 +71,6 @@
 #define RET_EXEC 5
 
 typedef struct jail_args {
-    char* conf_file;
-    char* plugin_dir;
     char* profile;
     char* section;
     char* sailfish_app;
@@ -147,8 +145,6 @@ void
 jail_args_clear(
     JailArgs* args)
 {
-    g_free(args->conf_file);
-    g_free(args->plugin_dir);
     g_free(args->profile);
     g_free(args->section);
     g_free(args->sailfish_app);
@@ -189,11 +185,6 @@ sailjail_sandbox(
     JailConf actual_conf = *conf;
     JailLaunchHooks* hooks = jail_launch_hooks_new();
     JailPlugins* plugins;
-
-    /* Directory specified on the command line overrides the config */
-    if (args->plugin_dir) {
-        actual_conf.plugin_dir = args->plugin_dir;
-    }
 
     memset(&jail, 0, sizeof(jail));
     jail.hooks = hooks;
@@ -327,15 +318,8 @@ int main(int argc, char* argv[])
     int ret = RET_CMDLINE;
     JailArgs args;
     GError* error = NULL;
-    int pre_argc;
-    char** pre_argv;
     GOptionContext* options;
     GOptionEntry entries[] = {
-        { "config", 'c',
-          G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &args.conf_file,
-          "Sailjail config file [" DEFAULT_CONF_FILE "]", "FILE" },
-        { "plugin-dir", 'd', 0, G_OPTION_ARG_FILENAME, &args.plugin_dir,
-          "Plugin directory [" DEFAULT_PLUGIN_DIR "]", "DIR" },
         { "profile", 'p',
           G_OPTION_FLAG_NONE, G_OPTION_ARG_FILENAME, &args.profile,
           "Application profile", "FILE" },
@@ -366,55 +350,15 @@ int main(int argc, char* argv[])
     gutil_log_default.level = GLOG_LEVEL_DEFAULT;
     gutil_log_timestamp = FALSE;
 
-    /*
-     * First pre-parse the command line to get the config file name.
-     * Let it damage the temporarary list of arguments. We will the
-     * real one later, when we actually parse the command line.
-     */
+    /* The config file may be (and usually is) missing */
+    if (g_file_test(DEFAULT_CONF_FILE, G_FILE_TEST_EXISTS)) {
+        jail_conf_load(conf, DEFAULT_CONF_FILE, NULL);
+    }
+
+    /* Parse the command line */
     memset(&args, 0, sizeof(args));
     options = jail_opt_context_new(entries, &args);
-    pre_argc = argc;
-    pre_argv = g_memdup(argv, sizeof(argv[0]) * argc);
-    ok = g_option_context_parse(options, &pre_argc, &pre_argv, &error);
-    g_free(pre_argv);
-
-    /*
-     * If pre-parsing succeeds, we need to read the config before
-     * parsing the rest of the command line, to allow command line
-     * options to overwrite those specified in the config file.
-     */
-    if (ok) {
-        if (args.conf_file) {
-            /* Config file was specified on the command line */
-            ok = jail_conf_load(conf, args.conf_file, &error);
-        } else {
-            /* The default config file may be (and usually is) missing */
-            if (g_file_test(DEFAULT_CONF_FILE, G_FILE_TEST_EXISTS)) {
-                jail_conf_load(conf, DEFAULT_CONF_FILE, NULL);
-            }
-        }
-
-        if (ok) {
-            /* Allocate new parser */
-            g_option_context_free(options);
-
-            /* Reset the state */
-            jail_args_clear(&args);
-            verbose_level = 0;
-            gutil_log_default.level = GLOG_LEVEL_DEFAULT;
-
-            /* Re-parse the command line */
-            options = jail_opt_context_new(entries, &args);
-            ok = g_option_context_parse(options, &argc, &argv, &error);
-        } else if (error) {
-            /* Improve error message by prepending the file name */
-            GError* details = g_error_new(error->domain, error->code,
-                "%s: %s", args.conf_file, error->message);
-
-            g_error_free(error);
-            error = details;
-        }
-    }
+    ok = g_option_context_parse(options, &argc, &argv, &error);
 
     if (ok) {
         if (argc > 1) {
