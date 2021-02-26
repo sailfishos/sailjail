@@ -361,6 +361,12 @@ int main(int argc, char* argv[])
     ok = g_option_context_parse(options, &argc, &argv, &error);
 
     if (ok) {
+        /* Remove "--" from the list if it is there */
+        if (argc > 1 && !strcmp(argv[1], "--")) {
+            argv[1] = argv[0];
+            argv++;
+            argc--;
+        }
         if (argc > 1) {
             ret = sailjail_main(argc, argv, conf, &args);
         } else {

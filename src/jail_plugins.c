@@ -58,7 +58,7 @@ jail_plugins_scan_plugin_dir(
     GDir* dir = g_dir_open(plugin_dir, 0, NULL);
 
     if (dir) {
-	const char* file;
+	    const char* file;
 
         while ((file = g_dir_read_name(dir)) != NULL) {
             if (!g_str_has_prefix(file, "lib") &&
