@@ -824,9 +824,16 @@ jail_rules_build(
                 data = jail_rules_parse_file(keyfile, path, prog, conf, opt,
                     section, error);
             } else if (error) {
+                const char *message = (*error)->message;
+                if (g_error_matches(*error, G_KEY_FILE_ERROR,
+                            G_KEY_FILE_ERROR_PARSE)) {
+                    /* Substitute better error message, show orginal with -v */
+                    GDEBUG("%s: %s", path, message);
+                    message = "Does not look like application profile";
+                }
                 /* Improve error message by prepending the file name */
                 GError* details = g_error_new((*error)->domain, (*error)->code,
-                    "%s: %s", path, (*error)->message);
+                    "%s: %s", path, message);
 
                 g_error_free(*error);
                 *error = details;
