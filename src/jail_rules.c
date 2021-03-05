@@ -59,7 +59,8 @@ static const char DESKTOP_KEY_DESKTOP_ENTRY_TYPE[] = "Type";
 static const char DESKTOP_ENTRY_TYPE_APPLICATION[] = "Application";
 
 /* desktop-file-install wants X- prefix */
-static const char SAILJAIL_SECTION_DESKTOP_DEFAULT[] = "X-Sailjail";
+static const char SAILJAIL_SECTION_DESKTOP_DEFAULT[] =
+        ALTERNATE_DEFAULT_PROFILE_SECTION;
 static const char SAILJAIL_SECTION_DEFAULT[] = DEFAULT_PROFILE_SECTION;
 static const char SAILJAIL_LIST_SEPARATORS[] = ":;,";
 

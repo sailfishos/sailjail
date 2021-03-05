@@ -41,6 +41,7 @@
 #include "jail_rules.h"
 
 #define DEFAULT_PROFILE_SECTION "Sailjail"
+#define ALTERNATE_DEFAULT_PROFILE_SECTION "X-" DEFAULT_PROFILE_SECTION
 
 typedef struct jail_rules_opt {
     const char* profile;

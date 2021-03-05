@@ -325,7 +325,8 @@ int main(int argc, char* argv[])
           "Application profile", "FILE" },
         { "section", 's',
           G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &args.section,
-          "Sailjail section in the profile [" DEFAULT_PROFILE_SECTION "]",
+          "Sailjail section in the profile [" DEFAULT_PROFILE_SECTION "|"
+          ALTERNATE_DEFAULT_PROFILE_SECTION "]",
           "NAME" },
         { "app", 'a',
           G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &args.sailfish_app,
