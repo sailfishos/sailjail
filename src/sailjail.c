@@ -369,7 +369,12 @@ int main(int argc, char* argv[])
             argc--;
         }
         if (argc > 1) {
-            ret = sailjail_main(argc, argv, conf, &args);
+            /* PROGRAM must be defined with an absolute path */
+            if (argv[1][0] != '/') {
+                fprintf(stderr, "%s: must be an absolute path\n", argv[1]);
+            } else {
+                ret = sailjail_main(argc, argv, conf, &args);
+            }
         } else {
             char* help = g_option_context_get_help(options, TRUE, NULL);
 

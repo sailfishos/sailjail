@@ -41,6 +41,7 @@ Example desktop file
     ApplicationName=myapp
 
 With above example application desktop file Firejail command line arguments contain implicitly *--dbus-user.own=org.foobar.myapp* when launched through Sailjail.
+Use of absolute paths is required, except for the desktop file if it is located in /usr/share/applications which is also required by homescreen integration in most cases.
 
 ## Homescreen integration
 
