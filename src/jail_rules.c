@@ -467,9 +467,6 @@ jail_rules_data_new(
     const JailConf* conf)
 {
     JailRulesData* data = jail_rules_data_alloc();
-
-    /* Always include required base profile */
-    jail_rules_add_profile(data, conf, SAILJAIL_BASE_PERM, TRUE);
     return data;
 }
 
@@ -763,7 +760,7 @@ jail_rules_profile_path(
 
     if (profile) {
         if (jail_rules_basename(profile) == profile) {
-            /* Appends the suffix only if it's not already there */
+            /* Determine directory from the suffix */
             const char* default_dir =
                 g_str_has_suffix(profile, SAILJAIL_PROFILE_SUFFIX) ?
                 conf->profile_dir :
@@ -850,6 +847,15 @@ jail_rules_build(
                 }
             }
         }
+
+        if (data) {
+            /*
+             * Always include required base profile. Append it as the very last
+             * profile to allow noblacklist in other profiles.
+             */
+            jail_rules_add_profile(data, conf, SAILJAIL_BASE_PERM, TRUE);
+        }
+
         g_free(path);
         return data;
     }
@@ -985,8 +991,12 @@ jail_rules_keyfile_parse(
     const char* app) /* Since 1.0.2 */
 {
     if (jail && keyfile) {
-        return jail_rules_from_data(jail_rules_parse_section(keyfile,
-            section ? section : SAILJAIL_SECTION_DEFAULT, app, jail->conf));
+        JailRulesData* data = jail_rules_parse_section(keyfile,
+            section ? section : SAILJAIL_SECTION_DEFAULT, app, jail->conf);
+        if (data) {
+            jail_rules_add_profile(data, jail->conf, SAILJAIL_BASE_PERM, TRUE);
+        }
+        return jail_rules_from_data(data);
     }
     return NULL;
 }
