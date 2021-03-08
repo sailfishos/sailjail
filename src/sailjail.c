@@ -166,6 +166,12 @@ jail_opt_context_new(
 
     g_option_context_set_strict_posix(options, TRUE);
     g_option_context_set_summary(options, "Runs PROGRAM in a sandbox.");
+    g_option_context_set_description(options,
+        "PROGRAM must be an absolute path to application binary "
+        "to run in a sandbox.\n\n"
+        "Application profile is usually a desktop entry file defining ["
+        ALTERNATE_DEFAULT_PROFILE_SECTION "] section and "
+        PERMISSION_LIST_KEY " key.");
     return options;
 }
 

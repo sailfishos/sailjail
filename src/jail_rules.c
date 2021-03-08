@@ -64,7 +64,7 @@ static const char SAILJAIL_SECTION_DESKTOP_DEFAULT[] =
 static const char SAILJAIL_SECTION_DEFAULT[] = DEFAULT_PROFILE_SECTION;
 static const char SAILJAIL_LIST_SEPARATORS[] = ":;,";
 
-static const char SAILJAIL_KEY_PERMS[] = "Permissions";
+static const char SAILJAIL_KEY_PERMS[] = PERMISSION_LIST_KEY;
 #define SAILJAIL_KEY_PERM_REQUIRED '!'
 #define SAILJAIL_KEY_PERM_OPTIONAL '?'
 
