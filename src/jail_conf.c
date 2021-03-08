@@ -85,9 +85,14 @@ jail_conf_parse(
 
     str = g_key_file_get_string(f, SECTION, KEY_EXEC, NULL);
     if (str) {
-        g_free(priv->exec);
-        conf->exec = priv->exec = str;
-        GDEBUG("  %s=%s", KEY_EXEC, conf->exec);
+        if (str[0] != '/') {
+            /* Protecting user from bad decisions */
+            GWARN("[sailjail] " KEY_EXEC "value '%s' must be an absolute path, ignoring!", str);
+        } else {
+            g_free(priv->exec);
+            conf->exec = priv->exec = str;
+            GDEBUG("  %s=%s", KEY_EXEC, conf->exec);
+        }
     }
 
     str = g_key_file_get_string(f, SECTION, KEY_PLUGIN_DIR, NULL);
