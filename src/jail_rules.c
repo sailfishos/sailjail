@@ -59,7 +59,8 @@ static const char DESKTOP_KEY_DESKTOP_ENTRY_TYPE[] = "Type";
 static const char DESKTOP_ENTRY_TYPE_APPLICATION[] = "Application";
 
 /* desktop-file-install wants X- prefix */
-static const char SAILJAIL_SECTION_DESKTOP_DEFAULT[] = "X-Sailjail";
+static const char SAILJAIL_SECTION_DESKTOP_DEFAULT[] =
+        ALTERNATE_DEFAULT_PROFILE_SECTION;
 static const char SAILJAIL_SECTION_DEFAULT[] = DEFAULT_PROFILE_SECTION;
 static const char SAILJAIL_LIST_SEPARATORS[] = ":;,";
 
@@ -824,9 +825,16 @@ jail_rules_build(
                 data = jail_rules_parse_file(keyfile, path, prog, conf, opt,
                     section, error);
             } else if (error) {
+                const char *message = (*error)->message;
+                if (g_error_matches(*error, G_KEY_FILE_ERROR,
+                            G_KEY_FILE_ERROR_PARSE)) {
+                    /* Substitute better error message, show orginal with -v */
+                    GDEBUG("%s: %s", path, message);
+                    message = "Does not look like application profile";
+                }
                 /* Improve error message by prepending the file name */
                 GError* details = g_error_new((*error)->domain, (*error)->code,
-                    "%s: %s", path, (*error)->message);
+                    "%s: %s", path, message);
 
                 g_error_free(*error);
                 *error = details;
@@ -908,8 +916,31 @@ jail_rules_new(
     char** section,
     GError** error)
 {
-    return jail_rules_from_data(jail_rules_build(program, conf, opt,
-        profile_path, section, error));
+    JailRules* rules = jail_rules_from_data(jail_rules_build(program,
+        conf, opt, profile_path, section, error));
+    if (error && *error && opt->profile && conf->desktop_dir &&
+            g_str_has_suffix(opt->profile, SAILJAIL_PROFILE_SUFFIX) &&
+            (g_error_matches(*error, G_FILE_ERROR, G_FILE_ERROR_NOENT) ||
+             g_error_matches(*error, G_KEY_FILE_ERROR, G_KEY_FILE_ERROR_PARSE))
+            ) {
+        /* User supplied .profile file which wasn't appropriate */
+        char* name = g_path_get_basename(opt->profile);
+        *strrchr(name, '.') = 0; /* The suffix is there and begins with a dot */
+        char* app_desktop = g_strconcat(name, SAILJAIL_DESKTOP_SUFFIX, NULL);
+        char* desktop = g_build_filename(conf->desktop_dir, app_desktop, NULL);
+        if (g_file_test(desktop, G_FILE_TEST_IS_REGULAR)) {
+            /* There is a matching .desktop file, suggest that instead */
+            GError* suggest = g_error_new((*error)->domain, (*error)->code,
+                "%s, however %s exists, maybe try that instead",
+                (*error)->message, app_desktop);
+            g_error_free(*error);
+            *error = suggest;
+        }
+        g_free(desktop);
+        g_free(app_desktop);
+        g_free(name);
+    }
+    return rules;
 }
 
 JailRules*
