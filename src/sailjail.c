@@ -175,6 +175,28 @@ jail_opt_context_new(
     return options;
 }
 
+static
+gboolean
+jail_test_elf(
+    const char* filename)
+{
+    gboolean ret = FALSE;
+    const char elf[4] = {0x7f, 'E', 'L', 'F'};
+    FILE* file = fopen(filename, "rb");
+    if (!file) {
+        GERR("%s: could not open", filename);
+    } else {
+        char data[4];
+        if (fread(data, sizeof(data), 1, file) != 1) {
+            GERR("%s: could not read", filename);
+        } else if (memcmp(data, elf, sizeof(data)) == 0) {
+            ret = TRUE;
+        }
+        fclose(file);
+    }
+    return ret;
+}
+
 #if HAVE_FIREJAIL
 
 static
@@ -298,15 +320,27 @@ sailjail_main(
         }
 #endif
 
+        /* Check what we are trying to execute */
+        if (!g_file_test(argv[1], G_FILE_TEST_IS_REGULAR)) {
+            GERR("%s: no such file", argv[1]);
+        } else {
+            if (!g_file_test(argv[1], G_FILE_TEST_IS_EXECUTABLE)) {
+                GWARN("%s: is not an executable and might not work properly",
+                      argv[1]);
+            } else if (!jail_test_elf(argv[1])) {
+                GWARN("%s: is not an elf file and might not work properly",
+                      argv[1]);
+            }
 #if HAVE_FIREJAIL
-        if (!conf->passthrough) {
-            ret = sailjail_sandbox(argc, argv, conf, args, creds);
-        } else
+            if (!conf->passthrough) {
+                ret = sailjail_sandbox(argc, argv, conf, args, creds);
+            } else
 #endif
-        {
-            /* Any return from jail_free is an error */
-            jail_free(argc-1, argv+1, creds, &error);
-            ret = RET_EXEC;
+            {
+                /* Any return from jail_free is an error */
+                jail_free(argc-1, argv+1, creds, &error);
+                ret = RET_EXEC;
+            }
         }
         jail_creds_free(creds);
     }
