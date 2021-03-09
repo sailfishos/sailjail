@@ -243,9 +243,9 @@ test_app_profile(
     /* Base and foo.profile must be there */
     g_assert(rules->profiles[0]);
     g_assert_true(rules->profiles[0]->require);
-    g_assert_cmpstr(rules->profiles[0]->path, == ,base_profile);
+    g_assert_cmpstr(rules->profiles[0]->path, == ,bar_profile);
     g_assert_true(rules->profiles[1]->require);
-    g_assert_cmpstr(rules->profiles[1]->path, == ,bar_profile);
+    g_assert_cmpstr(rules->profiles[1]->path, == ,base_profile);
     g_assert_null(rules->profiles[2]);
 
     /* App dirs */
@@ -533,9 +533,9 @@ test_keyfile(
 
     /* Both Base and Test profiles must be there */
     g_assert(rules->profiles[0]);
-    g_assert_cmpstr(rules->profiles[0]->path, == ,base_profile);
+    g_assert_cmpstr(rules->profiles[0]->path, == ,test_profile);
     g_assert(rules->profiles[1]);
-    g_assert_cmpstr(rules->profiles[1]->path, == ,test_profile);
+    g_assert_cmpstr(rules->profiles[1]->path, == ,base_profile);
     g_assert_null(rules->profiles[2]);
 
     /* Now try non-existen section */
@@ -679,10 +679,10 @@ test_basic2(
     g_assert(rules->profiles[0]);
     g_assert(rules->profiles[1]);
     g_assert_null(rules->profiles[2]);
-    g_assert_true(rules->profiles[0]->require);
-    g_assert_cmpstr(rules->profiles[0]->path, == ,base_profile);
-    g_assert_false(rules->profiles[1]->require); /* Test is optional */
-    g_assert_cmpstr(rules->profiles[1]->path, == ,test_profile);
+    g_assert_false(rules->profiles[0]->require); /* Test is optional */
+    g_assert_cmpstr(rules->profiles[0]->path, == ,test_profile);
+    g_assert_true(rules->profiles[1]->require);
+    g_assert_cmpstr(rules->profiles[1]->path, == ,base_profile);
 
     g_assert_true(rules->paths[0]->require);
     g_assert_true(rules->paths[0]->allow);
@@ -772,12 +772,12 @@ test_restrict_basic(
     g_assert(rules->profiles[1]);
     g_assert(rules->profiles[2]);
     g_assert_null(rules->profiles[3]);
-    g_assert_true(rules->profiles[0]->require);
-    g_assert_cmpstr(rules->profiles[0]->path, == ,base_profile);
-    g_assert_true(rules->profiles[1]->require); /* Foo is required */
-    g_assert_cmpstr(rules->profiles[1]->path, == ,foo_profile);
-    g_assert_false(rules->profiles[2]->require); /* Bar is optional */
-    g_assert_cmpstr(rules->profiles[2]->path, == ,bar_profile);
+    g_assert_true(rules->profiles[0]->require); /* Foo is required */
+    g_assert_cmpstr(rules->profiles[0]->path, == ,foo_profile);
+    g_assert_false(rules->profiles[1]->require); /* Bar is optional */
+    g_assert_cmpstr(rules->profiles[1]->path, == ,bar_profile);
+    g_assert_true(rules->profiles[2]->require);
+    g_assert_cmpstr(rules->profiles[2]->path, == ,base_profile);
 
     g_assert(rules->paths[0]);
     g_assert(rules->paths[1]);
@@ -812,10 +812,10 @@ test_restrict_basic(
     g_assert(rules2->profiles[0]);
     g_assert(rules2->profiles[1]);
     g_assert_null(rules2->profiles[2]);
-    g_assert_true(rules2->profiles[0]->require);
-    g_assert_cmpstr(rules2->profiles[0]->path, == ,base_profile);
-    g_assert_true(rules2->profiles[1]->require); /* Foo is required */
-    g_assert_cmpstr(rules2->profiles[1]->path, == ,foo_profile);
+    g_assert_true(rules2->profiles[0]->require); /* Foo is required */
+    g_assert_cmpstr(rules2->profiles[0]->path, == ,foo_profile);
+    g_assert_true(rules2->profiles[1]->require);
+    g_assert_cmpstr(rules2->profiles[1]->path, == ,base_profile);
 
     /* Both paths are still there */
     g_assert(rules2->paths[0]);
