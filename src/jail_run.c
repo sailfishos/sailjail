@@ -331,7 +331,7 @@ jail_run(
             (guint)creds->euid, (guint)creds->suid, strerror(errno)));
     } else {
         fflush(NULL);
-        execvp(conf->exec, (char**) args->pdata);
+        execv(conf->exec, (char**) args->pdata);
         g_propagate_error(error, g_error_new(G_UNIX_ERROR, errno,
             "exec(%s) error: %s", conf->exec, strerror(errno)));
     }

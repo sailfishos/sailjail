@@ -69,7 +69,7 @@ jail_free(
             (guint)creds->euid, (guint)creds->suid, strerror(errno)));
     } else {
         fflush(NULL);
-        execvp(argv[0], (char**) argv);
+        execv(argv[0], (char**) argv);
         g_propagate_error(error, g_error_new(G_UNIX_ERROR, errno,
             "exec(%s) error: %s", argv[0], strerror(errno)));
     }

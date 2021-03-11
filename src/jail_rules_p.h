@@ -42,6 +42,7 @@
 
 #define DEFAULT_PROFILE_SECTION "Sailjail"
 #define ALTERNATE_DEFAULT_PROFILE_SECTION "X-" DEFAULT_PROFILE_SECTION
+#define PERMISSION_LIST_KEY "Permissions"
 
 typedef struct jail_rules_opt {
     const char* profile;
