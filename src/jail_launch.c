@@ -142,7 +142,8 @@ jail_launch_confirm(
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user,
-    JailRules* rules)
+    JailRules* rules,
+    JAIL_LAUNCH_PROMPT prompt)
 {
     JailRules* ret = jail_rules_ref(rules);
     JailLaunchHookEntry* ptr = hooks->first;
@@ -151,7 +152,7 @@ jail_launch_confirm(
         JailLaunchHookEntry* next = ptr->next;
         JailRules* prev = ret;
 
-        ret = jail_launch_hook_confirm_launch(ptr->hook, app, cmd, user, prev);
+        ret = jail_launch_hook_confirm_launch(ptr->hook, app, cmd, user, prev, prompt);
         jail_rules_unref(prev);
         ptr = next;
     }

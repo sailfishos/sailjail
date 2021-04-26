@@ -55,7 +55,8 @@ jail_launch_confirm(
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user,
-    JailRules* rules)
+    JailRules* rules,
+    JAIL_LAUNCH_PROMPT prompt)
     JAIL_INTERNAL;
 
 void

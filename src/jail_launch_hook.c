@@ -75,10 +75,11 @@ jail_launch_hook_confirm_launch(
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user,
-    JailRules* rules)
+    JailRules* rules,
+    JAIL_LAUNCH_PROMPT prompt)
 {
     return G_LIKELY(self) ?
-        GET_CLASS(self)->confirm_launch(self, app, cmd, user, rules) :
+        GET_CLASS(self)->confirm_launch(self, app, cmd, user, rules, prompt) :
         NULL;
 }
 
@@ -118,7 +119,8 @@ jail_launch_hook_default_confirm_launch(
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user,
-    JailRules* rules)
+    JailRules* rules,
+    JAIL_LAUNCH_PROMPT prompt)
 {
     return jail_rules_ref(rules);
 }

@@ -70,11 +70,12 @@ test_hook_confirm_launch(
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user,
-    JailRules* rules)
+    JailRules* rules,
+    JAIL_LAUNCH_PROMPT prompt)
 {
     GDEBUG("Launch approved");
     return JAIL_LAUNCH_HOOK_CLASS(test_hook_parent_class)->
-        confirm_launch(hook, app, cmd, user, rules);
+        confirm_launch(hook, app, cmd, user, rules, prompt);
 }
 
 static
@@ -131,7 +132,8 @@ test_deny_hook_confirm_launch(
     const JailApp* app,
     const JailCmdLine* cmd,
     const JailRunUser* user,
-    JailRules* rules)
+    JailRules* rules,
+    JAIL_LAUNCH_PROMPT prompt)
 {
     GDEBUG("Launch denied");
     return NULL;
@@ -164,7 +166,7 @@ test_null(
     JailConf* conf = jail_conf_new();
     SailJail jail = { jail_launch_hooks_new(), conf };
 
-    g_assert(!jail_launch_confirm(jail.hooks, NULL, NULL, NULL, NULL));
+    g_assert(!jail_launch_confirm(jail.hooks, NULL, NULL, NULL, NULL, JAIL_LAUNCH_PROMPT_IF_NEEDED));
     g_assert(!jail_launch_hook_add(NULL, NULL));
     g_assert(!jail_launch_hook_add(&jail, NULL));
     jail_launch_hook_remove(NULL, 0);
@@ -285,7 +287,7 @@ test_confirm(
     memset(&user, 0, sizeof(user));
 
     /* Without any hooks it returns unmodified unput */
-    rules2 = jail_launch_confirm(jail.hooks, &app, &cmd, &user, rules);
+    rules2 = jail_launch_confirm(jail.hooks, &app, &cmd, &user, rules, JAIL_LAUNCH_PROMPT_IF_NEEDED);
     g_assert(rules == rules2);
     jail_rules_unref(rules2);
 
@@ -296,7 +298,7 @@ test_confirm(
     jail_launch_hook_unref(hook2);  /* Drop our ref */
 
     /* Since our test hooks are simple, input is returned unmodified */
-    rules2 = jail_launch_confirm(jail.hooks, &app, &cmd, &user, rules);
+    rules2 = jail_launch_confirm(jail.hooks, &app, &cmd, &user, rules, JAIL_LAUNCH_PROMPT_IF_NEEDED);
     g_assert(rules == rules2);
 
     /* Tell the hooks what happened */
@@ -363,7 +365,7 @@ test_deny_impl(
     memset(&user, 0, sizeof(user));
 
     /* Launch is denied */
-    g_assert(!jail_launch_confirm(jail.hooks, &app, &cmd, &user, rules));
+    g_assert(!jail_launch_confirm(jail.hooks, &app, &cmd, &user, rules, JAIL_LAUNCH_PROMPT_IF_NEEDED));
 
     /* Tell the hooks what happened */
     jail_launch_denied(jail.hooks, &app, &cmd, &user);

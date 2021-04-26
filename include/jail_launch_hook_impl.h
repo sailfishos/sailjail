@@ -48,7 +48,8 @@ typedef struct jail_launch_hook_class {
 
     JailRules* (*confirm_launch)(JailLaunchHook* hook,
         const JailApp* app, const JailCmdLine* cmd,
-        const JailRunUser* user, JailRules* rules);
+        const JailRunUser* user, JailRules* rules,
+        JAIL_LAUNCH_PROMPT prompt);
     void (*launch_confirmed)(JailLaunchHook* hook,
         const JailApp* app, const JailCmdLine* cmd,
         const JailRunUser* user, const JailRules* rules);

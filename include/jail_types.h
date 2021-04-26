@@ -67,6 +67,12 @@ typedef struct jail_run_user {
     guint ngroups;
 } JailRunUser;
 
+typedef enum jail_launch_prompt {
+    JAIL_LAUNCH_PROMPT_NEVER,
+    JAIL_LAUNCH_PROMPT_IF_NEEDED,
+    JAIL_LAUNCH_PROMPT_ALWAYS
+} JAIL_LAUNCH_PROMPT;
+
 #ifndef SAILJAIL_EXPORT
 #  define SAILJAIL_EXPORT __attribute__((weak))
 #endif

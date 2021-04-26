@@ -70,11 +70,16 @@
 #define RET_ERR 4
 #define RET_EXEC 5
 
+#define CONFIRM_OPTION_CHECK "check"
+#define CONFIRM_OPTION_SILENT "silent"
+#define CONFIRM_OPTION_MANAGE "manage"
+
 typedef struct jail_args {
     char* profile;
     char* section;
     char* sailfish_app;
     char* trace_dir;
+    char* confirm;
 } JailArgs;
 
 static int verbose_level = 0;
@@ -149,6 +154,7 @@ jail_args_clear(
     g_free(args->section);
     g_free(args->sailfish_app);
     g_free(args->trace_dir);
+    g_free(args->confirm);
     memset(args, 0, sizeof(*args));
 }
 
@@ -213,10 +219,19 @@ sailjail_sandbox(
     JailConf actual_conf = *conf;
     JailLaunchHooks* hooks = jail_launch_hooks_new();
     JailPlugins* plugins;
+    JAIL_LAUNCH_PROMPT prompt = JAIL_LAUNCH_PROMPT_IF_NEEDED;
 
     memset(&jail, 0, sizeof(jail));
     jail.hooks = hooks;
     jail.conf = &actual_conf;
+
+    if (args->confirm) {
+        if (!g_strcmp0(args->confirm, CONFIRM_OPTION_SILENT)) {
+            prompt = JAIL_LAUNCH_PROMPT_NEVER;
+        } else if (!g_strcmp0(args->confirm, CONFIRM_OPTION_MANAGE)) {
+            prompt = JAIL_LAUNCH_PROMPT_ALWAYS;
+        }
+    }
 
     /* Load the plugins */
     plugins = jail_plugins_new(actual_conf.plugin_dir, NULL, NULL);
@@ -253,8 +268,15 @@ sailjail_sandbox(
             user.ngroups = creds->ngroups;
 
             /* Confirm the launch */
-            confirm = jail_launch_confirm(hooks, &app, &cmd, &user, rules);
-            if (confirm) {
+            confirm = jail_launch_confirm(hooks, &app, &cmd, &user, rules, prompt);
+            if (args->confirm) {
+                if (confirm) {
+                    ret = 0;
+                } else {
+                    ret =  RET_DENIED;
+                }
+                jail_rules_unref(confirm);
+            } else if (confirm) {
                 /* Any return from jail_run is an error */
                 jail_launch_confirmed(hooks, &app, &cmd, &user, confirm);
                 jail_run(argc-1, argv+1, conf, confirm, creds, args->trace_dir,
@@ -371,6 +393,11 @@ int main(int argc, char* argv[])
         { "app", 'a',
           G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &args.sailfish_app,
           "Force adding Sailfish application directories", "APP" },
+        { "confirm", 'c',
+          G_OPTION_FLAG_NONE, G_OPTION_ARG_STRING, &args.confirm,
+          "Perform a permissions check without running the application ("
+          CONFIRM_OPTION_CHECK "|" CONFIRM_OPTION_SILENT "|"
+          CONFIRM_OPTION_MANAGE ")", "PROMPT" },
         { "output", 'o',
           G_OPTION_FLAG_NONE, G_OPTION_ARG_CALLBACK, jail_arg_log_output,
           "Where to output log (stdout|syslog|glib) [stdout]", "OUT" },

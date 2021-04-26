@@ -75,7 +75,7 @@ test_null(
 {
     g_assert(!jail_launch_hook_ref(NULL));
     jail_launch_hook_unref(NULL);
-    g_assert(!jail_launch_hook_confirm_launch(NULL, NULL, NULL, NULL, NULL));
+    g_assert(!jail_launch_hook_confirm_launch(NULL, NULL, NULL, NULL, NULL, JAIL_LAUNCH_PROMPT_IF_NEEDED));
     jail_launch_hook_launch_confirmed(NULL, NULL, NULL, NULL, NULL);
     jail_launch_hook_launch_denied(NULL, NULL, NULL, NULL);
 }
@@ -94,7 +94,7 @@ test_basic(
     g_assert(hook);
     g_assert(jail_launch_hook_ref(hook) == hook);
     jail_launch_hook_unref(hook);
-    g_assert(!jail_launch_hook_confirm_launch(hook, NULL, NULL, NULL, NULL));
+    g_assert(!jail_launch_hook_confirm_launch(hook, NULL, NULL, NULL, NULL, JAIL_LAUNCH_PROMPT_IF_NEEDED));
     jail_launch_hook_launch_confirmed(hook, NULL, NULL, NULL, NULL);
     jail_launch_hook_launch_denied(hook, NULL, NULL, NULL);
     jail_launch_hook_unref(hook);
