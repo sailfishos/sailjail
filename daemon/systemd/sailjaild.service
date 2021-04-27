@@ -1,0 +1,13 @@
+[Unit]
+Description=Application Permission Management Daemon
+Requires=dbus.service
+After=dbus.socket
+RequiresMountsFor=/home
+
+[Service]
+Type=notify
+ExecStart=/usr/bin/sailjaild --systemd
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,128 @@
+/* -*- mode: c -*- */
+digraph foo {
+  rankdir=LR;
+  node[shape=box];
+  node[style=filled]
+  node[fillcolor=wheat];
+  node[width=0.001];
+  node[height=0.001];
+  node[fontsize=8];
+
+  edge[fontsize=7];
+  edge[color=grey30];
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * PROCESSES
+   * - - - - - - - - - - - - - - - - - - - */
+
+  node[fillcolor=yellow];
+  CONTROL;
+  SETTINGS;
+  USER_SETTINGS;
+  APP_SETTINGS;
+  CONFIG;
+  PROMPTER;
+  SERVICE;
+  USERS;
+  APPLICATIONS;
+  APPINFO;
+  PERMISSIONS;
+  SESSION;
+  WINDOW_PROMPT         [label=" Permission\l Dialog in\l SessionBus\l"]
+  ANY                   [label=" (any)\l"]
+  DBUS_CLIENT           [label=" D-Bus\l client in\l SystemBus\l"]
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * DATASTORES
+   * - - - - - - - - - - - - - - - - - - - */
+
+  node[fillcolor=wheat];
+  SETTINGS_FILES        [label=" /var/lib/sailjail/userdata/\l USER.settings\l"];
+  PASSWD_FILE           [label=" /etc/\l passwd\l"];
+  PERMISSION_FILES      [label=" /etc/sailjail/permissions/\l FEATURE.permission\l"]
+  DESKTOP_FILES         [label=" /usr/share/applications/\l APPLICATION.desktop\l"]
+  DAEMON_CONFIG         [label=" /etc/sailjail/daemon/\l *.config\l"]
+  SERVICE_STATE         [label=" cached\l state\l"]
+  PROMPTER_QUEUE        [label=" request\l queue\l"]
+  PROMPTER_STM          [label=" request\l statemachine\l"]
+  SESSION_STATE         [label=" /run/systemd/\l sessions\l"];
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * DATAFLOWS (SYNC)
+   * - - - - - - - - - - - - - - - - - - - */
+
+  edge[color=grey30];
+
+  SETTINGS -> USER_SETTINGS       [label=" get\l set\l"];
+
+  USER_SETTINGS -> APP_SETTINGS   [label=" get\l set\l"];
+  USER_SETTINGS -> SETTINGS_FILES [label=" read\l write\l"];
+
+  APP_SETTINGS -> USER_SETTINGS   [label=" dirty\l"];
+  USER_SETTINGS -> SETTINGS       [label=" dirty\l"];
+
+  CONTROL -> SETTINGS             [label=" save\l load\l remove\l"];
+  CONTROL -> SETTINGS             [label=" get\l"];
+
+  CONTROL -> USERS                [label=" min\l max\l"];
+  CONTROL -> USERS                [label=" exists\l"];
+
+  USERS -> PASSWD_FILE            [label=" read\l"];
+
+  CONTROL -> CONFIG               [label=" load\l"];
+  ANY -> CONFIG                   [label=" get\l"];
+  CONFIG -> DAEMON_CONFIG         [label=" read\l"];
+
+  CONTROL -> APPLICATIONS         [label=" list\l"];
+  CONTROL -> APPLICATIONS         [label=" get\l"];
+
+  CONTROL -> PERMISSIONS          [label=" list\l"];
+  CONTROL -> PERMISSIONS          [label=" get\l"];
+  PERMISSIONS -> PERMISSION_FILES [label=" read\l"];
+
+  SERVICE -> CONTROL              [label=" fetch data\l"];
+
+  SERVICE -> SERVICE_STATE;
+
+  PROMPTER -> PROMPTER_QUEUE;
+  PROMPTER -> PROMPTER_STM;
+
+  CONTROL -> SESSION              [label=" get\l"]
+
+  SESSION -> SESSION_STATE        [label=" read\l"]
+
+  APPLICATIONS -> APPINFO         [label=" update\l"];
+  APPINFO -> DESKTOP_FILES        [label=" read\l"];
+  APPLICATIONS -> DESKTOP_FILES   [label=" scan\l"];
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * DATAFLOWS (ASYNC)
+   * - - - - - - - - - - - - - - - - - - - */
+  edge[color=blue];
+
+  PASSWD_FILE -> USERS            [label=" inotify\l"];
+  USERS -> CONTROL                [label=" changed\l"];
+
+  DESKTOP_FILES -> APPLICATIONS   [label=" inotify\l"];
+  APPLICATIONS -> CONTROL         [label=" changed\l"];
+
+  PERMISSION_FILES -> PERMISSIONS [label=" inotify\l"];
+  PERMISSIONS -> CONTROL          [label=" changed\l"];
+
+  CONTROL -> SERVICE              [label=" broadcast\l"];
+  SERVICE -> DBUS_CLIENT          [label=" signal\l"];
+  SERVICE -> DBUS_CLIENT          [label=" reply\l"];
+  DBUS_CLIENT -> SERVICE          [label=" request\l"];
+
+  SERVICE -> PROMPTER             [label=" queue\l"];
+  PROMPTER -> SERVICE             [label=" finished\l"];
+
+  PROMPTER -> WINDOW_PROMPT       [label=" show\l"];
+  WINDOW_PROMPT -> PROMPTER       [label=" selection\l"];
+
+  SESSION -> CONTROL              [label=" changed\l"]
+
+  SESSION_STATE -> SESSION        [label=" inotify\l"]
+
+  SETTINGS -> CONTROL             [label=" changed\l"];
+}
