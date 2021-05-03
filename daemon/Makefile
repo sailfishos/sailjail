@@ -35,6 +35,7 @@ _TESTSDIR       ?= /opt/tests#                   # /opt/tests
 # ----------------------------------------------------------------------------
 
 TARGETS_BIN += sailjaild
+TARGETS_BIN += sailjailclient
 
 ## QUARANTINE TARGETS_PNG += sailjaild.png
 
@@ -160,6 +161,15 @@ sailjaild_objs += util.o
 sailjaild : ${sailjaild_objs}
 
 # - - - - - - - - - - - - - - - - - - - -
+# sailjailclient
+# - - - - - - - - - - - - - - - - - - - -
+
+sailjailclient : sailjailclient.o util.o logging.o util.o stringset.o config.o
+
+clean::
+	$(RM) sailjailclient
+
+# - - - - - - - - - - - - - - - - - - - -
 # desktop_data
 # - - - - - - - - - - - - - - - - - - - -
 
@@ -202,6 +212,8 @@ ALL_SOURCES += settings.c
 ALL_SOURCES += stringset.c
 ALL_SOURCES += users.c
 ALL_SOURCES += util.c
+
+ALL_SOURCES += sailjailclient.c
 
 ALL_HEADERS += appinfo.h
 ALL_HEADERS += applications.h

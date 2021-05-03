@@ -152,6 +152,22 @@ prompter.pic.o:\
 	stringset.h\
 	util.h\
 
+sailjailclient.o:\
+	sailjailclient.c\
+	config.h\
+	logging.h\
+	service.h\
+	stringset.h\
+	util.h\
+
+sailjailclient.pic.o:\
+	sailjailclient.c\
+	config.h\
+	logging.h\
+	service.h\
+	stringset.h\
+	util.h\
+
 sailjaild.o:\
 	sailjaild.c\
 	config.h\

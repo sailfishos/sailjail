@@ -77,6 +77,7 @@ G_BEGIN_DECLS
 # define PERMISSIONS_DIRECTORY          SYSCONFDIR "/sailjail/permissions"
 # define PERMISSIONS_EXTENSION          ".permission"
 # define PERMISSIONS_PATTERN            "[A-Z]*" PERMISSIONS_EXTENSION
+# define PROFILES_EXTENSION             ".profile"
 
 /* Applications from: *.desktop */
 # define APPLICATIONS_DIRECTORY         DATADIR "/applications"
@@ -112,6 +113,13 @@ G_BEGIN_DECLS
 # define SAILJAIL_KEY_APPLICATION_NAME  "ApplicationName"
 # define SAILJAIL_KEY_PERMISSIONS       "Permissions"
 
+# define NEMO_KEY_APPLICATION_TYPE      "X-Nemo-Application-Type"
+# define NEMO_KEY_SINGLE_INSTANCE       "X-Nemo-Single-Instance"
+
+# define MAEMO_KEY_FIXED_ARGS           "X-Maemo-Fixed-Args"
+
+# define OSSO_KEY_SERVICE               "X-Osso-Service"
+
 /* ========================================================================= *
  * Types
  * ========================================================================= */
@@ -140,6 +148,7 @@ gchar       *path_from_desktop_name    (const gchar *stem);
 gchar       *alt_path_from_desktop_name(const gchar *stem);
 gchar       *path_to_permission_name   (const gchar *path);
 gchar       *path_from_permission_name (const gchar *stem);
+gchar       *path_from_profile_name    (const gchar *stem);
 
 /* ------------------------------------------------------------------------- *
  * GUTIL

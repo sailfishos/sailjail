@@ -1,0 +1,1224 @@
+/*
+ * Copyright (c) 2021 Open Mobile Platform LLC.
+ *
+ * You may use this file under the terms of the BSD license as follows:
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   1. Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *   2. Redistributions in binary form must reproduce the above copyright
+ *      notice, this list of conditions and the following disclaimer
+ *      in the documentation and/or other materials provided with the
+ *      distribution.
+ *   3. Neither the names of the copyright holders nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * The views and conclusions contained in the software and documentation
+ * are those of the authors and should not be interpreted as representing
+ * any official policies, either expressed or implied.
+ */
+
+#include "config.h"
+#include "logging.h"
+#include "util.h"
+#include "service.h"
+#include "stringset.h"
+
+#include <pwd.h>
+
+#include <stdio.h>
+#include <errno.h>
+#include <getopt.h>
+#include <limits.h>
+
+#include <gio/gio.h>
+
+/* ========================================================================= *
+ * Constants
+ * ========================================================================= */
+
+#define LAUNCHNOTIFY_SERVICE                    "org.nemomobile.lipstick"
+#define LAUNCHNOTIFY_OBJECT                     "/LauncherModel"
+#define LAUNCHNOTIFY_INTERFACE                  "org.nemomobile.lipstick.LauncherModel"
+#define LAUNCHNOTIFY_METHOD_LAUNCHING           "notifyLaunching"
+#define LAUNCHNOTIFY_METHOD_LAUNCH_CANCELED     "cancelNotifyLaunching"
+
+/* ========================================================================= *
+ * Types
+ * ========================================================================= */
+
+typedef struct client_t client_t;
+
+/* ========================================================================= *
+ * Prototypes
+ * ========================================================================= */
+
+/* ------------------------------------------------------------------------- *
+ * UTILITY
+ * ------------------------------------------------------------------------- */
+
+static bool empty_p(const char *str);
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT
+ * ------------------------------------------------------------------------- */
+
+static void  client_ctor     (client_t *self);
+static void  client_dtor     (client_t *self);
+client_t    *client_create   (void);
+void         client_delete   (client_t *self);
+void         client_delete_at(client_t **pself);
+void         client_delete_cb(void *self);
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_ATTRIBUTES
+ * ------------------------------------------------------------------------- */
+
+static GDBusConnection  *client_system_bus                      (client_t *self);
+static GDBusConnection  *client_session_bus                     (client_t *self);
+const char              *client_desktop_exec                    (client_t *self);
+const char              *client_sailjail_organization_name      (client_t *self);
+const char              *client_sailjail_application_name       (client_t *self);
+const char             **client_sailjail_application_permissions(client_t *self);
+const char              *client_maemo_service                   (client_t *self);
+const char              *client_maemo_method                    (client_t *self);
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_PROPERTIES
+ * ------------------------------------------------------------------------- */
+
+static bool          client_is_privileged      (const client_t *self);
+static void          client_set_privileged     (client_t *self, bool is_privileged);
+static const gchar **client_get_argv           (const client_t *self, int *pargc);
+static void          client_set_argv           (client_t *self, int argc, char **argv);
+static const gchar **client_get_granted        (const client_t *self);
+static void          client_set_granted        (client_t *self, gchar **granted);
+static const gchar  *client_get_desktop_path   (const client_t *self);
+static void          client_set_desktop_path   (client_t *self, const char *path);
+static void          client_set_appinfo_variant(client_t *self, const char *key, GVariant *val);
+static GVariant     *client_get_appinfo_variant(const client_t *self, const char *key);
+const char          *client_get_appinfo_string (const client_t *self, const char *key);
+const char         **client_get_appinfo_strv   (const client_t *self, const char *key);
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_OPTIONS
+ * ------------------------------------------------------------------------- */
+
+static const GList *client_get_firejail_options   (const client_t *self);
+static void         client_add_firejail_option    (client_t *self, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+static void         client_add_firejail_permission(client_t *self, const char *name);
+static void         client_add_firejail_profile   (client_t *self, const char *name);
+static void         client_add_firejail_directory (client_t *self, bool create, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_IPC
+ * ------------------------------------------------------------------------- */
+
+static bool client_prompt_permissions(client_t *self, const char *application);
+static bool client_query_appinfo     (client_t *self, const char *application);
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_LAUNCH
+ * ------------------------------------------------------------------------- */
+
+static int client_launch_application(client_t *self);
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_NOTIFY
+ * ------------------------------------------------------------------------- */
+
+static void client_notify_launch_status  (client_t *self, const char *method, const char *desktop);
+static void client_notify_launching      (client_t *self, const char *desktop);
+static void client_notify_launch_canceled(client_t *self, const char *desktop);
+
+/* ------------------------------------------------------------------------- *
+ * SAILJAILCLIENT
+ * ------------------------------------------------------------------------- */
+
+static int  sailjailclient_get_field_code(const char *arg);
+static bool sailjailclient_is_option     (const char *arg);
+static bool sailjailclient_match_argv    (const char **tpl_argv, const char **app_argv);
+static bool sailjailclient_validate_argv (const char *exec, const gchar **app_argv);
+static bool sailjailclient_test_elf      (const char *filename);
+static void sailjailclient_print_usage   (const char *progname);
+int         sailjailclient_main          (int argc, char **argv);
+
+/* ------------------------------------------------------------------------- *
+ * MAIN
+ * ------------------------------------------------------------------------- */
+
+int main(int argc, char **argv);
+
+/* ========================================================================= *
+ * UTILITY
+ * ========================================================================= */
+
+static bool empty_p(const char *str)
+{
+    return !str || !*str;
+}
+
+/* ========================================================================= *
+ * CLIENT
+ * ========================================================================= */
+
+struct client_t
+{
+    int              cli_argc;
+    gchar          **cli_argv;
+    gchar           *cli_desktop_path;
+    GDBusConnection *cli_system_bus;
+    GDBusConnection *cli_session_bus;
+    gchar          **cli_granted;
+    GHashTable      *cli_appinfo;
+
+    stringset_t     *cli_firejail_args; /* Note: using ordered set allows us
+                                         *       not to care about possibly
+                                         *       adding duplicate options.
+                                         */
+    bool            cli_is_privileged;
+};
+
+static void
+client_ctor(client_t *self)
+{
+    self->cli_argc          = 0;
+    self->cli_argv          = NULL;
+    self->cli_desktop_path  = NULL;
+    self->cli_system_bus    = NULL;
+    self->cli_session_bus   = NULL;
+    self->cli_granted       = NULL;
+    self->cli_appinfo       = g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
+                                                   (GDestroyNotify)g_variant_unref);
+    self->cli_firejail_args = stringset_create();
+    self->cli_is_privileged = false;
+}
+
+static void
+client_dtor(client_t *self)
+{
+    stringset_delete_at(&self->cli_firejail_args);
+
+    g_hash_table_unref(self->cli_appinfo),
+        self->cli_appinfo = NULL;
+
+    client_set_granted(self, NULL);
+
+    if( self->cli_system_bus ) {
+        g_object_unref(self->cli_system_bus),
+            self->cli_system_bus = NULL;
+    }
+
+    if( self->cli_session_bus ) {
+        g_object_unref(self->cli_session_bus),
+            self->cli_session_bus = NULL;
+    }
+
+    client_set_desktop_path(self, NULL);
+
+    client_set_argv(self, 0, NULL);
+}
+
+client_t *
+client_create(void)
+{
+    client_t *self = g_malloc0(sizeof *self);
+    client_ctor(self);
+    return self;
+}
+
+void
+client_delete(client_t *self)
+{
+    if( self != 0 )
+    {
+        client_dtor(self);
+        g_free(self);
+    }
+}
+
+void
+client_delete_at(client_t **pself)
+{
+    client_delete(*pself), *pself = NULL;
+}
+
+void
+client_delete_cb(void *self)
+{
+    client_delete(self);
+}
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_ATTRIBUTES
+ * ------------------------------------------------------------------------- */
+
+static GDBusConnection *
+client_system_bus(client_t *self)
+{
+    if( !self->cli_system_bus ) {
+        GError *err = NULL;
+        self->cli_system_bus = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &err);
+        if( !self->cli_system_bus ) {
+            log_err("failed to connect to D-Bus SystemBus: %s", err->message);
+            exit(EXIT_FAILURE);
+        }
+        g_clear_error(&err);
+    }
+    return self->cli_system_bus;
+}
+
+static GDBusConnection *
+client_session_bus(client_t *self)
+{
+    if( !self->cli_session_bus ) {
+        GError *err = NULL;
+        self->cli_session_bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, &err);
+        if( !self->cli_session_bus ) {
+            log_err("failed to connect to D-Bus SessionBus: %s", err->message);
+            exit(EXIT_FAILURE);
+        }
+        g_clear_error(&err);
+    }
+    return self->cli_session_bus;
+}
+
+const char *
+client_desktop_exec(client_t *self)
+{
+    return client_get_appinfo_string(self, DESKTOP_KEY_EXEC);
+}
+
+const char *
+client_sailjail_organization_name(client_t *self)
+{
+    return client_get_appinfo_string(self, SAILJAIL_KEY_ORGANIZATION_NAME);
+}
+
+const char *
+client_sailjail_application_name(client_t *self)
+{
+    return client_get_appinfo_string(self, SAILJAIL_KEY_APPLICATION_NAME);
+}
+
+const char **
+client_sailjail_application_permissions(client_t *self)
+{
+    return client_get_appinfo_strv(self, SAILJAIL_KEY_PERMISSIONS);
+}
+
+const char *
+client_maemo_service(client_t *self)
+{
+    return client_get_appinfo_string(self, MAEMO_KEY_SERVICE);
+}
+
+const char *
+client_maemo_method(client_t *self)
+{
+    return client_get_appinfo_string(self, MAEMO_KEY_METHOD);
+}
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_PROPERTIES
+ * ------------------------------------------------------------------------- */
+
+static bool
+client_is_privileged(const client_t *self)
+{
+    return self->cli_is_privileged;
+}
+
+static void
+client_set_privileged(client_t *self, bool is_privileged)
+{
+    self->cli_is_privileged = is_privileged;
+}
+
+static const gchar **
+client_get_argv(const client_t *self, int *pargc)
+{
+    if( pargc )
+        *pargc = self->cli_argc;
+    return (const gchar **)self->cli_argv;
+}
+
+static void
+client_set_argv(client_t *self, int argc, char **argv)
+{
+    self->cli_argc = argc;
+    self->cli_argv = argv;
+}
+
+static const gchar **
+client_get_granted(const client_t *self)
+{
+    return (const gchar **)self->cli_granted;
+}
+
+static void
+client_set_granted(client_t *self, gchar **granted)
+{
+    g_strfreev(self->cli_granted),
+        self->cli_granted = granted;
+}
+
+static const gchar *
+client_get_desktop_path(const client_t *self)
+{
+    return self->cli_desktop_path;
+}
+
+static void
+client_set_desktop_path(client_t *self, const char *path)
+{
+    change_string(&self->cli_desktop_path, path);
+}
+
+static void
+client_set_appinfo_variant(client_t *self, const char *key, GVariant *val)
+{
+    g_hash_table_insert(self->cli_appinfo, g_strdup(key), g_variant_ref(val));
+}
+
+static GVariant *
+client_get_appinfo_variant(const client_t *self, const char *key)
+{
+    return g_hash_table_lookup(self->cli_appinfo, key);
+}
+
+const char *
+client_get_appinfo_string(const client_t *self, const char *key)
+{
+    const char *value = NULL;
+    GVariant *variant = client_get_appinfo_variant(self, key);
+    if( variant ) {
+        const GVariantType *type = g_variant_get_type(variant);
+        if( g_variant_type_equal(type, G_VARIANT_TYPE_STRING) )
+            value = g_variant_get_string(variant, NULL);
+    }
+    return value;
+}
+
+const char **
+client_get_appinfo_strv(const client_t *self, const char *key)
+{
+    const char **value = NULL;
+    GVariant *variant = client_get_appinfo_variant(self, key);
+    if( variant ) {
+        const GVariantType *type = g_variant_get_type(variant);
+        if( g_variant_type_equal(type, G_VARIANT_TYPE("as")) )
+            value = g_variant_get_strv(variant, NULL);
+    }
+    return value;
+}
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_OPTIONS
+ * ------------------------------------------------------------------------- */
+
+static const GList *
+client_get_firejail_options(const client_t *self)
+{
+    return stringset_list(self->cli_firejail_args);
+}
+
+static void
+client_add_firejail_option(client_t *self, const char *fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+    gchar *option = g_strdup_vprintf(fmt, va);
+    va_end(va);
+    stringset_add_item_steal(self->cli_firejail_args, option);
+}
+
+static void
+client_add_firejail_permission(client_t *self, const char *name)
+{
+    gchar *path = path_from_permission_name(name);
+    if( access(path, R_OK) == 0 )
+        client_add_firejail_option(self, "--profile=%s", path);
+    g_free(path);
+}
+
+static void
+client_add_firejail_profile(client_t *self, const char *name)
+{
+    gchar *path = path_from_profile_name(name);
+    if( access(path, R_OK) == 0 )
+        client_add_firejail_option(self, "--profile=%s", path);
+    g_free(path);
+}
+
+static void
+client_add_firejail_directory(client_t *self, bool create, const char *fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+    gchar *path = g_strdup_vprintf(fmt, va);
+    va_end(va);
+
+    if( create )
+        client_add_firejail_option(self, "--mkdir=%s", path);
+    client_add_firejail_option(self, "--whitelist=%s", path);
+    g_free(path);
+}
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_IPC
+ * ------------------------------------------------------------------------- */
+
+static bool
+client_prompt_permissions(client_t *self, const char *application)
+{
+    GError *err = NULL;
+    GVariant *reply = NULL;
+    gchar **permissions = NULL;
+
+    reply = g_dbus_connection_call_sync(client_system_bus(self),
+                                        PERMISSIONMGR_SERVICE,
+                                        PERMISSIONMGR_OBJECT,
+                                        PERMISSIONMGR_INTERFACE,
+                                        PERMISSIONMGR_METHOD_PROMPT,
+                                        g_variant_new("(s)", application),
+                                        NULL,
+                                        G_DBUS_CALL_FLAGS_NONE,
+                                        G_MAXINT,
+                                        NULL,
+                                        &err);
+    if( err || !reply ) {
+        log_err("%s.%s(%s): failed: %s",
+                PERMISSIONMGR_INTERFACE, PERMISSIONMGR_METHOD_PROMPT,
+                application, err ? err->message : "no reply");
+        goto EXIT;
+    }
+
+    g_variant_get(reply, "(^as)", &permissions);
+    if( !permissions ) {
+        log_err("%s.%s(%s): failed: %s",
+                PERMISSIONMGR_INTERFACE, PERMISSIONMGR_METHOD_PROMPT,
+                application, "invalid reply");
+    }
+
+EXIT:
+    if( reply )
+        g_variant_unref(reply);
+    g_clear_error(&err);
+
+    client_set_granted(self, permissions);
+    return permissions != NULL;
+}
+
+static bool
+client_query_appinfo(client_t *self, const char *application)
+{
+    bool        ack     = false;
+    GError     *err     = NULL;
+    GVariant   *reply   = NULL;
+
+    reply = g_dbus_connection_call_sync(client_system_bus(self),
+                                        PERMISSIONMGR_SERVICE,
+                                        PERMISSIONMGR_OBJECT,
+                                        PERMISSIONMGR_INTERFACE,
+                                        PERMISSIONMGR_METHOD_GET_APPINFO,
+                                        g_variant_new("(s)", application),
+                                        NULL,
+                                        G_DBUS_CALL_FLAGS_NONE,
+                                        -1,
+                                        NULL,
+                                        &err);
+    if( err || !reply ) {
+        log_err("%s.%s(%s): failed: %s",
+                PERMISSIONMGR_INTERFACE, PERMISSIONMGR_METHOD_PROMPT,
+                application, err ? err->message : "no reply");
+        goto EXIT;
+    }
+    GVariantIter  *iter_array = NULL;
+    g_variant_get(reply, "(a{sv})", &iter_array);
+    if( !iter_array )
+        goto EXIT;
+
+    const char *key = NULL;
+    GVariant   *val = NULL;
+    while( g_variant_iter_loop (iter_array, "{&sv}", &key, &val) ) {
+        const GVariantType *type = g_variant_get_type(val);
+        if( g_variant_type_equal(type, G_VARIANT_TYPE_BOOLEAN) )
+            log_debug("%s=%s", key, g_variant_get_boolean(val) ? "true" : "false");
+        else if( g_variant_type_equal(type, G_VARIANT_TYPE_STRING) )
+            log_debug("%s='%s'", key, g_variant_get_string(val, NULL));
+        else
+            log_debug("%s=%s@%p", key, (char *)type, val);
+        client_set_appinfo_variant(self, key, val);
+    }
+    g_variant_iter_free(iter_array);
+
+    ack = true;
+
+EXIT:
+    if( reply )
+        g_variant_unref(reply);
+    g_clear_error(&err);
+
+    return ack;
+}
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_LAUNCH
+ * ------------------------------------------------------------------------- */
+
+static int
+client_launch_application(client_t *self)
+{
+    int               argc        = 0;
+    const gchar     **argv        = client_get_argv(self, &argc);
+    const char       *binary      = path_basename(*argv);
+    const gchar      *desktop     = client_get_desktop_path(self);
+    gchar            *application = path_to_desktop_name(desktop);
+
+    /* Prompt for launch permission */
+    if( !client_prompt_permissions(self, application) )
+        goto EXIT;
+
+    const gchar **granted = client_get_granted(self);
+
+    /* Check if privileged launch is needed / possible */
+    bool privileged = false;
+    for( int i = 0; !privileged && granted[i]; ++i )
+        privileged = !strcmp(granted[i], "Privileged");
+
+    if( privileged && !client_is_privileged(self) ) {
+        log_err("privileged launch is needed but not possible");
+        goto EXIT;
+    }
+
+    /* Obtain application details */
+    if( !client_query_appinfo(self, application) )
+        goto EXIT;
+
+    const char  *exec        = client_desktop_exec(self);
+    const char  *org_name    = client_sailjail_organization_name(self);
+    const char  *app_name    = client_sailjail_application_name(self);
+    const char **permissions = client_sailjail_application_permissions(self);
+    const char  *service     = client_maemo_service(self);
+    const char  *method      = client_maemo_method(self);
+
+    if( log_p(LOG_DEBUG) ) {
+        log_debug("exec     = %s", exec);
+        log_debug("org_name = %s", org_name);
+        log_debug("app_name = %s", app_name);
+        log_debug("service  = %s", service);
+        log_debug("method   = %s", method);
+        for( int i = 0; permissions && permissions[i]; ++i )
+            log_debug("permissions += %s", permissions[i]);
+        for( int i = 0; granted && granted[i]; ++i )
+            log_debug("granted     += %s", granted[i]);
+    }
+
+    /* Check that command line we have matches Exec line in desktop file */
+    if( !exec ) {
+        log_err("Exec line not defined");
+        goto EXIT;
+    }
+
+    if( !sailjailclient_validate_argv(exec, argv) ) {
+        log_err("Command line does not match template");
+        goto EXIT;
+    }
+
+    /* Construct firejail command line to execute */
+    client_add_firejail_option(self, "/usr/bin/firejail");
+    client_add_firejail_option(self, "--quiet");
+    client_add_firejail_option(self, "--private-bin=%s", binary);
+    client_add_firejail_option(self, "--whitelist=/usr/share/%s", binary);
+    client_add_firejail_option(self, "--whitelist=%s", desktop);
+
+    /* Legacy app binary based data directories are made available.
+     * But only if they already exist. */
+    client_add_firejail_directory(self, false, "${HOME}/.local/share/%s", binary);
+
+    if( !empty_p(org_name) && !empty_p(app_name) ) {
+        client_add_firejail_directory(self, true,  "${HOME}/.cache/%s/%s", org_name, app_name);
+        client_add_firejail_directory(self, true,  "${HOME}/.local/share/%s/%s", org_name, app_name);
+        client_add_firejail_directory(self, true,  "${HOME}/.config/%s/%s", org_name, app_name);
+
+        client_add_firejail_option(self, "--dbus-user.own=%s.%s", org_name, app_name);
+    }
+
+    if( !empty_p(service) )
+        client_add_firejail_option(self, "--dbus-user.own=%s", service);
+
+    client_add_firejail_profile(self, binary);
+    for( size_t i = 0; granted[i]; ++i )
+        client_add_firejail_permission(self, granted[i]);
+    client_add_firejail_permission(self, "Base");
+
+    client_add_firejail_option(self, "--");
+
+    GArray *array = g_array_new(true, false, sizeof(gchar *));
+    for( const GList *iter = client_get_firejail_options(self); iter; iter = iter->next )
+        g_array_append_val(array, iter->data);
+    for( int i = 0; i < argc; ++i )
+        g_array_append_val(array, argv[i]);
+    char **args = (char **)g_array_free(array, false);
+
+    log_notice("Launching '%s' via sailjailclient...", binary);
+    if( log_p(LOG_INFO) ) {
+        for( int i = 0; args[i]; ++i )
+            log_info("arg[%02d] = %s", i, args[i]);
+    }
+
+    /* Choose regular / privileged launch
+     *
+     * Note that effective gid does not survive firejail sandboxing, so
+     * we need to tweak real gid to get app running in privileged group.
+     *
+     * Also, if sailjailclient is not running with egid=privileged and
+     * privileged launch is needed, we should have already bailed out
+     * before getting here.
+     */
+    gid_t gid = privileged ? getegid() : getgid();
+    if( setresgid(gid, gid, gid) == -1 ) {
+        log_err("failed to set group: %m");
+        goto EXIT;
+    }
+
+    client_notify_launching(self, desktop);
+
+    /* Execute the application */
+    fflush(NULL);
+    errno = 0;
+    execv(*args, args);
+    log_err("%s: exec failed: %m", *args);
+    g_free(args);
+
+    client_notify_launch_canceled(self, desktop);
+
+EXIT:
+    g_free(application);
+
+    return EXIT_FAILURE;
+}
+
+/* ------------------------------------------------------------------------- *
+ * CLIENT_NOTIFY
+ * ------------------------------------------------------------------------- */
+
+static void
+client_notify_launch_status(client_t *self, const char *method,
+                            const char *desktop)
+{
+    GDBusConnection *connection = client_session_bus(self);
+    if( connection ) {
+        /* We do not care too much about whether the call succeeds or not */
+        g_dbus_connection_call(connection, LAUNCHNOTIFY_SERVICE,
+                               LAUNCHNOTIFY_OBJECT, LAUNCHNOTIFY_INTERFACE,
+                               method, g_variant_new("(s)", desktop),
+                               NULL, G_DBUS_CALL_FLAGS_NO_AUTO_START,
+                               -1, NULL, NULL, NULL);
+        /* But we do want it to go out before we exec*() / exit() */
+        g_dbus_connection_flush_sync(connection, NULL, NULL);
+    }
+}
+
+static void
+client_notify_launching(client_t *self, const char *desktop)
+{
+    client_notify_launch_status(self, LAUNCHNOTIFY_METHOD_LAUNCHING, desktop);
+}
+
+static void
+client_notify_launch_canceled(client_t *self, const char *desktop)
+{
+    client_notify_launch_status(self,LAUNCHNOTIFY_METHOD_LAUNCH_CANCELED,
+                                desktop);
+}
+
+/* ========================================================================= *
+ * SAILJAILCLIENT
+ * ========================================================================= */
+
+static int
+sailjailclient_get_field_code(const char *arg)
+{
+    // Non-null string starting with a '%' followed by exactly one character
+    return arg && arg[0] == '%' && arg[1] && !arg[2] ? arg[1] : 0;
+}
+
+static bool
+sailjailclient_is_option(const char *arg)
+{
+    // Non-null string starting with a hyphen
+    return arg && arg[0] == '-';
+}
+
+static bool
+sailjailclient_match_argv(const char **tpl_argv, const char **app_argv)
+{
+    bool matching = false;
+
+    /* Rule out template starting with a field code */
+    if( sailjailclient_get_field_code(*tpl_argv) ) {
+        log_err("Exec line starts with field code");
+        goto EXIT;
+    }
+
+    /* Match each arg in template */
+    for( ;; ) {
+        const char *want = *tpl_argv++;
+
+        if( !want ) {
+            /* Template args exhausted */
+            if( *app_argv ) {
+                /* Excess application args */
+                log_err("argv has unwanted '%s'", *app_argv);
+                goto EXIT;
+            }
+            break;
+        }
+
+        int field_code = sailjailclient_get_field_code(want);
+
+        if( !field_code ) {
+            /* Exact match needed */
+            if( g_strcmp0(*app_argv, want) ) {
+                /* Application args has something else */
+                log_err("argv is missing '%s'", want);
+                goto EXIT;
+            }
+            ++app_argv;
+            continue;
+        }
+
+        /* Field code explanations from "Desktop Entry Specification"
+         *
+         * https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html#exec-variables
+         */
+        int code_args = 0;
+        switch( field_code ) {
+        case 'f':  /* A single file name (or none) */
+        case 'u':  /* A single URL (or none) */
+            code_args = -1;
+            break;
+
+        case 'c':  /* The translated name of the application */
+        case 'k':  /* The location of the desktop file */
+            code_args = 1;
+            break;
+        case 'F':  /* A list of files */
+        case 'U':  /* A list of URLs */
+            code_args = INT_MIN;
+            break;
+        case 'i':
+            /* The Icon key of the desktop entry expanded as two
+             * arguments, first --icon and then the value of the
+             * Icon key. Should not expand to any arguments if
+             * the Icon key is empty or missing.
+             */
+            if( !g_strcmp0(*app_argv, "--icon") )
+                ++app_argv, code_args = 1;
+            break;
+        case 'd':
+        case 'D':
+        case 'n':
+        case 'N':
+        case 'v':
+        case 'm':
+            /* Deprecated */
+            log_err("Exec line has deprecated field code '%s'", want);
+            goto EXIT;
+        default:
+            /* Unknown */
+            log_err("Exec line has unknown field code '%s'", want);
+            goto EXIT;
+        }
+
+        if( code_args < 0 ) {
+            /* Variable number of args */
+            if( sailjailclient_get_field_code(*tpl_argv) ) {
+                log_err("Can't validate '%s %s' combination", want, *tpl_argv);
+                goto EXIT;
+            }
+            for( ; code_args < 0; ++code_args ) {
+                if( !*app_argv || !g_strcmp0(*app_argv, *tpl_argv) )
+                    break;
+                if( sailjailclient_is_option(*app_argv) ) {
+                    log_err("option '%s' at field code '%s'", *app_argv, want);
+                    goto EXIT;
+                }
+                ++app_argv;
+            }
+        }
+        else {
+            /* Specified number of args */
+            for( ; code_args > 0; --code_args ) {
+                if( !*app_argv ) {
+                    log_err("missing args for field code '%s'", want);
+                    goto EXIT;
+                }
+                if( sailjailclient_is_option(*app_argv) ) {
+                    log_err("option '%s' at field code '%s'", *app_argv, want);
+                    goto EXIT;
+                }
+                ++app_argv;
+            }
+        }
+    }
+
+    matching = true;
+
+EXIT:
+    return matching;
+}
+
+static bool
+sailjailclient_validate_argv(const char *exec, const gchar **app_argv)
+{
+    bool          validated = false;
+    GError       *err       = NULL;
+    gchar       **exec_argv = NULL;
+
+    if( !app_argv || !*app_argv ) {
+        log_err("application argv not defined");
+        goto EXIT;
+    }
+
+    /* Split desktop Exec line into argv */
+    if( !g_shell_parse_argv(exec, NULL, &exec_argv, &err) ) {
+        log_err("Exec line parse failure: %s", err->message);
+        goto EXIT;
+    }
+
+    if( !exec_argv || !*exec_argv ) {
+        log_err("Exec line not defined");
+        goto EXIT;
+    }
+
+    /* Expectation: Exec line might have leading 'wrapper' executables
+     * such as sailjail, invoker, etc -> make an attempt to skip those
+     * by looking for argv[0] for command we are about to launch.
+     */
+    const char **tpl_argv = (const char **)exec_argv;
+    for( ; *tpl_argv; ++tpl_argv ) {
+        if( !g_strcmp0(*tpl_argv, app_argv[0]) )
+            break;
+    }
+
+    if( !*tpl_argv ) {
+        log_err("Exec line does not contain '%s'", *app_argv);
+        goto EXIT;
+    }
+
+    if( !sailjailclient_match_argv(tpl_argv, app_argv) ) {
+        gchar *args = g_strjoinv(" ", (gchar **)app_argv);
+        log_err("Application args do not match Exec line template");
+        log_err("exec: %s", exec);
+        log_err("args: %s", args);
+        g_free(args);
+        goto EXIT;
+    }
+
+    validated = true;
+
+EXIT:
+    g_strfreev(exec_argv);
+    g_clear_error(&err);
+
+    return validated;
+}
+
+static bool
+sailjailclient_test_elf(const char* filename)
+{
+    static const char elf[4] = {0x7f, 'E', 'L', 'F'};
+
+    bool ret = false;
+    FILE *file = fopen(filename, "rb");
+    if( !file ) {
+        log_err("%s: could not open: %m", filename);
+    }
+    else {
+        char data[sizeof elf];
+        if( fread(data, sizeof data, 1, file) != 1 ) {
+            log_err("%s: could not read", filename);
+        }
+        else if( memcmp(data, elf, sizeof data) == 0 ) {
+            ret = true;
+        }
+        fclose(file);
+    }
+    return ret;
+}
+
+static const char sailjailclient_usage_template[] = ""
+"NAME\n"
+"  %s  --  command line utility for launching sandboxed application\n"
+"\n"
+"SYNOPSIS\n"
+"  %s <option> [--] <application_path> [args]\n"
+"\n"
+"DESCRIPTION\n"
+"  This tool gets application lauch permissions from sailjaild and\n"
+"  then starts the application in appropriate firejail sandbox.\n"
+"\n"
+"OPTIONS\n"
+"  -h --help\n"
+"        Writes this help text to stdout\n"
+"  -V --version\n"
+"        Writes tool version to stdout.\n"
+"  -v --verbose\n"
+"        Makes tool more verbose.\n"
+"  -q --quiet\n"
+"        Makes tool less verbose.\n"
+"  -d --desktop=<desktop>\n"
+"        Define application file instead of using heuristics based\n"
+"        on path to launched application\n"
+"\n"
+"SAILJAIL BACKWARDS COMPATIBILITY OPTIONS\n"
+"  -p --profile=<desktop>\n"
+"        Define application file instead of using heuristics based\n"
+"        on path to launched application\n"
+"        (alias for --desktop)\n"
+"  -s, --section=NAME\n"
+"        Sailjail section in the profile [Sailjail|X-Sailjail]\n"
+"        (silently ignored)\n"
+"  -a, --app=APP\n"
+"        Force adding Sailfish application directories\n"
+"        (silently ignored)\n"
+"  -o, --output=OUT\n"
+"        Where to output log (stdout|syslog|glib)\n"
+"        (chooses between syslog and stderr)\n"
+"        (defaults to stderr when executed from shell, syslog otherwise)\n"
+"  -t, --trace=DIR\n"
+"        Enable libtrace and dbus proxy logging\n"
+"        (silently ignored)\n"
+"\n"
+"EXAMPLES\n"
+"  %s -- /usr/bin/bar\n"
+"        Launch application bar using permissions from bar.desktop\n"
+"  %s -d org.foo.bar -- /usr/bin/bar\n"
+"        Launch application bar using permissions from org.foo.bar.desktop\n"
+"\n"
+"COPYRIGHT\n"
+"  Copyright (c) 2021 Open Mobile Platform LLC.\n"
+"\n"
+"SEE ALSO\n"
+"  sailjaild\n"
+"\n";
+
+static const char sailjailclient_usage_hint[] = "(use --help for instructions)\n";
+
+static const struct option long_options[] = {
+    {"help",         no_argument,       NULL, 'h'},
+    {"version",      no_argument,       NULL, 'V'},
+    {"verbose",      no_argument,       NULL, 'v'},
+    {"quiet",        no_argument,       NULL, 'q'},
+    {"desktop",      required_argument, NULL, 'd'},
+    // bw compat
+    {"section",      required_argument, NULL, 's'},
+    {"app",          required_argument, NULL, 'a'},
+    {"output",       required_argument, NULL, 'o'},
+    {"trace",        required_argument, NULL, 't'},
+    // unadvertised debug features
+    {"match-exec",   required_argument, NULL, 'm'},
+    {0, 0, 0, 0}
+};
+static const char short_options[] =\
+"+"  // use posix rules
+"h"  // --help
+"V"  // --version
+"v"  // --verbose
+"q"  // --quiet
+"d:" // --desktop
+"p:" // --profile
+"s:" // --section
+"a:" // --app
+"o:" // --output
+"t:" // --trace
+"m:" // --match-exec
+;
+
+static void
+sailjailclient_print_usage(const char *progname)
+{
+    printf(sailjailclient_usage_template,
+           progname,
+           progname,
+           progname,
+           progname);
+}
+
+int
+sailjailclient_main(int argc, char **argv)
+{
+    int         exit_code    = EXIT_FAILURE;
+    const char *progname     = path_basename(*argv);
+    config_t   *config       = config_create();
+    client_t   *client       = client_create();
+    const char *desktop_file = NULL;
+    gchar      *desktop_path = NULL;
+    const char *match_exec   = 0;
+
+    log_set_target(isatty(STDIN_FILENO) ? LOG_TO_STDERR : LOG_TO_SYSLOG);
+
+    /* We want to see client options explicitly separated from app args */
+    int command = 0;
+    for( int i = 1; i < argc; ++i ) {
+        if( !strcmp(argv[i], "--") ) {
+            command = i + 1;
+            break;
+        }
+    }
+
+    /* Parse client options */
+    for( ;; ) {
+        int opt = getopt_long(argc, argv, short_options, long_options, 0);
+
+        if( opt == -1 )
+            break;
+
+        switch( opt ) {
+        case 'h':
+            sailjailclient_print_usage(progname);
+            exit_code = EXIT_SUCCESS;
+            goto EXIT;
+        case 'v':
+            log_set_level(log_get_level() + 1);
+            break;
+        case 'q':
+            log_set_level(log_get_level() - 1);
+            break;
+        case 'V':
+            printf("%s\n", VERSION);
+            exit_code = EXIT_SUCCESS;
+            goto EXIT;
+        case 'd':
+        case 'p':
+            desktop_file = optarg;
+            break;
+        case 'm':
+            match_exec = optarg;
+            break;
+        case 's':
+        case 'a':
+        case 't':
+            log_warning("unsupported sailjail option '-%c' ignored", opt);
+            break;
+        case 'o':
+            if( !g_strcmp0(optarg, "syslog") )
+                log_set_target(LOG_TO_SYSLOG);
+            else
+                log_set_target(LOG_TO_STDERR);
+            break;
+        case '?':
+            fputs(sailjailclient_usage_hint, stderr);
+            goto EXIT;
+        }
+    }
+
+    /* Block root user from this point onwards */
+    if( getuid() == 0 || geteuid() == 0 || getgid() == 0 || getegid() == 0 ) {
+        log_err("Launching apps is not applicable to root user");
+        goto EXIT;
+    }
+
+    /* Remaining arguments is: command line to execute */
+    argv += optind;
+    argc -= optind;
+
+    if( argc < 1 ) {
+        log_err("No application to launch given\n%s", sailjailclient_usage_hint);
+        goto EXIT;
+    }
+
+    if( command == 0 ) {
+        /* Legacy is to rely on posix option parsing, so this is expected */
+        log_info("executed without '--' separating options from launch command");
+    }
+    else if( optind != command ) {
+        log_err("executed with '--' and parsing stopped at unexpected position");
+        goto EXIT;
+    }
+
+    client_set_argv(client, argc, argv);
+
+    if( match_exec ) {
+        if( sailjailclient_validate_argv(match_exec,
+                                         client_get_argv(client, NULL)) )
+            exit_code = EXIT_SUCCESS;
+        goto EXIT;
+    }
+
+    /* Sanity check application binary path */
+    const char *binary = *argv;
+    if( *binary != '/' ) {
+        log_err("%s: is not an absolute path", binary);
+        goto EXIT;
+    }
+
+    if( access(binary, R_OK | X_OK) == -1 ) {
+        log_err("%s: is not executable: %m", binary);
+        goto EXIT;
+    }
+
+    if( !sailjailclient_test_elf(binary) ) {
+        log_err("%s: is not elf binary: %m", binary);
+        goto EXIT;
+    }
+
+    /* Sanity check desktop file path */
+    desktop_path = path_from_desktop_name(desktop_file ?: binary);
+    if( access(desktop_path, R_OK) ) {
+        log_err("%s: is not accessible: %m", desktop_path);
+        goto EXIT;
+    }
+    client_set_desktop_path(client, desktop_path);
+
+    /* Check if privileged application handling is possible */
+    struct passwd *pw = getpwnam("privileged");
+    if( !pw ) {
+        log_warning("Privileged user does not exist");
+    }
+    else if( pw->pw_gid != getegid() ) {
+        log_warning("Effective group is not privileged");
+    }
+    else {
+        client_set_privileged(client, true);
+    }
+
+    /* Execute */
+    exit_code = client_launch_application(client);
+
+EXIT:
+    client_delete_at(&client);
+    g_free(desktop_path);
+    config_delete(config);
+    log_debug("exit %d", exit_code);
+    return exit_code;
+}
+
+/* ========================================================================= *
+ * MAIN
+ * ========================================================================= */
+
+int
+main(int argc, char **argv)
+{
+    return sailjailclient_main(argc, argv);
+}
