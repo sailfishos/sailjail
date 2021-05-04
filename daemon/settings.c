@@ -42,6 +42,7 @@
 #include "control.h"
 #include "appinfo.h"
 #include "config.h"
+#include "migrator.h"
 
 #include <errno.h>
 #include <unistd.h>
@@ -97,6 +98,7 @@ void         settings_delete_cb(void *self);
 static const config_t *settings_config     (const settings_t *self);
 control_t             *settings_control    (const settings_t *self);
 appsettings_t         *settings_appsettings(settings_t *self, uid_t uid, const char *app);
+static migrator_t     *settings_migrator   (const settings_t *self);
 static bool            settings_initialized(const settings_t *self);
 
 /* ------------------------------------------------------------------------- *
@@ -127,6 +129,12 @@ static void     settings_save_now   (settings_t *self);
 static gboolean settings_save_cb    (gpointer aptr);
 static void     settings_cancel_save(settings_t *self);
 void            settings_save_later (settings_t *self, uid_t uid);
+
+/* ------------------------------------------------------------------------- *
+ * SETTINGS_SLOTS
+ * ------------------------------------------------------------------------- */
+
+void settings_on_migration_finished(settings_t *self);
 
 /* ------------------------------------------------------------------------- *
  * SETTINGS_RETHINK
@@ -260,6 +268,7 @@ struct settings_t
     guint           stt_save_id;
     GHashTable     *stt_users;
     GHashTable     *stt_user_changes;
+    migrator_t     *stt_migrator;
 };
 
 static void
@@ -275,6 +284,7 @@ settings_ctor(settings_t *self, const config_t *config, control_t *control)
                                                    NULL,
                                                    usersettings_delete_cb);
     self->stt_user_changes = g_hash_table_new(g_direct_hash, g_direct_equal);
+    self->stt_migrator     = migrator_create(self);
 
     /* Get initial state */
     settings_load_all(self);
@@ -298,6 +308,8 @@ settings_dtor(settings_t *self)
         g_hash_table_unref(self->stt_user_changes),
             self->stt_user_changes = 0;
     }
+
+    migrator_delete_at(&self->stt_migrator);
 }
 
 settings_t *
@@ -353,6 +365,12 @@ settings_appsettings(settings_t *self, uid_t uid, const char *app)
         control_valid_application(settings_control(self), app) )
         appsettings = settings_add_appsettings(self, uid, app);
     return appsettings;
+}
+
+static migrator_t *
+settings_migrator(const settings_t *self)
+{
+    return self->stt_migrator;
 }
 
 static bool
@@ -489,6 +507,8 @@ settings_save_now(settings_t *self)
     }
 
     g_hash_table_remove_all(self->stt_user_changes);
+
+    migrator_on_settings_saved(settings_migrator(self));
 }
 
 static gboolean
@@ -520,6 +540,17 @@ settings_save_later(settings_t *self, uid_t uid)
             self->stt_save_id = g_timeout_add(1000, settings_save_cb, self);
         }
     }
+}
+
+/* ------------------------------------------------------------------------- *
+ * SETTINGS_SLOTS
+ * ------------------------------------------------------------------------- */
+
+void
+settings_on_migration_finished(settings_t *self)
+{
+    log_notice("*** migration finished notification");
+    settings_save_now(self);
 }
 
 /* ------------------------------------------------------------------------- *

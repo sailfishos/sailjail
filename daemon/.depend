@@ -254,6 +254,7 @@ settings.o:\
 	config.h\
 	control.h\
 	logging.h\
+	migrator.h\
 	settings.h\
 	stringset.h\
 	util.h\
@@ -264,6 +265,7 @@ settings.pic.o:\
 	config.h\
 	control.h\
 	logging.h\
+	migrator.h\
 	settings.h\
 	stringset.h\
 	util.h\

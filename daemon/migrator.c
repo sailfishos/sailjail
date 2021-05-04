@@ -338,6 +338,10 @@ migrator_enter_state(migrator_t *self)
         break;
 
     case MIGRATOR_STATE_MIGRATED:
+        /* Triggers settings save -> dequeues all on removal queue
+         * -> empty removal queue in this state -> go to final state
+         */
+        settings_on_migration_finished(migrator_settings(self));
         break;
 
     case MIGRATOR_STATE_FINAL:
