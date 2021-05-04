@@ -95,7 +95,7 @@ void         settings_delete_cb(void *self);
  * ------------------------------------------------------------------------- */
 
 static const config_t *settings_config     (const settings_t *self);
-static control_t      *settings_control    (const settings_t *self);
+control_t             *settings_control    (const settings_t *self);
 appsettings_t         *settings_appsettings(settings_t *self, uid_t uid, const char *app);
 static bool            settings_initialized(const settings_t *self);
 
@@ -339,7 +339,7 @@ settings_config(const settings_t *self)
     return self->stt_config;
 }
 
-static control_t *
+control_t *
 settings_control(const settings_t *self)
 {
     return self->stt_control;

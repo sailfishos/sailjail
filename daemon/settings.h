@@ -96,6 +96,7 @@ void        settings_delete_cb(void *self);
  * SETTINGS_ATTRIBUTES
  * ------------------------------------------------------------------------- */
 
+control_t     *settings_control    (const settings_t *self);
 appsettings_t *settings_appsettings(settings_t *self, uid_t uid, const char *app);
 
 /* ------------------------------------------------------------------------- *
