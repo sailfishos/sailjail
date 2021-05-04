@@ -21,6 +21,8 @@ digraph foo {
   USER_SETTINGS;
   APP_SETTINGS;
   CONFIG;
+  MIGRATOR;
+  APPROVAL;
   PROMPTER;
   SERVICE;
   USERS;
@@ -45,6 +47,10 @@ digraph foo {
   SERVICE_STATE         [label=" cached\l state\l"]
   PROMPTER_QUEUE        [label=" request\l queue\l"]
   PROMPTER_STM          [label=" request\l statemachine\l"]
+  MIGRATOR_QUEUE        [label=" migration\l queue\l"]
+  MIGRATOR_STM          [label=" migration\l statemachine\l"]
+  REMOVAL_QUEUE         [label=" removal\l queue\l"]
+  APPROVAL_FILES        [label=" /var/lib/sailjail-homescreen/**/\l APPLICATION.desktop/X-Sailjail\l"]
   SESSION_STATE         [label=" /run/systemd/\l sessions\l"];
 
   /* - - - - - - - - - - - - - - - - - - - *
@@ -89,6 +95,18 @@ digraph foo {
 
   CONTROL -> SESSION              [label=" get\l"]
 
+  SETTINGS -> MIGRATOR            [label=" load\l"];
+
+  MIGRATOR -> SETTINGS            [label=" update\l fetch data\l"];
+
+  MIGRATOR -> MIGRATOR_QUEUE;
+  MIGRATOR -> MIGRATOR_STM;
+  MIGRATOR -> REMOVAL_QUEUE;
+
+  MIGRATOR -> APPROVAL            [label=" load\l"];
+  APPROVAL -> APPROVAL_FILES      [label=" read\l"];
+  MIGRATOR -> APPROVAL_FILES      [label=" scan\l remove\l"];
+
   SESSION -> SESSION_STATE        [label=" read\l"]
 
   APPLICATIONS -> APPINFO         [label=" update\l"];
@@ -108,6 +126,9 @@ digraph foo {
 
   PERMISSION_FILES -> PERMISSIONS [label=" inotify\l"];
   PERMISSIONS -> CONTROL          [label=" changed\l"];
+
+  SETTINGS -> MIGRATOR            [label=" saved\l"];
+  MIGRATOR -> SETTINGS            [label=" finished\l"];
 
   CONTROL -> SERVICE              [label=" broadcast\l"];
   SERVICE -> DBUS_CLIENT          [label=" signal\l"];
