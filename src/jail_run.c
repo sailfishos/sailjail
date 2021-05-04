@@ -187,6 +187,22 @@ jail_run(
         g_ptr_array_add(args, (gpointer) FIREJAIL_DEBUG_OPT);
     }
 
+    const char *org_name = jail_rules_get_value(rules, SAILJAIL_KEY_ORGANIZATION_NAME);
+    if (org_name) {
+        char* opt = g_strconcat("--template=", SAILJAIL_KEY_ORGANIZATION_NAME,
+                                                        ":", org_name, NULL);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
+    }
+
+    const char *app_name = jail_rules_get_value(rules, SAILJAIL_KEY_APPLICATION_NAME);
+    if (app_name) {
+        char* opt = g_strconcat("--template=", SAILJAIL_KEY_APPLICATION_NAME,
+                                                        ":", app_name, NULL);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
+    }
+
     /* Profiles */
     for (pro_ptr = rules->profiles; *pro_ptr; pro_ptr++) {
         char* opt = g_strconcat(FIREJAIL_PROFILE_OPT, (*pro_ptr)->path, NULL);

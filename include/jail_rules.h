@@ -39,12 +39,20 @@
 
 #include "jail_types.h"
 
+#define SAILJAIL_KEY_ORGANIZATION_NAME "OrganizationName"
+#define SAILJAIL_KEY_APPLICATION_NAME "ApplicationName"
+
 G_BEGIN_DECLS
 
 typedef enum jail_permit_type {
     JAIL_PERMIT_INVALID,
     JAIL_PERMIT_PRIVILEGED
 } JAIL_PERMIT_TYPE;
+
+typedef enum jail_validate_str_type {
+    JAIL_VALIDATE_STR_COMMON = 0, /* 'A-Za-z0-9_' */
+    JAIL_VALIDATE_STR_ORG, /* COMMON + '.-' */
+} JAIL_VALIDATE_STR_TYPE;
 
 typedef struct jail_permit {
     gboolean require;
@@ -113,6 +121,11 @@ void
 jail_rules_unref(
     JailRules* rules)
     SAILJAIL_EXPORT;
+
+const char*
+jail_rules_get_value(
+    const JailRules* rules,
+    const char *key);
 
 /* Only leaves required and the specified optional items */
 JailRules*
