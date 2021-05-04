@@ -81,6 +81,7 @@ bool change_uid         (uid_t *where, uid_t val);
 bool change_boolean     (bool *where, bool val);
 bool change_string      (gchar **pstr, const gchar *val);
 bool change_string_steal(gchar **pstr, gchar *val);
+bool change_timer       (guint *where, guint val);
 
 /* ------------------------------------------------------------------------- *
  * KEYFILE
@@ -317,6 +318,19 @@ change_string_steal(gchar **pstr, gchar *val)
     }
     else if( *pstr != val ) {
         g_free(val);
+    }
+    return changed;
+}
+
+bool
+change_timer(guint *where, guint val)
+{
+    bool changed = false;
+    if( *where != val ) {
+        if( *where != 0 )
+            g_source_remove(*where);
+        *where = val;
+        changed = true;
     }
     return changed;
 }

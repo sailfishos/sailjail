@@ -68,12 +68,6 @@ typedef enum prompter_state_t {
  * ========================================================================= */
 
 /* ------------------------------------------------------------------------- *
- * CHANGE
- * ------------------------------------------------------------------------- */
-
-static bool change_timer(guint *pmember, guint value);
-
-/* ------------------------------------------------------------------------- *
  * PROMPTER_STATE
  * ------------------------------------------------------------------------- */
 
@@ -162,22 +156,6 @@ static GDBusConnection *prompter_connection  (const prompter_t *self);
 static bool             prompter_is_connected(const prompter_t *self);
 static bool             prompter_connect     (prompter_t *self);
 static void             prompter_disconnect  (prompter_t *self);
-
-/* ========================================================================= *
- * UTILITY
- * ========================================================================= */
-
-static bool
-change_timer(guint *pmember, guint value)
-{
-    bool changed = false;
-    if( *pmember != value ) {
-        g_source_remove(*pmember);
-        *pmember = value;
-        changed = true;
-    }
-    return changed;
-}
 
 /* ========================================================================= *
  * PROMPTER_STATE
