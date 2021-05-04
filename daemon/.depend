@@ -112,6 +112,26 @@ mainloop.pic.o:\
 	mainloop.c\
 	mainloop.h\
 
+migrator.o:\
+	migrator.c\
+	appinfo.h\
+	control.h\
+	logging.h\
+	migrator.h\
+	settings.h\
+	stringset.h\
+	util.h\
+
+migrator.pic.o:\
+	migrator.c\
+	appinfo.h\
+	control.h\
+	logging.h\
+	migrator.h\
+	settings.h\
+	stringset.h\
+	util.h\
+
 permissions.o:\
 	permissions.c\
 	control.h\
