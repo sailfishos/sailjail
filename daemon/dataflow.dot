@@ -1,0 +1,105 @@
+/* -*- mode: c -*- */
+digraph foo {
+  //rankdir=LR;
+  node[shape=box];
+  node[style=filled]
+  node[fillcolor=wheat];
+  node[width=0.001];
+  node[height=0.001];
+  node[fontsize=8];
+
+  edge[fontsize=7];
+  edge[color=grey30];
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * SOURCES
+   * - - - - - - - - - - - - - - - - - - - */
+  node[fillcolor=GreenYellow];
+
+  PERMISSION_FILES [label="Permission\nFiles"];
+  DESKTOP_FILES    [label="Desktop\nFiles"];
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * STATE DATA
+   * - - - - - - - - - - - - - - - - - - - */
+  node[fillcolor=cyan];
+
+  ChangedApplications [label="Changed Applications"];
+  APPLICATION_DB      [label="Application Data"];
+  PERMISSION_DB       [label="Permission Data"];
+  SETTINGS_DB         [label="Setting Data"];
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * SIGNALS
+   * - - - - - - - - - - - - - - - - - - - */
+
+  node[fillcolor=SlateGray1];
+  ApplicationAdded
+  ApplicationRemoved
+  ApplicationChanged
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * TRIGGERS
+   * - - - - - - - - - - - - - - - - - - - */
+
+  node[shape=oval];
+  node[fillcolor=yellow];
+
+  PERMISSION_CHANGE  [label="Permission\nChange"];
+  APPLICATION_CHANGE [label="Application\nChange"];
+  SETTINGS_CHANGE    [label="Settings\nChange"];
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * ACTIONS
+   * - - - - - - - - - - - - - - - - - - - */
+
+  node[fillcolor=wheat];
+
+  SETTINGS_RETHINK     [label="Settings\nRethink"];
+  APPLICATIONS_RETHINK [label="Applications\nRethink"];
+  BROADCAST_RETHINK    [label="Broadcast\nRethink"];
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * DATAFLOWS (SYNC)
+   * - - - - - - - - - - - - - - - - - - - */
+
+  node[fillcolor=pink];
+  edge[color=grey30];
+
+  {ChangedApplications APPLICATION_DB } -> BROADCAST_RETHINK
+
+  SETTINGS_CHANGE -> ChangedApplications;
+
+  APPLICATION_CHANGE -> ChangedApplications;
+  APPLICATIONS_RETHINK -> APPLICATION_DB;
+  PERMISSION_CHANGE -> PERMISSION_DB;
+
+  PERMISSION_DB -> SETTINGS_RETHINK;
+  APPLICATION_DB -> SETTINGS_RETHINK;
+  PERMISSION_DB ->  APPLICATIONS_RETHINK;
+  SETTINGS_RETHINK -> SETTINGS_DB;
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * DATAFLOWS (ASYNC)
+   * - - - - - - - - - - - - - - - - - - - */
+  edge[color=blue, style=dotted];
+
+  SETTINGS_CHANGE    -> BROADCAST_RETHINK;
+  SETTINGS_RETHINK -> SETTINGS_CHANGE;
+  PERMISSION_FILES->PERMISSION_CHANGE;
+  APPLICATION_CHANGE -> SETTINGS_RETHINK;
+  APPLICATION_CHANGE -> BROADCAST_RETHINK;
+  DESKTOP_FILES -> APPLICATION_CHANGE;
+  PERMISSION_CHANGE -> SETTINGS_RETHINK;
+  PERMISSION_CHANGE -> APPLICATIONS_RETHINK;
+
+  //APPLICATIONS_RETHINK -> APPLICATION_CHANGE;
+  APPLICATION_CHANGE -> APPLICATIONS_RETHINK;
+
+  BROADCAST_RETHINK -> {
+    ApplicationAdded
+    ApplicationRemoved
+    ApplicationChanged
+  }
+
+}

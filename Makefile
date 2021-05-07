@@ -16,7 +16,7 @@ PKGS = $(LIB_PKGS)
 # Default target
 #
 
-all: debug release pkgconfig
+all:: debug release pkgconfig
 
 #
 # Sources
@@ -171,7 +171,7 @@ print_release_test_lib:
 print_coverage_test_lib:
 	@echo $(COVERAGE_TEST_LIB)
 
-clean:
+clean::
 	rm -fr $(BUILD_DIR)
 	make -C unit clean
 
@@ -233,7 +233,7 @@ INSTALL_BIN_DIR = $(DESTDIR)/usr/bin
 INSTALL_INCLUDE_DIR = $(DESTDIR)/usr/include/sailjail
 INSTALL_PKGCONFIG_DIR = $(DESTDIR)$(ABS_LIBDIR)/pkgconfig
 
-install: $(INSTALL_BIN_DIR)
+install:: $(INSTALL_BIN_DIR)
 	$(INSTALL_BIN) $(RELEASE_EXE) $(INSTALL_BIN_DIR)
 
 install-dev: $(INSTALL_INCLUDE_DIR) $(INSTALL_PKGCONFIG_DIR)
