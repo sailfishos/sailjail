@@ -42,6 +42,8 @@
 #include "control.h"
 #include "appinfo.h"
 
+#include <unistd.h>
+
 /* ========================================================================= *
  * Types
  * ========================================================================= */
@@ -121,6 +123,7 @@ void settings_rethink(settings_t *self);
  * ------------------------------------------------------------------------- */
 
 static gchar *settings_userdata_path(uid_t uid);
+static void   settings_remove_stale_userdata(uid_t uid);
 
 /* ------------------------------------------------------------------------- *
  * USERSETTINGS
@@ -422,6 +425,10 @@ settings_load_user(settings_t *self, uid_t uid)
         usersettings_load(usersettings, path);
         g_free(path);
     }
+    else {
+        settings_remove_usersettings(self, uid);
+        settings_remove_stale_userdata(uid);
+    }
 }
 
 void
@@ -492,8 +499,16 @@ settings_rethink(settings_t *self)
     GHashTableIter iter;
     gpointer key, value;
     g_hash_table_iter_init(&iter, self->stt_users);
-    while( g_hash_table_iter_next(&iter, &key, &value) )
-        usersettings_rethink(value);
+    while( g_hash_table_iter_next(&iter, &key, &value) ) {
+        uid_t uid = usersettings_uid(value);
+        if( control_valid_user(settings_control(self), uid) ) {
+            usersettings_rethink(value);
+        }
+        else {
+            g_hash_table_iter_remove(&iter);
+            settings_remove_stale_userdata(uid);
+        }
+    }
 }
 
 /* ------------------------------------------------------------------------- *
@@ -505,6 +520,15 @@ settings_userdata_path(uid_t uid)
 {
     return g_strdup_printf(SETTINGS_DIRECTORY "/user-%u" SETTINGS_EXTENSION,
                            (unsigned)uid);
+}
+
+static void
+settings_remove_stale_userdata(uid_t uid)
+{
+    gchar *path = settings_userdata_path(uid);
+    if( unlink(path) == -1 && errno != ENOENT )
+        log_err("%s: could not remove: %m", path);
+    g_free(path);
 }
 
 /* ========================================================================= *
@@ -627,6 +651,7 @@ usersettings_remove_appsettings(usersettings_t *self, const gchar *appname)
 void
 usersettings_load(usersettings_t *self, const char *path)
 {
+    bool apps_changed = false;
     GKeyFile *file = g_key_file_new();
     keyfile_load(file, path);
     gchar **groups = g_key_file_get_groups(file, NULL);
@@ -638,10 +663,18 @@ usersettings_load(usersettings_t *self, const char *path)
                     usersettings_add_appsettings(self, appname);
                 appsettings_decode(appsettings, file);
             }
+            else {
+                apps_changed = true;
+            }
         }
         g_strfreev(groups);
     }
     g_key_file_unref(file);
+
+    if( apps_changed ) {
+        /* Update settings file for removed application(s) */
+        settings_save_later(usersettings_settings(self), usersettings_uid(self));
+    }
 }
 
 void
@@ -656,6 +689,9 @@ usersettings_save(const usersettings_t *self, const char *path)
         if( control_valid_application(usersettings_control(self), appname) ) {
             appsettings_t *appsettings = value;
             appsettings_encode(appsettings, file);
+        }
+        else {
+            g_hash_table_iter_remove(&iter);
         }
     }
     keyfile_save(file, path);
@@ -672,8 +708,15 @@ usersettings_rethink(usersettings_t *self)
     GHashTableIter iter;
     gpointer key, value;
     g_hash_table_iter_init(&iter, self->ust_apps);
-    while( g_hash_table_iter_next(&iter, &key, &value) )
-        appsettings_rethink(value);
+    while( g_hash_table_iter_next(&iter, &key, &value) ) {
+        if( control_valid_application(usersettings_control(self), appsettings_appname(value)) ) {
+            appsettings_rethink(value);
+        }
+        else {
+            g_hash_table_iter_remove(&iter);
+            settings_save_later(usersettings_settings(self), usersettings_uid(self));
+        }
+    }
 }
 
 /* ========================================================================= *

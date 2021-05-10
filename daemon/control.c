@@ -337,6 +337,9 @@ control_on_users_changed(control_t *self)
                    (unsigned)uid,
                    users_user_exists(users, uid) ? "exists" : "n/a");
     }
+
+    later_schedule(self->ctl_rethink_settings);
+    // -> control_rethink_settings_cb()
 }
 
 void
