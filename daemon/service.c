@@ -47,6 +47,9 @@
 #include "stringset.h"
 #include "settings.h"
 
+#include <dbusaccess_peer.h>
+#include <dbusaccess_policy.h>
+
 /* ========================================================================= *
  * Types
  * ========================================================================= */
@@ -54,6 +57,13 @@
 typedef struct prompter_t prompter_t;
 
 typedef struct service_t  service_t;
+
+/* ========================================================================= *
+ * Policies
+ * ========================================================================= */
+
+#define SERVICE_PRIVILEGED_POLICY "1;user(root)|group(privileged) = allow"
+#define SERVICE_MDM_POLICY "1;user(sailfish-mdm)|group(sailfish-mdm) = allow"
 
 /* ========================================================================= *
  * Prototypes
@@ -110,6 +120,17 @@ static void     service_notify         (service_t *self);
 
 static void service_set_nameowner(service_t *self, bool nameowner);
 bool        service_is_nameowner (const service_t *self);
+
+/* ------------------------------------------------------------------------- *
+ * SERVICE_ACCESS_CONTROL
+ * ------------------------------------------------------------------------- */
+
+static bool service_may_administrate(const gchar *sender);
+static bool service_is_privileged   (const gchar *sender);
+static bool service_is_mdm          (const gchar *sender);
+static bool service_test_policy     (const gchar *sender, DAPolicy *policy);
+
+#define G_BUS_TO_DA_BUS(bus) ((bus) == G_BUS_TYPE_SYSTEM ? DA_BUS_SYSTEM : DA_BUS_SESSION)
 
 /* ------------------------------------------------------------------------- *
  * SERVICE_DBUS
@@ -444,6 +465,46 @@ service_is_nameowner(const service_t *self)
 }
 
 /* ------------------------------------------------------------------------- *
+ * SERVICE_ACCESS_CONTROL
+ * ------------------------------------------------------------------------- */
+
+static bool
+service_may_administrate(const gchar *sender)
+{
+    return service_is_privileged(sender) || service_is_mdm(sender);
+}
+
+static bool
+service_is_privileged(const gchar *sender)
+{
+    static DAPolicy *policy = NULL;
+    if (!policy)
+        policy = da_policy_new(SERVICE_PRIVILEGED_POLICY);
+    return service_test_policy(sender, policy);
+}
+
+static bool
+service_is_mdm(const gchar *sender)
+{
+    static DAPolicy *policy = NULL;
+    if (!policy)
+        policy = da_policy_new(SERVICE_MDM_POLICY);
+    return service_test_policy(sender, policy);
+}
+
+static bool
+service_test_policy(const gchar *sender, DAPolicy *policy)
+{
+    DA_ACCESS access = DA_ACCESS_DENY;
+    DAPeer *peer     = da_peer_get(G_BUS_TO_DA_BUS(PERMISSIONMGR_BUS), sender);
+
+    if (peer)
+        access = da_policy_check(policy, &peer->cred, 0, NULL, DA_ACCESS_DENY);
+
+    return access == DA_ACCESS_ALLOW;
+}
+
+/* ------------------------------------------------------------------------- *
  * SERVICE_DBUS
  * ------------------------------------------------------------------------- */
 
@@ -649,20 +710,25 @@ service_dbus_call_cb(GDBusConnection       *connection,
         }
     }
     else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_SET_LICENSE) ) {
-        guint32      uid   = SESSION_UID_UNDEFINED;
-        const gchar *app   = NULL;
-        gint        agreed = APP_AGREED_UNSET;
-        g_variant_get(parameters, "(u&si)", &uid, &app, &agreed);
-        appsettings_t *appsettings = NULL;
-        if( !control_valid_user(service_control(self), uid) ) {
-            error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
-        }
-        else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
-            error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_APPLICATION, app);
-        }
-        else {
-            appsettings_set_agreed(appsettings, agreed);
-            value_reply(NULL);
+        if( !service_may_administrate(sender) ) {
+            error_reply(G_DBUS_ERROR_ACCESS_DENIED, SERVICE_MESSAGE_RESTRICTED_METHOD, sender,
+                        method_name);
+        } else {
+            guint32      uid   = SESSION_UID_UNDEFINED;
+            const gchar *app   = NULL;
+            gint        agreed = APP_AGREED_UNSET;
+            g_variant_get(parameters, "(u&si)", &uid, &app, &agreed);
+            appsettings_t *appsettings = NULL;
+            if( !control_valid_user(service_control(self), uid) ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
+            }
+            else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_APPLICATION, app);
+            }
+            else {
+                appsettings_set_agreed(appsettings, agreed);
+                value_reply(NULL);
+            }
         }
     }
     else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_GET_LAUNCHABLE) ) {
@@ -683,20 +749,25 @@ service_dbus_call_cb(GDBusConnection       *connection,
         }
     }
     else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_SET_LAUNCHABLE) ) {
-        guint32      uid    = SESSION_UID_UNDEFINED;
-        const gchar *app    = NULL;
-        gint        allowed = APP_ALLOWED_UNSET;
-        g_variant_get(parameters, "(u&si)", &uid, &app, &allowed);
-        appsettings_t *appsettings = NULL;
-        if( !control_valid_user(service_control(self), uid) ) {
-            error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
-        }
-        else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
-            error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_APPLICATION, app);
-        }
-        else {
-            appsettings_set_allowed(appsettings, allowed);
-            value_reply(NULL);
+        if( !service_may_administrate(sender) ) {
+            error_reply(G_DBUS_ERROR_ACCESS_DENIED, SERVICE_MESSAGE_RESTRICTED_METHOD, sender,
+                        method_name);
+        } else {
+            guint32      uid    = SESSION_UID_UNDEFINED;
+            const gchar *app    = NULL;
+            gint        allowed = APP_ALLOWED_UNSET;
+            g_variant_get(parameters, "(u&si)", &uid, &app, &allowed);
+            appsettings_t *appsettings = NULL;
+            if( !control_valid_user(service_control(self), uid) ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
+            }
+            else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_APPLICATION, app);
+            }
+            else {
+                appsettings_set_allowed(appsettings, allowed);
+                value_reply(NULL);
+            }
         }
     }
     else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_GET_GRANTED) ) {
@@ -719,27 +790,32 @@ service_dbus_call_cb(GDBusConnection       *connection,
         }
     }
     else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_SET_GRANTED) ) {
-        guint32      uid = SESSION_UID_UNDEFINED;
-        const gchar *app = NULL;
-        gchar **vector   = NULL;
-        g_variant_get(parameters, "(u&s^as)", &uid, &app, &vector);
-        appsettings_t *appsettings = NULL;
-        if( !control_valid_user(service_control(self), uid) ) {
-            error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
+        if( !service_may_administrate(sender) ) {
+            error_reply(G_DBUS_ERROR_ACCESS_DENIED, SERVICE_MESSAGE_RESTRICTED_METHOD, sender,
+                        method_name);
+        } else {
+            guint32      uid = SESSION_UID_UNDEFINED;
+            const gchar *app = NULL;
+            gchar **vector   = NULL;
+            g_variant_get(parameters, "(u&s^as)", &uid, &app, &vector);
+            appsettings_t *appsettings = NULL;
+            if( !control_valid_user(service_control(self), uid) ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
+            }
+            else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_APPLICATION, app);
+            }
+            else if( !vector ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_PERMISSIONS);
+            }
+            else {
+                stringset_t *granted = stringset_from_strv(vector);
+                appsettings_set_granted(appsettings, granted);
+                stringset_delete(granted);
+                value_reply(NULL);
+            }
+            g_strfreev(vector);
         }
-        else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
-            error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_APPLICATION, app);
-        }
-        else if( !vector ) {
-            error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_PERMISSIONS);
-        }
-        else {
-            stringset_t *granted = stringset_from_strv(vector);
-            appsettings_set_granted(appsettings, granted);
-            stringset_delete(granted);
-            value_reply(NULL);
-        }
-        g_strfreev(vector);
     }
     else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_PROMPT) ||
              !g_strcmp0(method_name, PERMISSIONMGR_METHOD_QUERY) ) {

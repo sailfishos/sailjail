@@ -27,6 +27,7 @@ BuildRequires: pkgconfig(glib-2.0) >= %{glib_version}
 BuildRequires: pkgconfig(gobject-2.0)
 BuildRequires: pkgconfig(gio-2.0)
 BuildRequires: pkgconfig(libsystemd)
+BuildRequires: pkgconfig(libdbusaccess)
 
 # Keep settings in encrypted home partition
 %define _sharedstatedir /home/.system/var/lib

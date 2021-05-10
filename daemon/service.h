@@ -76,6 +76,7 @@ G_BEGIN_DECLS;
 # define SERVICE_MESSAGE_INVALID_PERMISSIONS   "Invalid permissions list"
 # define SERVICE_MESSAGE_DENIED_PERMANENTLY    "Denied permanently"
 # define SERVICE_MESSAGE_NOT_ALLOWED           "Not allowed"
+# define SERVICE_MESSAGE_RESTRICTED_METHOD     "%s is not allowed to access %s"
 
 # define PERMISSIONMGR_NOTIFY_DELAY            0 // [ms]
 
