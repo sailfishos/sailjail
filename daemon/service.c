@@ -450,9 +450,6 @@ service_is_nameowner(const service_t *self)
 static const gchar introspect_xml[] =\
 "<node>"
 "  <interface name='" PERMISSIONMGR_INTERFACE "'>"
-"    <method name='" PERMISSIONMGR_METHOD_QUIT "'>"
-"    </method>"
-
 "    <method name='" PERMISSIONMGR_METHOD_GET_APPLICATIONS "'>"
 "      <arg type='as' name='applications' direction='out'/>"
 "    </method>"
@@ -791,10 +788,6 @@ service_dbus_call_cb(GDBusConnection       *connection,
             }
             stringset_delete(filtered);
         }
-    }
-    else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_QUIT) ) {
-        value_reply(NULL);
-        app_quit();
     }
     else {
         error_reply(G_DBUS_ERROR_UNKNOWN_METHOD, "Unknown method: %s",

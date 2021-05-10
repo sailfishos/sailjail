@@ -56,7 +56,6 @@ G_BEGIN_DECLS;
 # define PERMISSIONMGR_SERVICE                 "org.sailfishos.sailjaild1"
 # define PERMISSIONMGR_INTERFACE               "org.sailfishos.sailjaild1"
 # define PERMISSIONMGR_OBJECT                  "/org/sailfishos/sailjaild1"
-# define PERMISSIONMGR_METHOD_QUIT             "Quit"
 # define PERMISSIONMGR_METHOD_PROMPT           "PromptLaunchPermissions"
 # define PERMISSIONMGR_METHOD_QUERY            "QueryLaunchPermissions"
 # define PERMISSIONMGR_METHOD_GET_APPLICATIONS "GetApplications"
