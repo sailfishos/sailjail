@@ -100,6 +100,7 @@ install -d %{buildroot}%{_sysconfdir}/dbus-1/system.d
 install -m644 daemon/dbus/sailjaild.conf %{buildroot}%{_sysconfdir}/dbus-1/system.d/sailjaild.conf
 install -d %{buildroot}%{_sharedstatedir}/sailjail/settings
 install -d %{buildroot}%{_sysconfdir}/sailjail/config
+install -d %{buildroot}%{_sysconfdir}/sailjail/applications
 
 %check
 make HAVE_FIREJAIL=%{jailfish} -C unit test
@@ -131,4 +132,6 @@ make HAVE_FIREJAIL=%{jailfish} -C unit test
 %config %{_sysconfdir}/dbus-1/system.d/sailjaild.conf
 %attr(0755,root,root) %dir %ghost %{_sharedstatedir}/sailjail
 %attr(0750,root,root) %dir %ghost %{_sharedstatedir}/sailjail/settings
+%dir %{_sysconfdir}/sailjail
 %dir %{_sysconfdir}/sailjail/config
+%dir %{_sysconfdir}/sailjail/applications
