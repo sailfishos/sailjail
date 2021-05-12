@@ -78,10 +78,13 @@ G_BEGIN_DECLS
 # define PERMISSIONS_EXTENSION          ".permission"
 # define PERMISSIONS_PATTERN            "[A-Z]*" PERMISSIONS_EXTENSION
 
-/* Applications  from: *.desktop */
+/* Applications from: *.desktop */
 # define APPLICATIONS_DIRECTORY         DATADIR "/applications"
 # define APPLICATIONS_EXTENSION         ".desktop"
 # define APPLICATIONS_PATTERN           "*" APPLICATIONS_EXTENSION
+
+/* Sailjail overrides from: *.desktop */
+# define SAILJAIL_APP_DIRECTORY         SYSCONFDIR "/sailjail/applications"
 
 /* Settings from: *.settings */
 # define SETTINGS_DIRECTORY             SHAREDSTATEDIR "/sailjail/settings"
@@ -129,13 +132,14 @@ char *strip(char *str);
  * PATH
  * ------------------------------------------------------------------------- */
 
-const gchar *path_basename            (const gchar *path);
-const gchar *path_extension           (const gchar *path);
-gchar       *path_dirname             (const gchar *path);
-gchar       *path_to_desktop_name     (const gchar *path);
-gchar       *path_from_desktop_name   (const gchar *stem);
-gchar       *path_to_permission_name  (const gchar *path);
-gchar       *path_from_permission_name(const gchar *stem);
+const gchar *path_basename             (const gchar *path);
+const gchar *path_extension            (const gchar *path);
+gchar       *path_dirname              (const gchar *path);
+gchar       *path_to_desktop_name      (const gchar *path);
+gchar       *path_from_desktop_name    (const gchar *stem);
+gchar       *alt_path_from_desktop_name(const gchar *stem);
+gchar       *path_to_permission_name   (const gchar *path);
+gchar       *path_from_permission_name (const gchar *stem);
 
 /* ------------------------------------------------------------------------- *
  * GUTIL

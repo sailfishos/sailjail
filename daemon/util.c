@@ -55,14 +55,15 @@ char *strip(char *str);
  * PATH
  * ------------------------------------------------------------------------- */
 
-const gchar  *path_basename            (const gchar *path);
-const gchar  *path_extension           (const gchar *path);
-gchar        *path_dirname             (const gchar *path);
-static gchar *path_stemname            (const gchar *path, const char *ext_to_remove);
-gchar        *path_to_desktop_name     (const gchar *path);
-gchar        *path_from_desktop_name   (const gchar *stem);
-gchar        *path_to_permission_name  (const gchar *path);
-gchar        *path_from_permission_name(const gchar *stem);
+const gchar  *path_basename             (const gchar *path);
+const gchar  *path_extension            (const gchar *path);
+gchar        *path_dirname              (const gchar *path);
+static gchar *path_stemname             (const gchar *path, const char *ext_to_remove);
+gchar        *path_to_desktop_name      (const gchar *path);
+gchar        *path_from_desktop_name    (const gchar *stem);
+gchar        *alt_path_from_desktop_name(const gchar *stem);
+gchar        *path_to_permission_name   (const gchar *path);
+gchar        *path_from_permission_name (const gchar *stem);
 
 /* ------------------------------------------------------------------------- *
  * GUTIL
@@ -181,6 +182,19 @@ path_from_desktop_name(const gchar *stem)
     gchar *norm = path_to_desktop_name(stem);
     if( norm )
         path = g_strdup_printf(APPLICATIONS_DIRECTORY "/"
+                               "%s" APPLICATIONS_EXTENSION,
+                               norm);
+    g_free(norm);
+    return path;
+}
+
+gchar *
+alt_path_from_desktop_name(const gchar *stem)
+{
+    gchar *path = 0;
+    gchar *norm = path_to_desktop_name(stem);
+    if( norm )
+        path = g_strdup_printf(SAILJAIL_APP_DIRECTORY "/"
                                "%s" APPLICATIONS_EXTENSION,
                                norm);
     g_free(norm);
