@@ -726,12 +726,27 @@ prompter_prompt_invocation_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
 static GVariant *
 prompter_invocation_args(const prompter_t *self, appinfo_t *appinfo)
 {
-    GVariantBuilder builder;
-    g_variant_builder_init(&builder, G_VARIANT_TYPE("a{sas}"));
+    gchar *desktop                 = NULL;
+    const stringset_t *permissions = NULL;
+    stringset_t *filtered          = NULL;
+    GVariant *args                 = NULL;
 
-    const stringset_t *permissions = appinfo_get_permissions(appinfo);
-    stringset_t *filtered = service_filter_permissions(prompter_service(self),
-                                                       permissions);
+    GVariantBuilder builder;
+
+    /* Prompting is applicable only to applications that have desktop
+     * file in standard directory.
+     *
+     * Applications that have desktop file only in sailjail specific
+     * directory are either allowed by default (in which case we should
+     * not end up here) or are denied without prompting.
+     */
+    desktop = path_from_desktop_name(appinfo_id(appinfo));
+    if( access(desktop, R_OK) == -1 )
+        goto EXIT;
+
+    g_variant_builder_init(&builder, G_VARIANT_TYPE("a{sas}"));
+    permissions = appinfo_get_permissions(appinfo);
+    filtered = service_filter_permissions(prompter_service(self), permissions);
     gchar **vector = stringset_to_strv(filtered);
     for( guint i = 0; vector[i]; ++i ) {
         gchar *perm = vector[i];
@@ -741,11 +756,11 @@ prompter_invocation_args(const prompter_t *self, appinfo_t *appinfo)
     g_variant_builder_add(&builder, "{s^as}", "required", vector);
     g_strfreev(vector);
 
-    gchar *desktop = path_from_desktop_name(appinfo_id(appinfo));
-    GVariant *args = g_variant_new("(s@a{sas})", desktop,
-                                   g_variant_builder_end(&builder));
-    g_free(desktop);
+    args = g_variant_new("(s@a{sas})", desktop, g_variant_builder_end(&builder));
+
+EXIT:
     stringset_delete(filtered);
+    g_free(desktop);
     return args;
 }
 
@@ -756,6 +771,7 @@ prompter_prompt_invocation(prompter_t *self)
     appinfo_t          *appinfo = NULL;
     const gchar        *app     = NULL;
     GCancellable       *cancellable  = NULL; // <-- FIXME: make this cancellable
+    GVariant           *invocation_args = NULL;
 
     GVariant *parameters =
         g_dbus_method_invocation_get_parameters(prompter_current_invocation(self));
@@ -771,12 +787,19 @@ prompter_prompt_invocation(prompter_t *self)
         goto EXIT;
     }
 
+    if( !(invocation_args = prompter_invocation_args(self, appinfo)) ) {
+        gchar *desktop = path_from_desktop_name(appinfo_id(appinfo));
+        log_err("%s: does not exist - can't prompt", desktop);
+        g_free(desktop);
+        goto EXIT;
+    }
+
     g_dbus_connection_call(prompter_connection(self),
                            WINDOWPROMT_SERVICE,
                            WINDOWPROMT_OBJECT,
                            WINDOWPROMT_INTERFACE,
                            WINDOWPROMT_METHOD_PROMPT,
-                           prompter_invocation_args(self, appinfo),
+                           invocation_args,
                            NULL,
                            G_DBUS_CALL_FLAGS_NONE,
                            G_MAXINT,
