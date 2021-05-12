@@ -162,7 +162,7 @@ bool change_string_steal(gchar **pstr, gchar *val);
 
 bool         keyfile_save         (GKeyFile *file, const gchar *path);
 bool         keyfile_load         (GKeyFile *file, const gchar *path);
-void         keyfile_merge        (GKeyFile *file, const gchar *path);
+bool         keyfile_merge        (GKeyFile *file, const gchar *path);
 bool         keyfile_get_boolean  (GKeyFile *file, const gchar *sec, const gchar *key, bool def);
 gint         keyfile_get_integer  (GKeyFile *file, const gchar *sec, const gchar *key, gint def);
 gchar       *keyfile_get_string   (GKeyFile *file, const gchar *sec, const gchar *key, const gchar *def);
