@@ -59,6 +59,22 @@ typedef enum
     APPINFO_STATE_DELETED,
 } appinfo_state_t;
 
+typedef enum
+{
+    APPINFO_FILE_UNCHANGED,  // Nothing has changed
+    APPINFO_FILE_CHANGED,    // File timestamp has changed
+    APPINFO_FILE_INVALID,    // File is inaccessible => error
+    APPINFO_FILE_DELETED,    // File existed but was removed
+    APPINFO_FILE_MISSING,    // File doesn't exist and was not read on previous scan
+} appinfo_file_t;
+
+typedef enum
+{
+    APPINFO_DIR_MAIN,
+    APPINFO_DIR_ALT,
+    APPINFO_DIR_COUNT
+} appinfo_dir_t;
+
 static const char * const appinfo_state_name[] =
 {
     [APPINFO_STATE_UNSET]   = "UNSET",
@@ -145,7 +161,9 @@ void         appinfo_clear_permissions   (appinfo_t *self);
  * APPINFO_PARSE
  * ------------------------------------------------------------------------- */
 
-bool appinfo_parse_desktop(appinfo_t *self);
+static appinfo_file_t appinfo_combined_file_state    (appinfo_file_t state1, appinfo_file_t state2);
+static appinfo_file_t appinfo_check_desktop_from_path(appinfo_t *self, const gchar *path, appinfo_dir_t dir);
+bool                  appinfo_parse_desktop          (appinfo_t *self);
 
 /* ========================================================================= *
  * APPINFO
@@ -183,7 +201,7 @@ struct appinfo_t
 
     gchar           *anf_appname;
     appinfo_state_t  anf_state;
-    time_t           anf_dt_ctime;
+    time_t           anf_dt_ctime[APPINFO_DIR_COUNT];
     bool             anf_dirty;
 
     // desktop properties
@@ -213,27 +231,28 @@ static const char appinfo_unknown[] = "(undefined)";
 static void
 appinfo_ctor(appinfo_t *self, applications_t *applications, const gchar *id)
 {
-    self->anf_applications         = applications;
-    self->anf_appname              = g_strdup(id);
+    self->anf_applications               = applications;
+    self->anf_appname                    = g_strdup(id);
 
-    self->anf_state                = APPINFO_STATE_UNSET;
-    self->anf_dt_ctime             = -1;
-    self->anf_dirty                = false;
+    self->anf_state                      = APPINFO_STATE_UNSET;
+    self->anf_dt_ctime[APPINFO_DIR_MAIN] = -1;
+    self->anf_dt_ctime[APPINFO_DIR_ALT]  = -1;
+    self->anf_dirty                      = false;
 
-    self->anf_dt_name              = NULL;
-    self->anf_dt_type              = NULL;
-    self->anf_dt_icon              = NULL;
-    self->anf_dt_exec              = NULL;
-    self->anf_dt_no_display        = false;
+    self->anf_dt_name                    = NULL;
+    self->anf_dt_type                    = NULL;
+    self->anf_dt_icon                    = NULL;
+    self->anf_dt_exec                    = NULL;
+    self->anf_dt_no_display              = false;
 
-    self->anf_mo_service           = NULL;
-    self->anf_mo_object            = NULL;
-    self->anf_mo_method            = NULL;
+    self->anf_mo_service                 = NULL;
+    self->anf_mo_object                  = NULL;
+    self->anf_mo_method                  = NULL;
 
-    self->anf_sj_permissions_in    = stringset_create();
-    self->anf_sj_permissions_out   = stringset_create();
-    self->anf_sj_organization_name = NULL;
-    self->anf_sj_application_name  = NULL;
+    self->anf_sj_permissions_in          = stringset_create();
+    self->anf_sj_permissions_out         = stringset_create();
+    self->anf_sj_organization_name       = NULL;
+    self->anf_sj_application_name        = NULL;
 
     log_info("appinfo(%s): create", appinfo_id(self));
 }
@@ -627,51 +646,135 @@ appinfo_clear_permissions(appinfo_t *self)
  * APPINFO_PARSE
  * ------------------------------------------------------------------------- */
 
-bool
-appinfo_parse_desktop(appinfo_t *self)
+static appinfo_file_t
+appinfo_combined_file_state(appinfo_file_t state1, appinfo_file_t state2)
 {
-    GKeyFile  *ini         = NULL;
-    gchar     *path        = NULL;
-    GError    *err         = NULL;
-    gchar    **permissions = NULL;
+    /*  state[12] | UNCHANGED |  CHANGED  |  INVALID  |  DELETED  |  MISSING
+     * ===========#===========#===========#===========#===========#==========
+     *  UNCHANGED | UNCHANGED |  CHANGED  |  INVALID  |  CHANGED  | UNCHANGED
+     * ===========#-----------+-----------+-----------+-----------+-----------
+     *   CHANGED  |  CHANGED  |  CHANGED  |  INVALID  |  CHANGED  |  CHANGED
+     * ===========#-----------+-----------+-----------+-----------+-----------
+     *   INVALID  |  INVALID  |  INVALID  |  INVALID  |  INVALID  |  INVALID
+     * ===========#-----------+-----------+-----------+-----------+-----------
+     *   DELETED  |  CHANGED  |  CHANGED  |  INVALID  |  DELETED  |  DELETED
+     * ===========#-----------+-----------+-----------+-----------+-----------
+     *   MISSING  | UNCHANGED |  CHANGED  |  INVALID  |  DELETED  |  MISSING
+     */
 
-    path = path_from_desktop_name(appinfo_id(self));
+    if (state2 <= APPINFO_FILE_MISSING) {
+        switch (state1) {
+        case APPINFO_FILE_UNCHANGED:
+            if( state2 == APPINFO_FILE_DELETED )
+                return APPINFO_FILE_CHANGED;
+            if( state2 == APPINFO_FILE_MISSING )
+                return APPINFO_FILE_UNCHANGED;
+            return state2;
+        case APPINFO_FILE_CHANGED:
+            if( state2 == APPINFO_FILE_INVALID )
+                return APPINFO_FILE_INVALID;
+            return APPINFO_FILE_CHANGED;
+        case APPINFO_FILE_INVALID:
+            return APPINFO_FILE_INVALID;
+        case APPINFO_FILE_DELETED:
+            if( state2 <= APPINFO_FILE_CHANGED )
+                return APPINFO_FILE_CHANGED;
+            if( state2 == APPINFO_FILE_INVALID )
+                return APPINFO_FILE_INVALID;
+            return APPINFO_FILE_DELETED;
+        case APPINFO_FILE_MISSING:
+            return state2;
+        }
+    }
+    log_err("Unknown state: (%d, %d)", state1, state2);
+    return APPINFO_FILE_INVALID;
+}
+
+static appinfo_file_t
+appinfo_check_desktop_from_path(appinfo_t *self, const gchar *path, appinfo_dir_t dir)
+{
+    appinfo_file_t state = APPINFO_FILE_UNCHANGED;
 
     /* Check if the file has changed since last parse */
     struct stat st = {};
     if( stat(path, &st) == -1 ) {
-        log_warning("%s: could not stat: %m", path);
-        if( errno == ENOENT )
-            appinfo_set_state(self, APPINFO_STATE_DELETED);
-        else
-            appinfo_set_state(self, APPINFO_STATE_INVALID);
+        if( errno == ENOENT ) {
+            log_debug("%s: could not stat: %m", path);
+            /* If file existed before, self->anf_dt_ctime[dir] != -1 */
+            state = self->anf_dt_ctime[dir] != -1 ? APPINFO_FILE_DELETED : APPINFO_FILE_MISSING;
+        }
+        else {
+            log_warning("%s: could not stat: %m", path);
+            state = APPINFO_FILE_INVALID;
+        }
+        self->anf_dt_ctime[dir] = -1;
         goto EXIT;
     }
 
-    if( self->anf_dt_ctime == st.st_ctime ) {
+    if( self->anf_dt_ctime[dir] == st.st_ctime ) {
         /* Retain current state */
         goto EXIT;
     }
 
-    self->anf_dt_ctime = st.st_ctime;
+    self->anf_dt_ctime[dir] = st.st_ctime;
 
-    /* Read file contents */
+    /* Test file readability */
     if( access(path, R_OK) == -1 ) {
         log_warning("%s: not accessible: %m", path);
-        appinfo_set_state(self, APPINFO_STATE_INVALID);
+        state = APPINFO_FILE_INVALID;
+        goto EXIT;
+    }
+
+    state = APPINFO_FILE_CHANGED;
+
+EXIT:
+    return state;
+}
+
+bool
+appinfo_parse_desktop(appinfo_t *self)
+{
+    GKeyFile      *ini         = NULL;
+    gchar         *path1       = NULL;
+    gchar         *path2       = NULL;
+    GError        *err         = NULL;
+    gchar        **permissions = NULL;
+    appinfo_file_t file1_state = APPINFO_STATE_UNSET;
+    appinfo_file_t file2_state = APPINFO_STATE_UNSET;
+    appinfo_file_t combined    = APPINFO_STATE_UNSET;
+
+    path1 = path_from_desktop_name(appinfo_id(self));
+    path2 = alt_path_from_desktop_name(appinfo_id(self));
+
+    file1_state = appinfo_check_desktop_from_path(self, path1, APPINFO_DIR_MAIN);
+    file2_state = appinfo_check_desktop_from_path(self, path2, APPINFO_DIR_ALT);
+    combined = appinfo_combined_file_state(file1_state, file2_state);
+
+    /* If combined state is CHANGED file(s) must be read, otherwise there is no need */
+    if( combined != APPINFO_FILE_CHANGED ) {
+        /* Invalid is always INVALID */
+        if( combined == APPINFO_FILE_INVALID )
+            appinfo_set_state(self, APPINFO_STATE_INVALID);
+        /* Both files missing => DELETED */
+        else if( combined >= APPINFO_FILE_DELETED )
+            appinfo_set_state(self, APPINFO_STATE_DELETED);
+        /* Or it could be that no files were changed */
         goto EXIT;
     }
 
     ini = g_key_file_new();
-    if( !keyfile_load(ini, path) ) {
+    if( file1_state <= APPINFO_FILE_CHANGED && !keyfile_merge(ini, path1) ) {
+        appinfo_set_state(self, APPINFO_STATE_INVALID);
+        goto EXIT;
+    }
+    if( file2_state <= APPINFO_FILE_CHANGED && !keyfile_merge(ini, path2) ) {
         appinfo_set_state(self, APPINFO_STATE_INVALID);
         goto EXIT;
     }
 
     //log_debug("appinfo(%s): updating", appinfo_id(self));
 
-    /* Parse desktop properties
-     */
+    /* Parse desktop properties */
     gchar *tmp;
 
     tmp = keyfile_get_string(ini, DESKTOP_SECTION, DESKTOP_KEY_NAME, 0),
@@ -694,8 +797,7 @@ appinfo_parse_desktop(appinfo_t *self)
                                                      DESKTOP_KEY_NO_DISPLAY,
                                                      false));
 
-    /* Parse maemo properties
-     */
+    /* Parse maemo properties */
     tmp = keyfile_get_string(ini, MAEMO_SECTION, MAEMO_KEY_SERVICE, 0),
         appinfo_set_service(self, tmp),
         g_free(tmp);
@@ -708,8 +810,7 @@ appinfo_parse_desktop(appinfo_t *self)
         appinfo_set_method(self, tmp),
         g_free(tmp);
 
-    /* Parse sailjail properties
-     */
+    /* Parse sailjail properties */
     const gchar *group = SAILJAIL_SECTION_PRIMARY;
     if( !g_key_file_has_group(ini, group) )
         group = SAILJAIL_SECTION_SECONDARY;
@@ -739,7 +840,8 @@ EXIT:
     g_strfreev(permissions);
     if( ini )
         g_key_file_unref(ini);
-    g_free(path);
+    g_free(path1);
+    g_free(path2);
 
     return appinfo_clear_dirty(self);
 }
