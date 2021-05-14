@@ -117,6 +117,8 @@ struct control_t
 {
     const config_t *ctl_config;
 
+    uid_t           ctl_session_user;
+
     stringset_t    *ctl_changed_applications;
     later_t        *ctl_rethink_applications;
     later_t        *ctl_rethink_settings;
@@ -139,6 +141,7 @@ control_ctor(control_t *self, const config_t *config)
 {
     log_info("control() create");
     self->ctl_config = config;
+    self->ctl_session_user = SESSION_UID_UNDEFINED;
 
     /* Init re-evaluation pipeline */
     self->ctl_changed_applications = stringset_create();
@@ -158,6 +161,9 @@ control_ctor(control_t *self, const config_t *config)
     self->ctl_permissions  = permissions_create(self);
     self->ctl_applications = applications_create(self);
     self->ctl_settings     = settings_create(config, self);
+
+    /* Set correct session user */
+    self->ctl_session_user = session_current_user(control_session(self));
 
     /* Init D-Bus service */
     self->ctl_service      = service_create(self);
@@ -356,8 +362,13 @@ control_on_session_changed(control_t *self)
 
     session_t *session = control_session(self);
 
-    uid_t uid = session_current_user(session);
-    log_notice("session uid = %d", (int)uid);
+    /* To drop guest user settings from memory when guest user session ends */
+    if( control_user_is_guest(self, self->ctl_session_user) )
+        later_schedule(self->ctl_rethink_settings);
+        // -> control_rethink_settings_cb()
+
+    self->ctl_session_user = session_current_user(session);
+    log_notice("session uid = %d", (int)self->ctl_session_user);
 }
 
 void
