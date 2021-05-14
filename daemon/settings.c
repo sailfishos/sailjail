@@ -124,6 +124,7 @@ void settings_rethink(settings_t *self);
 
 static gchar *settings_userdata_path(uid_t uid);
 static void   settings_remove_stale_userdata(uid_t uid);
+static bool   settings_valid_user(const settings_t *self, uid_t uid);
 
 /* ------------------------------------------------------------------------- *
  * USERSETTINGS
@@ -318,9 +319,8 @@ appsettings_t *
 settings_appsettings(settings_t *self, uid_t uid, const char *app)
 {
     appsettings_t *appsettings = NULL;
-    control_t *control = settings_control(self);
-    if( control_valid_user(control, uid) &&
-        control_valid_application(control, app) )
+    if( settings_valid_user(self, uid) &&
+        control_valid_application(settings_control(self), app) )
         appsettings = settings_add_appsettings(self, uid, app);
     return appsettings;
 }
@@ -412,6 +412,7 @@ settings_save_all(const settings_t *self)
     uid_t min_uid = control_min_user(control);
     uid_t max_uid = control_max_user(control);
 
+    /* Save settings for all but guest user */
     for( uid_t uid = min_uid; uid <= max_uid; ++uid )
         settings_save_user(self, uid);
 }
@@ -419,7 +420,7 @@ settings_save_all(const settings_t *self)
 void
 settings_load_user(settings_t *self, uid_t uid)
 {
-    if( control_valid_user(settings_control(self), uid) ) {
+    if( settings_valid_user(self, uid) ) {
         gchar *path = settings_userdata_path(uid);
         usersettings_t *usersettings = settings_add_usersettings(self, uid);
         usersettings_load(usersettings, path);
@@ -434,8 +435,7 @@ settings_load_user(settings_t *self, uid_t uid)
 void
 settings_save_user(const settings_t *self, uid_t uid)
 {
-
-    if( control_valid_user(settings_control(self), uid) ) {
+    if( settings_valid_user(self, uid) ) {
         gchar *path = settings_userdata_path(uid);
         usersettings_t *usersettings = settings_get_usersettings(self, uid);
         if( usersettings )
@@ -482,10 +482,13 @@ settings_cancel_save(settings_t *self)
 void
 settings_save_later(settings_t *self, uid_t uid)
 {
-    g_hash_table_add(self->stt_user_changes, GINT_TO_POINTER(uid));
+    /* Guest user settings are stored only volatile (in-memory) */
+    if ( !control_user_is_guest(settings_control(self), uid) ) {
+        g_hash_table_add(self->stt_user_changes, GINT_TO_POINTER(uid));
 
-    if( !self->stt_save_id ) {
-        self->stt_save_id = g_timeout_add(1000, settings_save_cb, self);
+        if( !self->stt_save_id ) {
+            self->stt_save_id = g_timeout_add(1000, settings_save_cb, self);
+        }
     }
 }
 
@@ -501,7 +504,7 @@ settings_rethink(settings_t *self)
     g_hash_table_iter_init(&iter, self->stt_users);
     while( g_hash_table_iter_next(&iter, &key, &value) ) {
         uid_t uid = usersettings_uid(value);
-        if( control_valid_user(settings_control(self), uid) ) {
+        if( settings_valid_user(self, uid) ) {
             usersettings_rethink(value);
         }
         else {
@@ -529,6 +532,12 @@ settings_remove_stale_userdata(uid_t uid)
     if( unlink(path) == -1 && errno != ENOENT )
         log_err("%s: could not remove: %m", path);
     g_free(path);
+}
+
+static bool
+settings_valid_user(const settings_t *self, uid_t uid)
+{
+    return control_valid_user(settings_control(self), uid);
 }
 
 /* ========================================================================= *

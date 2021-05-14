@@ -287,6 +287,11 @@ control_current_user(const control_t *self)
 bool
 control_valid_user(const control_t *self, uid_t uid)
 {
+    /* Guest user is considered invalid if it doesn't have an active
+     * user session.
+     */
+    if (control_user_is_guest(self, uid) && control_current_user(self) != uid)
+        return false;
     return users_user_exists(control_users(self), uid);
 }
 
