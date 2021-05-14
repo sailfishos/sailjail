@@ -51,6 +51,7 @@
 
 #define USERS_UID_MIN 100000
 #define USERS_UID_MAX 100007
+#define USERS_UID_GUEST 105000
 
 /* ========================================================================= *
  * Types
@@ -84,6 +85,7 @@ static control_t *users_control(const users_t *self);
 uid_t users_first_user (const users_t *self);
 uid_t users_last_user  (const users_t *self);
 bool  users_user_exists(users_t *self, uid_t uid);
+bool  users_user_is_guest(const users_t *self, uid_t uid);
 
 /* ------------------------------------------------------------------------- *
  * USERS_NOTIFY
@@ -222,6 +224,13 @@ users_user_exists(users_t *self, uid_t uid)
     return g_hash_table_contains(self->usr_current, GINT_TO_POINTER(uid));
 }
 
+bool
+users_user_is_guest(const users_t *self, uid_t uid)
+{
+    (void)self; // unused
+    return uid == USERS_UID_GUEST;
+}
+
 /* ========================================================================= *
  * USERS_NOTIFY
  * ========================================================================= */
@@ -252,7 +261,8 @@ users_scan_now(users_t *self)
 
     setpwent();
     while( (pw = getpwent()) ) {
-        if( pw->pw_uid >= USERS_UID_MIN && pw->pw_uid <= USERS_UID_MAX ) {
+        if( (pw->pw_uid >= USERS_UID_MIN && pw->pw_uid <= USERS_UID_MAX) ||
+            pw->pw_uid == USERS_UID_GUEST ) {
             g_hash_table_add(scanned, GINT_TO_POINTER(pw->pw_uid));
         }
     }

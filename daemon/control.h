@@ -88,6 +88,7 @@ uid_t              control_current_user          (const control_t *self);
 bool               control_valid_user            (const control_t *self, uid_t uid);
 uid_t              control_min_user              (const control_t *self);
 uid_t              control_max_user              (const control_t *self);
+bool               control_user_is_guest         (const control_t *self, uid_t uid);
 const stringset_t *control_available_permissions (const control_t *self);
 bool               control_valid_permission      (const control_t *self, const char *perm);
 const stringset_t *control_available_applications(const control_t *self);
