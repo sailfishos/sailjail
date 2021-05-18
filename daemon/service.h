@@ -77,6 +77,7 @@ G_BEGIN_DECLS;
 # define SERVICE_MESSAGE_DENIED_PERMANENTLY    "Denied permanently"
 # define SERVICE_MESSAGE_NOT_ALLOWED           "Not allowed"
 # define SERVICE_MESSAGE_RESTRICTED_METHOD     "%s is not allowed to access %s"
+# define SERVICE_MESSAGE_GUEST_NOT_LOGGED_IN   "Guest user is not logged in"
 
 # define PERMISSIONMGR_NOTIFY_DELAY            0 // [ms]
 

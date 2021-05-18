@@ -697,7 +697,11 @@ service_dbus_call_cb(GDBusConnection       *connection,
         const gchar *app = NULL;
         g_variant_get(parameters, "(u&s)", &uid, &app);
         appsettings_t *appsettings = NULL;
-        if( !control_valid_user(service_control(self), uid) ) {
+        if( control_user_is_guest(service_control(self), uid) &&
+            control_current_user(service_control(self)) != uid ) {
+            error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_GUEST_NOT_LOGGED_IN);
+        }
+        else if( !control_valid_user(service_control(self), uid) ) {
             error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
         }
         else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
@@ -719,7 +723,11 @@ service_dbus_call_cb(GDBusConnection       *connection,
             gint        agreed = APP_AGREED_UNSET;
             g_variant_get(parameters, "(u&si)", &uid, &app, &agreed);
             appsettings_t *appsettings = NULL;
-            if( !control_valid_user(service_control(self), uid) ) {
+            if( control_user_is_guest(service_control(self), uid) &&
+                control_current_user(service_control(self)) != uid ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_GUEST_NOT_LOGGED_IN);
+            }
+            else if( !control_valid_user(service_control(self), uid) ) {
                 error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
             }
             else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
@@ -736,7 +744,11 @@ service_dbus_call_cb(GDBusConnection       *connection,
         const gchar *app = NULL;
         g_variant_get(parameters, "(u&s)", &uid, &app);
         appsettings_t *appsettings = NULL;
-        if( !control_valid_user(service_control(self), uid) ) {
+        if( control_user_is_guest(service_control(self), uid) &&
+            control_current_user(service_control(self)) != uid ) {
+            error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_GUEST_NOT_LOGGED_IN);
+        }
+        else if( !control_valid_user(service_control(self), uid) ) {
             error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
         }
         else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
@@ -758,7 +770,11 @@ service_dbus_call_cb(GDBusConnection       *connection,
             gint        allowed = APP_ALLOWED_UNSET;
             g_variant_get(parameters, "(u&si)", &uid, &app, &allowed);
             appsettings_t *appsettings = NULL;
-            if( !control_valid_user(service_control(self), uid) ) {
+            if( control_user_is_guest(service_control(self), uid) &&
+                control_current_user(service_control(self)) != uid ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_GUEST_NOT_LOGGED_IN);
+            }
+            else if( !control_valid_user(service_control(self), uid) ) {
                 error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
             }
             else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
@@ -775,7 +791,11 @@ service_dbus_call_cb(GDBusConnection       *connection,
         const gchar *app = NULL;
         g_variant_get(parameters, "(u&s)", &uid, &app);
         appsettings_t *appsettings = NULL;
-        if( !control_valid_user(service_control(self), uid) ) {
+        if( control_user_is_guest(service_control(self), uid) &&
+            control_current_user(service_control(self)) != uid ) {
+            error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_GUEST_NOT_LOGGED_IN);
+        }
+        else if( !control_valid_user(service_control(self), uid) ) {
             error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
         }
         else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
@@ -799,7 +819,11 @@ service_dbus_call_cb(GDBusConnection       *connection,
             gchar **vector   = NULL;
             g_variant_get(parameters, "(u&s^as)", &uid, &app, &vector);
             appsettings_t *appsettings = NULL;
-            if( !control_valid_user(service_control(self), uid) ) {
+            if( control_user_is_guest(service_control(self), uid) &&
+                control_current_user(service_control(self)) != uid ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_GUEST_NOT_LOGGED_IN);
+            }
+            else if( !control_valid_user(service_control(self), uid) ) {
                 error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
             }
             else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
