@@ -95,6 +95,7 @@ PKG_NAMES += glib-2.0
 PKG_NAMES += gobject-2.0
 PKG_NAMES += gio-2.0
 PKG_NAMES += libsystemd
+PKG_NAMES += libdbusaccess
 
 maintenance  = normalize clean distclean mostlyclean
 intersection = $(strip $(foreach w,$1, $(filter $w,$2)))
