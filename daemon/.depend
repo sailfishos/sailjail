@@ -209,6 +209,7 @@ session.pic.o:\
 settings.o:\
 	settings.c\
 	appinfo.h\
+	config.h\
 	control.h\
 	logging.h\
 	settings.h\
@@ -218,6 +219,7 @@ settings.o:\
 settings.pic.o:\
 	settings.c\
 	appinfo.h\
+	config.h\
 	control.h\
 	logging.h\
 	settings.h\
