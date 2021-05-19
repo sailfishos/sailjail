@@ -39,7 +39,7 @@
 
 #define JAIL_VERSION_MAJOR 1
 #define JAIL_VERSION_MINOR 0
-#define JAIL_VERSION_RELEASE 29
+#define JAIL_VERSION_RELEASE 30
 
 #define JAIL_VERSION_WORD(v1,v2,v3) \
     ((((v1) & 0x7f) << 24) | \
