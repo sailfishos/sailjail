@@ -835,7 +835,11 @@ service_dbus_call_cb(GDBusConnection       *connection,
         else {
             /* Automatically allow apps that do not require any permissions.
              * Unless they have been explicitly denied earlier.
+             *
+             * Applications defined outside /usr/share/applications can not
+             * be prompted for permissions.
              */
+            gchar *desktop = path_from_desktop_name(appinfo_id(appinfo));
             const stringset_t *permissions = appinfo_get_permissions(appinfo);
             stringset_t *filtered = service_filter_permissions(self,
                                                                permissions);
@@ -856,13 +860,15 @@ service_dbus_call_cb(GDBusConnection       *connection,
                 value_reply(variant);
                 g_strfreev(vector);
             }
-            else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_QUERY) ) {
+            else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_QUERY) ||
+                      access(desktop, R_OK) == -1 ) {
                 error_reply(G_DBUS_ERROR_AUTH_FAILED, SERVICE_MESSAGE_NOT_ALLOWED);
             }
             else {
                 prompter_handle_invocation(service_prompter(self), invocation);
             }
             stringset_delete(filtered);
+            g_free(desktop);
         }
     }
     else {

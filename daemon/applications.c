@@ -57,6 +57,13 @@
  * Types
  * ========================================================================= */
 
+typedef enum
+{
+    APPLICATIONS_DIRECTORY_MONITOR,
+    SAILJAIL_APP_DIRECTORY_MONITOR,
+    DIRECTORY_MONITOR_COUNT
+} applications_monitor_t;
+
 /* ========================================================================= *
  * Prototypes
  * ========================================================================= */
@@ -91,10 +98,15 @@ static void applications_notify_changed(applications_t *self, GHashTable *change
  * APPLICATIONS_MONITOR
  * ------------------------------------------------------------------------- */
 
-static void applications_start_monitor(applications_t *self);
-static void applications_stop_monitor (applications_t *self);
-static bool applications_monitor_p    (const gchar *path);
-static void applications_monitor_cb   (GFileMonitor *mon, GFile *file1, GFile *file2, GFileMonitorEvent event, gpointer aptr);
+static void                    applications_start_monitor    (applications_t *self);
+static void                    applications_stop_monitor     (applications_t *self);
+static bool                    applications_monitor_p        (const gchar *path);
+static void                    applications_monitor_cb       (GFileMonitor *mon, GFile *file1, GFile *file2, GFileMonitorEvent event, gpointer aptr);
+static applications_monitor_t  applications_get_monitor      (applications_t *self, GFileMonitor *mon);
+static const char             *applications_monitor_dir_path (applications_monitor_t monitor);
+static const char             *applications_monitor_name     (applications_monitor_t monitor);
+static void                    applications_start_monitor_dir(applications_t *self, applications_monitor_t monitor);
+static void                    applications_stop_monitor_dir (applications_t *self, applications_monitor_t monitor);
 
 /* ------------------------------------------------------------------------- *
  * APPLICATIONS_SCAN
@@ -104,6 +116,7 @@ static void     applications_scan_now     (applications_t *self);
 static gboolean applications_rescan_cb    (gpointer aptr);
 static void     applications_rescan_later (applications_t *self);
 static bool     applications_cancel_rescan(applications_t *self);
+static void     applications_scan_pattern (GHashTable *scanned, const char *pattern);
 
 /* ------------------------------------------------------------------------- *
  * APPLICATIONS_APPINFO
@@ -123,7 +136,7 @@ struct applications_t
     control_t             *aps_control;
     stringset_t           *aps_available;
     guint                  aps_rescan_id;
-    GFileMonitor          *aps_monitor_obj;
+    GFileMonitor          *aps_monitor_objs[DIRECTORY_MONITOR_COUNT];
     GHashTable            *aps_appinfo_lut;
 };
 
@@ -136,7 +149,10 @@ applications_ctor(applications_t *self, control_t *control)
     self->aps_control     = control;
     self->aps_available   = stringset_create();
     self->aps_rescan_id   = 0;
-    self->aps_monitor_obj = NULL;
+
+    self->aps_monitor_objs[APPLICATIONS_DIRECTORY_MONITOR] = NULL;
+    self->aps_monitor_objs[SAILJAIL_APP_DIRECTORY_MONITOR] = NULL;
+
     self->aps_appinfo_lut = g_hash_table_new_full(g_str_hash,
                                                   g_str_equal,
                                                   g_free,
@@ -247,31 +263,76 @@ applications_notify_changed(applications_t *self, GHashTable *changed)
  * APPLICATIONS_MONITOR
  * ========================================================================= */
 
-static void
-applications_start_monitor(applications_t *self)
+static applications_monitor_t
+applications_get_monitor(applications_t *self, GFileMonitor *mon)
 {
-    applications_stop_monitor(self);
+    for( applications_monitor_t monitor = 0; monitor < DIRECTORY_MONITOR_COUNT; ++monitor )
+        if( self->aps_monitor_objs[monitor] == mon )
+            return monitor;
+    return DIRECTORY_MONITOR_COUNT;
+}
+
+static const char *
+applications_monitor_dir_path(applications_monitor_t monitor)
+{
+    static const char * const lut[] = {
+        [APPLICATIONS_DIRECTORY_MONITOR] = APPLICATIONS_DIRECTORY,
+        [SAILJAIL_APP_DIRECTORY_MONITOR] = SAILJAIL_APP_DIRECTORY,
+        [DIRECTORY_MONITOR_COUNT] = NULL
+    };
+    return lut[monitor];
+}
+
+static const char *
+applications_monitor_name(applications_monitor_t monitor)
+{
+    static const char * const lut[] = {
+        [APPLICATIONS_DIRECTORY_MONITOR] = "APPLICATIONS MONITOR",
+        [SAILJAIL_APP_DIRECTORY_MONITOR] = "SAILJAIL APP MONITOR",
+        [DIRECTORY_MONITOR_COUNT] = NULL
+    };
+    return lut[monitor];
+}
+
+static void
+applications_start_monitor_dir(applications_t *self, applications_monitor_t monitor)
+{
+    applications_stop_monitor_dir(self, monitor);
 
     GFileMonitorFlags flags = G_FILE_MONITOR_WATCH_MOVES;
-    GFile *file = g_file_new_for_path(APPLICATIONS_DIRECTORY);
+    GFile *file = g_file_new_for_path(applications_monitor_dir_path(monitor));
     if( file ) {
-        if( (self->aps_monitor_obj = g_file_monitor_directory(file, flags, 0, 0)) ) {
-            g_signal_connect(self->aps_monitor_obj, "changed",
+        if( (self->aps_monitor_objs[monitor] = g_file_monitor_directory(file, flags, 0, 0)) ) {
+            g_signal_connect(self->aps_monitor_objs[monitor], "changed",
                              G_CALLBACK(applications_monitor_cb), self);
-            log_info("APPLICATIONS MONITOR: started");
+            log_info("%s: started", applications_monitor_name(monitor));
         }
         g_object_unref(file);
     }
 }
 
 static void
+applications_start_monitor(applications_t *self)
+{
+    for( applications_monitor_t monitor = 0; monitor < DIRECTORY_MONITOR_COUNT; ++monitor )
+        applications_start_monitor_dir(self, monitor);
+}
+
+static void
+applications_stop_monitor_dir(applications_t *self, applications_monitor_t monitor)
+{
+    if( self->aps_monitor_objs[monitor] ) {
+        log_info("%s: stopped", applications_monitor_name(monitor));
+        g_object_unref(self->aps_monitor_objs[monitor]),
+            self->aps_monitor_objs[monitor] = NULL;
+    }
+}
+
+static void
 applications_stop_monitor(applications_t *self)
 {
-    if( self->aps_monitor_obj ) {
-        log_info("APPLICATIONS MONITOR: stopped");
-        g_object_unref(self->aps_monitor_obj),
-            self->aps_monitor_obj = NULL;
-    }
+    for( applications_monitor_t monitor = 0; monitor < DIRECTORY_MONITOR_COUNT; ++monitor )
+        applications_stop_monitor_dir(self, monitor);
 }
 
 static bool
@@ -296,7 +357,8 @@ applications_monitor_cb(GFileMonitor      *mon,
                     applications_monitor_p(path2));
 
     if( trigger ) {
-        log_info("APPLICATIONS MONITOR: trigger @ %s %s", path1, path2);
+        log_info("%s: trigger @ %s %s", applications_monitor_name(applications_get_monitor(self, mon)),
+                 path1, path2);
         applications_rescan_later(self);
     }
 }
@@ -326,9 +388,23 @@ applications_rethink(applications_t *self)
 }
 
 static void
+applications_scan_pattern(GHashTable *scanned, const char *pattern)
+{
+    glob_t gl  = {};
+
+    if( glob(pattern, 0, 0, &gl) == 0 ) {
+        for( int i = 0; i < gl.gl_pathc; ++i ) {
+            gchar *appname = path_to_desktop_name(gl.gl_pathv[i]);
+            g_hash_table_add(scanned, appname);
+        }
+    }
+
+    globfree(&gl);
+}
+
+static void
 applications_scan_now(applications_t *self)
 {
-    glob_t      gl      = {};
     GHashTable *scanned = NULL;
     GHashTable *changed = NULL;
 
@@ -336,16 +412,10 @@ applications_scan_now(applications_t *self)
 
     log_info("APPLICATIONS RESCAN: executing");
 
-    if( glob(APPLICATIONS_DIRECTORY "/" APPLICATIONS_PATTERN, 0, 0, &gl) != 0 ) {
-        /* Keep current data */
-        goto EXIT;
-    }
-
     scanned = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
-    for( int i = 0; i < gl.gl_pathc; ++i ) {
-        gchar *appname = path_to_desktop_name(gl.gl_pathv[i]);
-        g_hash_table_add(scanned, appname);
-    }
+
+    applications_scan_pattern(scanned, APPLICATIONS_DIRECTORY "/" APPLICATIONS_PATTERN);
+    applications_scan_pattern(scanned, SAILJAIL_APP_DIRECTORY "/" APPLICATIONS_PATTERN);
 
     changed = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
@@ -387,12 +457,10 @@ applications_scan_now(applications_t *self)
     if( g_hash_table_size(changed) > 0 )
         applications_notify_changed(self, changed);
 
-EXIT:
     if( changed )
         g_hash_table_unref(changed);
     if( scanned )
         g_hash_table_unref(scanned);
-    globfree(&gl);
 }
 
 static gboolean
