@@ -85,6 +85,7 @@ uid_t              control_current_user          (const control_t *self);
 bool               control_valid_user            (const control_t *self, uid_t uid);
 uid_t              control_min_user              (const control_t *self);
 uid_t              control_max_user              (const control_t *self);
+bool               control_user_is_guest         (const control_t *self, uid_t uid);
 const stringset_t *control_available_permissions (const control_t *self);
 bool               control_valid_permission      (const control_t *self, const char *perm);
 const stringset_t *control_available_applications(const control_t *self);
@@ -116,6 +117,8 @@ struct control_t
 {
     const config_t *ctl_config;
 
+    uid_t           ctl_session_user;
+
     stringset_t    *ctl_changed_applications;
     later_t        *ctl_rethink_applications;
     later_t        *ctl_rethink_settings;
@@ -138,6 +141,7 @@ control_ctor(control_t *self, const config_t *config)
 {
     log_info("control() create");
     self->ctl_config = config;
+    self->ctl_session_user = SESSION_UID_UNDEFINED;
 
     /* Init re-evaluation pipeline */
     self->ctl_changed_applications = stringset_create();
@@ -157,6 +161,9 @@ control_ctor(control_t *self, const config_t *config)
     self->ctl_permissions  = permissions_create(self);
     self->ctl_applications = applications_create(self);
     self->ctl_settings     = settings_create(config, self);
+
+    /* Set correct session user */
+    self->ctl_session_user = session_current_user(control_session(self));
 
     /* Init D-Bus service */
     self->ctl_service      = service_create(self);
@@ -280,6 +287,11 @@ control_current_user(const control_t *self)
 bool
 control_valid_user(const control_t *self, uid_t uid)
 {
+    /* Guest user is considered invalid if it doesn't have an active
+     * user session.
+     */
+    if (control_user_is_guest(self, uid) && control_current_user(self) != uid)
+        return false;
     return users_user_exists(control_users(self), uid);
 }
 
@@ -293,6 +305,12 @@ uid_t
 control_max_user(const control_t *self)
 {
     return users_last_user(control_users(self));
+}
+
+bool
+control_user_is_guest(const control_t *self, uid_t uid)
+{
+    return users_user_is_guest(control_users(self), uid);
 }
 
 const stringset_t *
@@ -337,6 +355,9 @@ control_on_users_changed(control_t *self)
                    (unsigned)uid,
                    users_user_exists(users, uid) ? "exists" : "n/a");
     }
+
+    later_schedule(self->ctl_rethink_settings);
+    // -> control_rethink_settings_cb()
 }
 
 void
@@ -346,8 +367,13 @@ control_on_session_changed(control_t *self)
 
     session_t *session = control_session(self);
 
-    uid_t uid = session_current_user(session);
-    log_notice("session uid = %d", (int)uid);
+    /* To drop guest user settings from memory when guest user session ends */
+    if( control_user_is_guest(self, self->ctl_session_user) )
+        later_schedule(self->ctl_rethink_settings);
+        // -> control_rethink_settings_cb()
+
+    self->ctl_session_user = session_current_user(session);
+    log_notice("session uid = %d", (int)self->ctl_session_user);
 }
 
 void
