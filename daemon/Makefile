@@ -95,7 +95,13 @@ PKG_NAMES += glib-2.0
 PKG_NAMES += gobject-2.0
 PKG_NAMES += gio-2.0
 PKG_NAMES += libsystemd
+
+HAVE_LIBDBUSACCESS := $(strip $(shell pkg-config --exists libdbusaccess && echo y))
+
+ifdef HAVE_LIBDBUSACCESS
 PKG_NAMES += libdbusaccess
+CPPFLAGS += -DHAVE_LIBDBUSACCESS
+endif
 
 maintenance  = normalize clean distclean mostlyclean
 intersection = $(strip $(foreach w,$1, $(filter $w,$2)))

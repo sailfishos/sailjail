@@ -48,8 +48,14 @@
 #include "settings.h"
 #include "util.h"
 
-#include <dbusaccess_peer.h>
-#include <dbusaccess_policy.h>
+#ifdef HAVE_LIBDBUSACCESS
+# include <dbusaccess_peer.h>
+# include <dbusaccess_policy.h>
+#else
+/* We should end up here only when e.g. doing debug builds on desktop */
+# warning Missing libdbusaccess package - Access policy is disabled
+typedef void DAPolicy;
+#endif
 
 /* ========================================================================= *
  * Types
@@ -65,6 +71,8 @@ typedef struct service_t  service_t;
 
 #define SERVICE_PRIVILEGED_POLICY "1;user(root)|group(privileged) = allow"
 #define SERVICE_MDM_POLICY "1;user(sailfish-mdm)|group(sailfish-mdm) = allow"
+
+#define G_BUS_TO_DA_BUS(bus) ((bus) == G_BUS_TYPE_SYSTEM ? DA_BUS_SYSTEM : DA_BUS_SESSION)
 
 /* ========================================================================= *
  * Prototypes
@@ -130,8 +138,6 @@ static bool service_may_administrate(const gchar *sender);
 static bool service_is_privileged   (const gchar *sender);
 static bool service_is_mdm          (const gchar *sender);
 static bool service_test_policy     (const gchar *sender, DAPolicy *policy);
-
-#define G_BUS_TO_DA_BUS(bus) ((bus) == G_BUS_TYPE_SYSTEM ? DA_BUS_SYSTEM : DA_BUS_SESSION)
 
 /* ------------------------------------------------------------------------- *
  * SERVICE_DBUS
@@ -479,8 +485,10 @@ static bool
 service_is_privileged(const gchar *sender)
 {
     static DAPolicy *policy = NULL;
+#ifdef HAVE_LIBDBUSACCESS
     if (!policy)
         policy = da_policy_new(SERVICE_PRIVILEGED_POLICY);
+#endif
     return service_test_policy(sender, policy);
 }
 
@@ -488,14 +496,17 @@ static bool
 service_is_mdm(const gchar *sender)
 {
     static DAPolicy *policy = NULL;
+#ifdef HAVE_LIBDBUSACCESS
     if (!policy)
         policy = da_policy_new(SERVICE_MDM_POLICY);
+#endif
     return service_test_policy(sender, policy);
 }
 
 static bool
 service_test_policy(const gchar *sender, DAPolicy *policy)
 {
+#ifdef HAVE_LIBDBUSACCESS
     DA_ACCESS access = DA_ACCESS_DENY;
     DAPeer *peer     = da_peer_get(G_BUS_TO_DA_BUS(PERMISSIONMGR_BUS), sender);
 
@@ -503,6 +514,11 @@ service_test_policy(const gchar *sender, DAPolicy *policy)
         access = da_policy_check(policy, &peer->cred, 0, NULL, DA_ACCESS_DENY);
 
     return access == DA_ACCESS_ALLOW;
+#else
+    (void)sender;
+    (void)policy;
+    return true;
+#endif
 }
 
 /* ------------------------------------------------------------------------- *
