@@ -56,6 +56,7 @@ char *strip(char *str);
  * ------------------------------------------------------------------------- */
 
 const gchar  *path_basename             (const gchar *path);
+gchar        *path_construct            (const gchar *dir, const gchar *file, const gchar *ext);
 const gchar  *path_extension            (const gchar *path);
 gchar        *path_dirname              (const gchar *path);
 static gchar *path_stemname             (const gchar *path, const char *ext_to_remove);
@@ -136,6 +137,16 @@ path_basename(const gchar *path)
         base = end ? end + 1 : path;
     }
     return base;
+}
+
+gchar *
+path_construct(const gchar *dir, const gchar *file, const gchar *ext)
+{
+    gchar *path = NULL;
+    const char *base = path_basename(file);
+    if( dir && base )
+        path = g_strdup_printf("%s/%s%s", dir, base, ext ?: "");
+    return path;
 }
 
 const gchar *

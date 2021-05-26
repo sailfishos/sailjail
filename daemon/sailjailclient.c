@@ -41,11 +41,11 @@
 #include "stringset.h"
 
 #include <pwd.h>
-
 #include <stdio.h>
 #include <errno.h>
 #include <getopt.h>
 #include <limits.h>
+#include <fnmatch.h>
 
 #include <gio/gio.h>
 
@@ -157,6 +157,7 @@ static bool sailjailclient_match_argv    (const char **tpl_argv, const char **ap
 static bool sailjailclient_validate_argv (const char *exec, const gchar **app_argv);
 static bool sailjailclient_test_elf      (const char *filename);
 static void sailjailclient_print_usage   (const char *progname);
+static bool sailjailclient_binary_check  (const char *binary_path);
 int         sailjailclient_main          (int argc, char **argv);
 
 /* ------------------------------------------------------------------------- *
@@ -453,7 +454,7 @@ static void
 client_add_firejail_permission(client_t *self, const char *name)
 {
     gchar *path = path_from_permission_name(name);
-    if( access(path, R_OK) == 0 )
+    if( path && access(path, R_OK) == 0 )
         client_add_firejail_option(self, "--profile=%s", path);
     g_free(path);
 }
@@ -462,7 +463,7 @@ static void
 client_add_firejail_profile(client_t *self, const char *name)
 {
     gchar *path = path_from_profile_name(name);
-    if( access(path, R_OK) == 0 )
+    if( path && access(path, R_OK) == 0 )
         client_add_firejail_option(self, "--profile=%s", path);
     g_free(path);
 }
@@ -586,17 +587,66 @@ EXIT:
 static int
 client_launch_application(client_t *self)
 {
-    int               argc        = 0;
-    const gchar     **argv        = client_get_argv(self, &argc);
-    const char       *binary      = path_basename(*argv);
-    const gchar      *desktop     = client_get_desktop_path(self);
-    gchar            *application = path_to_desktop_name(desktop);
+    int               argc         = 0;
+    const gchar     **argv         = client_get_argv(self, &argc);
+    const gchar      *desktop_path = client_get_desktop_path(self);
+    gchar            *desktop_name = path_to_desktop_name(desktop_path);
+    gchar            *booster_path = NULL;
+    const gchar      *booster_name = NULL;
+    gchar            *binary_path  = NULL;;
+    const char       *binary_name  = NULL;
+
+    if( fnmatch(BOOSTER_DIRECTORY "/" BOOSTER_PATTERN, *argv, FNM_PATHNAME) == 0 ) {
+        booster_path = g_strdup(*argv);
+        booster_name = path_basename(booster_path);
+
+        /* FIXME: this requires that /usr/share/applications/APP.desktop
+         *        is used for launching /usr/bin/APP
+         */
+        binary_path  = path_construct("/usr/bin", desktop_name, NULL);
+
+        /* The booster binary was already checked, do the same for the
+         * application binary that booster will be launching.
+         */
+        if( !sailjailclient_binary_check(binary_path) )
+            goto EXIT;
+    }
+    else {
+        binary_path = g_strdup(*argv);
+    }
+
+    binary_name  = path_basename(binary_path);
 
     /* Prompt for launch permission */
-    if( !client_prompt_permissions(self, application) )
+    if( booster_name ) {
+        /* Application boosters are launched without prompting,
+         * with full set of permissions required by the application.
+         */
+        log_debug("booster launch - skip permission query");
+    }
+    else if( !client_prompt_permissions(self, desktop_name) ) {
+        goto EXIT;
+    }
+
+    /* Obtain application details */
+    if( !client_query_appinfo(self, desktop_name) )
         goto EXIT;
 
-    const gchar **granted = client_get_granted(self);
+    const char  *exec        = client_desktop_exec(self);
+    const char  *org_name    = client_sailjail_organization_name(self);
+    const char  *app_name    = client_sailjail_application_name(self);
+    const char **permissions = client_sailjail_application_permissions(self);
+    const char  *service     = client_maemo_service(self);
+    const char  *method      = client_maemo_method(self);
+
+    const gchar **granted = (booster_name ?
+                             client_sailjail_application_permissions(self) :
+                             client_get_granted(self));
+
+    if( !granted ) {
+        log_err("permissions not defined / granted");
+        goto EXIT;
+    }
 
     /* Check if privileged launch is needed / possible */
     bool privileged = false;
@@ -607,17 +657,6 @@ client_launch_application(client_t *self)
         log_err("privileged launch is needed but not possible");
         goto EXIT;
     }
-
-    /* Obtain application details */
-    if( !client_query_appinfo(self, application) )
-        goto EXIT;
-
-    const char  *exec        = client_desktop_exec(self);
-    const char  *org_name    = client_sailjail_organization_name(self);
-    const char  *app_name    = client_sailjail_application_name(self);
-    const char **permissions = client_sailjail_application_permissions(self);
-    const char  *service     = client_maemo_service(self);
-    const char  *method      = client_maemo_method(self);
 
     if( log_p(LOG_DEBUG) ) {
         log_debug("exec     = %s", exec);
@@ -637,21 +676,26 @@ client_launch_application(client_t *self)
         goto EXIT;
     }
 
-    if( !sailjailclient_validate_argv(exec, argv) ) {
+    if( booster_name ) {
+        /* Application booster validates Exec line when it gets
+         * launch requrest from invoker.
+         */
+    }
+    else if( !sailjailclient_validate_argv(exec, argv) ) {
         log_err("Command line does not match template");
         goto EXIT;
     }
 
-    /* Construct firejail command line to execute */
+    /* Construct firejail command to execute */
     client_add_firejail_option(self, "/usr/bin/firejail");
     client_add_firejail_option(self, "--quiet");
-    client_add_firejail_option(self, "--private-bin=%s", binary);
-    client_add_firejail_option(self, "--whitelist=/usr/share/%s", binary);
-    client_add_firejail_option(self, "--whitelist=%s", desktop);
+    client_add_firejail_option(self, "--private-bin=%s", binary_name);
+    client_add_firejail_option(self, "--whitelist=/usr/share/%s", binary_name);
+    client_add_firejail_option(self, "--whitelist=%s", desktop_path);
 
     /* Legacy app binary based data directories are made available.
      * But only if they already exist. */
-    client_add_firejail_directory(self, false, "${HOME}/.local/share/%s", binary);
+    client_add_firejail_directory(self, false, "${HOME}/.local/share/%s", binary_name);
 
     if( !empty_p(org_name) && !empty_p(app_name) ) {
         client_add_firejail_directory(self, true,  "${HOME}/.cache/%s/%s", org_name, app_name);
@@ -664,13 +708,21 @@ client_launch_application(client_t *self)
     if( !empty_p(service) )
         client_add_firejail_option(self, "--dbus-user.own=%s", service);
 
-    client_add_firejail_profile(self, binary);
+    /* Include booster type specific profile */
+    client_add_firejail_profile(self, booster_name);
+
+    /* Include application specific profile */
+    client_add_firejail_profile(self, binary_name);
+
+    /* Include granted permissions */
     for( size_t i = 0; granted[i]; ++i )
         client_add_firejail_permission(self, granted[i]);
     client_add_firejail_permission(self, "Base");
 
+    /* End of firejail options */
     client_add_firejail_option(self, "--");
 
+    /* Construct command line to execute */
     GArray *array = g_array_new(true, false, sizeof(gchar *));
     for( const GList *iter = client_get_firejail_options(self); iter; iter = iter->next )
         g_array_append_val(array, iter->data);
@@ -678,7 +730,7 @@ client_launch_application(client_t *self)
         g_array_append_val(array, argv[i]);
     char **args = (char **)g_array_free(array, false);
 
-    log_notice("Launching '%s' via sailjailclient...", binary);
+    log_notice("Launching '%s' via sailjailclient...", binary_name);
     if( log_p(LOG_INFO) ) {
         for( int i = 0; args[i]; ++i )
             log_info("arg[%02d] = %s", i, args[i]);
@@ -699,7 +751,11 @@ client_launch_application(client_t *self)
         goto EXIT;
     }
 
-    client_notify_launching(self, desktop);
+    /* Notify lipstick about imminent application startup.
+     * Does not apply when launching application boosters.
+     */
+    if( !booster_name )
+        client_notify_launching(self, desktop_path);
 
     /* Execute the application */
     fflush(NULL);
@@ -708,10 +764,13 @@ client_launch_application(client_t *self)
     log_err("%s: exec failed: %m", *args);
     g_free(args);
 
-    client_notify_launch_canceled(self, desktop);
+    if( !booster_name )
+        client_notify_launch_canceled(self, desktop_path);
 
 EXIT:
-    g_free(application);
+    g_free(desktop_name);
+    g_free(binary_path);
+    g_free(booster_path);
 
     return EXIT_FAILURE;
 }
@@ -1064,6 +1123,23 @@ sailjailclient_print_usage(const char *progname)
            progname);
 }
 
+static bool
+sailjailclient_binary_check(const char *binary_path)
+{
+    bool is_valid = false;
+
+    if( *binary_path != '/' )
+        log_err("%s: is not absolute path", binary_path);
+    else if( access(binary_path, R_OK | X_OK) == -1 )
+        log_err("%s: is not executable: %m", binary_path);
+    else if( !sailjailclient_test_elf(binary_path) )
+        log_err("%s: is not elf binary: %m", binary_path);
+    else
+        is_valid = true;
+
+    return is_valid;
+}
+
 int
 sailjailclient_main(int argc, char **argv)
 {
@@ -1167,20 +1243,9 @@ sailjailclient_main(int argc, char **argv)
 
     /* Sanity check application binary path */
     const char *binary = *argv;
-    if( *binary != '/' ) {
-        log_err("%s: is not an absolute path", binary);
-        goto EXIT;
-    }
 
-    if( access(binary, R_OK | X_OK) == -1 ) {
-        log_err("%s: is not executable: %m", binary);
+    if( !sailjailclient_binary_check(binary) )
         goto EXIT;
-    }
-
-    if( !sailjailclient_test_elf(binary) ) {
-        log_err("%s: is not elf binary: %m", binary);
-        goto EXIT;
-    }
 
     /* Sanity check desktop file path */
     desktop_path = path_from_desktop_name(desktop_file ?: binary);

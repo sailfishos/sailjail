@@ -92,6 +92,11 @@ G_BEGIN_DECLS
 # define SETTINGS_EXTENSION             ".settings"
 # define SETTINGS_PATTERN               "*" SETTINGS_EXTENSION
 
+/* Booster binaries in: /usr/libexec/mapplauncherd/ */
+# define BOOSTER_DIRECTORY              "/usr/libexec/mapplauncherd"
+# define BOOSTER_EXTENSION              ""
+# define BOOSTER_PATTERN                "booster-*"
+
 /* Standard desktop properties */
 # define DESKTOP_SECTION                "Desktop Entry"
 # define DESKTOP_KEY_NAME               "Name"
@@ -141,6 +146,7 @@ char *strip(char *str);
  * ------------------------------------------------------------------------- */
 
 const gchar *path_basename             (const gchar *path);
+gchar       *path_construct            (const gchar *dir, const gchar *file, const gchar *ext);
 const gchar *path_extension            (const gchar *path);
 gchar       *path_dirname              (const gchar *path);
 gchar       *path_to_desktop_name      (const gchar *path);
