@@ -71,6 +71,14 @@ typedef enum
     // keep app_agreed_name[] in sync
 } app_agreed_t;
 
+typedef enum {
+    APP_GRANT_DEFAULT, // Take default
+    APP_GRANT_ALWAYS,  // Always allow all permissions
+    APP_GRANT_LAUNCH,  // Allow launching, user may control permissions
+    APP_GRANT_COUNT
+    // keep app_grant_name[] in sync
+} app_grant_t;
+
 /* ========================================================================= *
  * Prototypes
  * ========================================================================= */

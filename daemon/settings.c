@@ -41,8 +41,16 @@
 #include "stringset.h"
 #include "control.h"
 #include "appinfo.h"
+#include "config.h"
 
+#include <errno.h>
 #include <unistd.h>
+
+/* ========================================================================= *
+ * Config
+ * ========================================================================= */
+
+#define APP_CONFIG_ALLOWLIST "Allowlist"
 
 /* ========================================================================= *
  * Types
@@ -58,6 +66,12 @@ static const char * const app_agreed_name[APP_AGREED_COUNT] = {
     [APP_AGREED_UNSET] = "UNSET",
     [APP_AGREED_YES]   = "YES",
     [APP_AGREED_NO]    = "NO",
+};
+
+static const char * const app_grant_name[APP_GRANT_COUNT] = {
+    [APP_GRANT_DEFAULT] = "default",
+    [APP_GRANT_ALWAYS]  = "always",
+    [APP_GRANT_LAUNCH]  = "launch",
 };
 
 /* ========================================================================= *
@@ -79,9 +93,10 @@ void         settings_delete_cb(void *self);
  * SETTINGS_ATTRIBUTES
  * ------------------------------------------------------------------------- */
 
-static control_t *settings_control    (const settings_t *self);
-appsettings_t    *settings_appsettings(settings_t *self, uid_t uid, const char *app);
-static bool       settings_initialized(const settings_t *self);
+static const config_t *settings_config     (const settings_t *self);
+static control_t      *settings_control    (const settings_t *self);
+appsettings_t         *settings_appsettings(settings_t *self, uid_t uid, const char *app);
+static bool            settings_initialized(const settings_t *self);
 
 /* ------------------------------------------------------------------------- *
  * SETTINGS_USERSETTINGS
@@ -140,9 +155,10 @@ void            usersettings_delete_cb(void *self);
  * USERSETTINGS_ATTRIBUTES
  * ------------------------------------------------------------------------- */
 
-static settings_t *usersettings_settings(const usersettings_t *self);
-static uid_t       usersettings_uid     (const usersettings_t *self);
-static control_t  *usersettings_control (const usersettings_t *self);
+static settings_t     *usersettings_settings(const usersettings_t *self);
+static uid_t           usersettings_uid     (const usersettings_t *self);
+static const config_t *usersettings_config  (const usersettings_t *self);
+static control_t      *usersettings_control (const usersettings_t *self);
 
 /* ------------------------------------------------------------------------- *
  * USERSETTINGS_APPSETTINGS
@@ -179,11 +195,12 @@ void           appsettings_delete_cb(void *self);
  * APPSETTINGS_ATTRIBUTES
  * ------------------------------------------------------------------------- */
 
-static control_t      *appsettings_control     (const appsettings_t *self);
-static settings_t     *appsettings_settings    (const appsettings_t *self);
-static usersettings_t *appsettings_usersettings(const appsettings_t *self);
-static uid_t           appsettings_uid         (appsettings_t *self);
-static const gchar    *appsettings_appname     (const appsettings_t *self);
+static const config_t  *appsettings_config      (const appsettings_t *self);
+static control_t       *appsettings_control     (const appsettings_t *self);
+static settings_t      *appsettings_settings    (const appsettings_t *self);
+static usersettings_t  *appsettings_usersettings(const appsettings_t *self);
+static uid_t            appsettings_uid         (appsettings_t *self);
+static const gchar     *appsettings_appname     (const appsettings_t *self);
 
 /* ------------------------------------------------------------------------- *
  * APPSETTINGS_NOTIFY
@@ -195,6 +212,7 @@ static void appsettings_notify_change(appsettings_t *self);
  * APPSETTINGS_PROPERTIES
  * ------------------------------------------------------------------------- */
 
+static app_grant_t appsettings_get_autogrant  (const appsettings_t *self);
 app_allowed_t      appsettings_get_allowed    (const appsettings_t *self);
 app_agreed_t       appsettings_get_agreed     (const appsettings_t *self);
 const stringset_t *appsettings_get_granted    (appsettings_t *self);
@@ -215,6 +233,12 @@ static void appsettings_encode(const appsettings_t *self, GKeyFile *file);
  * ------------------------------------------------------------------------- */
 
 static void appsettings_rethink(appsettings_t *self);
+
+/* ------------------------------------------------------------------------- *
+ * APPSETTINGS_UTILITY
+ * ------------------------------------------------------------------------- */
+
+static app_grant_t appsettings_get_allowlisted(const appsettings_t *self);
 
 /* ========================================================================= *
  * SETTINGS
@@ -301,13 +325,11 @@ settings_delete_cb(void *self)
  * SETTINGS_ATTRIBUTES
  * ------------------------------------------------------------------------- */
 
-#ifdef DEAD_CODE
 static const config_t *
 settings_config(const settings_t *self)
 {
     return self->stt_config;
 }
-#endif
 
 static control_t *
 settings_control(const settings_t *self)
@@ -612,13 +634,11 @@ usersettings_uid(const usersettings_t *self)
     return self->ust_uid;
 }
 
-#ifdef DEAD_CODE
 static const config_t *
 usersettings_config(const usersettings_t *self)
 {
     return settings_config(usersettings_settings(self));
 }
-#endif
 
 static control_t *
 usersettings_control(const usersettings_t *self)
@@ -738,6 +758,7 @@ struct appsettings_t
     gchar          *ast_appname;
 
     app_allowed_t   ast_allowed;
+    app_grant_t     ast_autogrant;
     app_agreed_t    ast_agreed;
     stringset_t    *ast_granted;
     stringset_t    *ast_permissions;
@@ -751,6 +772,7 @@ appsettings_ctor(appsettings_t *self, usersettings_t *usersettings,
     self->ast_appname      = g_strdup(appname);
 
     self->ast_allowed      = APP_ALLOWED_UNSET;
+    self->ast_autogrant    = APP_GRANT_DEFAULT;
     self->ast_agreed       = APP_AGREED_UNSET;
     self->ast_granted      = stringset_create();
     self->ast_permissions  = stringset_create();
@@ -802,13 +824,11 @@ appsettings_delete_cb(void *self)
  * APPSETTINGS_ATTRIBUTES
  * ------------------------------------------------------------------------- */
 
-#ifdef DEAD_CODE
 static const config_t *
 appsettings_config(const appsettings_t *self)
 {
     return usersettings_config(appsettings_usersettings(self));
 }
-#endif
 
 static control_t *
 appsettings_control(const appsettings_t *self)
@@ -861,6 +881,12 @@ appsettings_notify_change(appsettings_t *self)
  * APPSETTINGS_PROPERTIES
  * ------------------------------------------------------------------------- */
 
+static app_grant_t
+appsettings_get_autogrant(const appsettings_t *self)
+{
+    return self->ast_autogrant;
+}
+
 app_allowed_t
 appsettings_get_allowed(const appsettings_t *self)
 {
@@ -884,6 +910,19 @@ appsettings_set_allowed(appsettings_t *self, app_allowed_t allowed)
 {
     if( (unsigned)allowed >= APP_ALLOWED_COUNT )
         allowed = APP_ALLOWED_UNSET;
+
+    /* In case autogrant configuration exists,
+     * it takes precedence over everything but APP_ALLOWED_NEVER.
+     */
+    switch( appsettings_get_autogrant(self) ) {
+    case APP_GRANT_ALWAYS:
+    case APP_GRANT_LAUNCH:
+        if( allowed != APP_ALLOWED_NEVER )
+            allowed = APP_ALLOWED_ALWAYS;
+        break;
+    default:
+        break;
+    }
 
     if( self->ast_allowed != allowed ) {
         self->ast_allowed = allowed;
@@ -979,14 +1018,6 @@ appsettings_set_granted(appsettings_t *self, const stringset_t *granted)
     stringset_t *dummy = stringset_create();
     stringset_t *effective = NULL;
 
-    /* Clear / keep cleared while not allowed */
-    if( appsettings_get_allowed(self) != APP_ALLOWED_ALWAYS )
-        granted = NULL;
-
-    /* Allow use of granted=NULL to clear */
-    if( !granted )
-        granted = dummy;
-
     /* Limit to subset of permissions defined in application desktop.
      *
      * Note: we might get here due to desktop file removal, and thus
@@ -1000,7 +1031,31 @@ appsettings_set_granted(appsettings_t *self, const stringset_t *granted)
                                       appinfo_get_permissions(appinfo) :
                                       dummy);
 
+    /* Clear / keep cleared while not allowed.
+     *
+     * And in case of APP_GRANT_ALWAYS we always grant
+     * full set of available permissions.
+     */
+    if( appsettings_get_allowed(self) != APP_ALLOWED_ALWAYS )
+        granted = NULL;
+    else if( appsettings_get_autogrant(self) == APP_GRANT_ALWAYS )
+        granted = permissions;
+
+    /* Allow use of granted = NULL to clear */
+    if( !granted )
+        granted = dummy;
+
     effective = stringset_filter_in(granted, permissions);
+
+    /* Allow new permissions by default with APP_GRANT_LAUNCH */
+    if( appsettings_get_allowed(self) != APP_ALLOWED_NEVER &&
+        appsettings_get_autogrant(self) == APP_GRANT_LAUNCH ) {
+        stringset_t *added = stringset_filter_out(permissions,
+                                                  self->ast_permissions);
+        if( !stringset_empty(added) )
+            stringset_extend(effective, added);
+        stringset_delete(added);
+    }
 
     if( stringset_assign(self->ast_granted, effective) ) {
         if( log_p(LOG_DEBUG) ) {
@@ -1028,26 +1083,60 @@ appsettings_set_granted(appsettings_t *self, const stringset_t *granted)
 static void
 appsettings_decode(appsettings_t *self, GKeyFile *file)
 {
+    /* Read some values as-is.
+     *
+     * Note that at this stage the values may and are allowed to
+     * be in conflict with each other and/or configuration.
+     */
     const char *sec = appsettings_appname(self);
     self->ast_allowed = keyfile_get_integer(file, sec, "Allowed",
                                             APP_ALLOWED_UNSET);
     self->ast_agreed  = keyfile_get_integer(file, sec, "Agreed",
                                             APP_AGREED_UNSET);
+    self->ast_autogrant = keyfile_get_integer(file, sec, "Autogrant",
+                                              APP_GRANT_DEFAULT);
 
     /* 'Permissions' value is internal caching at appsettings level.
      * It must be taken as-is from keyfile (and re-evaluated in
-     * context of 'Granted' value handling below).
+     * context of 'Granted' value handling later).
      */
     stringset_delete_at(&self->ast_permissions);
     self->ast_permissions = keyfile_get_stringset(file, sec, "Permissions");
+
+    stringset_t *granted = keyfile_get_stringset(file, sec, "Granted");
+
+    /* Check if autogrant has changed in allowlisting configuration
+     * and update launch and permission grants accordingly.
+     */
+    app_grant_t autogrant = appsettings_get_allowlisted(self);
+    if( self->ast_autogrant != autogrant ) {
+        self->ast_autogrant = autogrant;
+        if( self->ast_allowed != APP_ALLOWED_NEVER ) {
+            /* If the change was adding autogrant, it overrides
+             * APP_ALLOWED_UNSET. Otherwise the allow setting
+             * is cleared and user is prompted again.
+             */
+            appsettings_set_allowed(self, APP_ALLOWED_UNSET);
+
+            /* If autogrant is APP_GRANT_LAUNCH, append any new
+             * permissions. Those were collected to self->ast_granted.
+             */
+            if( self->ast_autogrant == APP_GRANT_LAUNCH )
+                stringset_extend(granted, self->ast_granted);
+        }
+    }
 
     /* 'Granted' needs to be subjected to permissions available in
      * system, permissions requested in desktop file and current
      * state of 'allowed' setting -> it needs to be pushed through
      * evaluator rather than being used as-is.
+     *
+     * This also ensures that if autogrant changes we expand the
+     * permissions to cover all permissions (APP_GRANT_ALWAYS) or
+     * possibly added permissions (APP_GRANT_LAUNCH).
      */
-    stringset_t *granted = keyfile_get_stringset(file, sec, "Granted");
     appsettings_set_granted(self, granted);
+
     stringset_delete(granted);
 }
 
@@ -1057,6 +1146,7 @@ appsettings_encode(const appsettings_t *self, GKeyFile *file)
     const char *sec = appsettings_appname(self);
     keyfile_set_integer(file, sec, "Allowed", self->ast_allowed);
     keyfile_set_integer(file, sec, "Agreed", self->ast_agreed);
+    keyfile_set_integer(file, sec, "Autogrant", self->ast_autogrant);
     keyfile_set_stringset(file, sec, "Granted", self->ast_granted);
     keyfile_set_stringset(file, sec, "Permissions", self->ast_permissions);
 }
@@ -1070,4 +1160,32 @@ appsettings_rethink(appsettings_t *self)
 {
     /* Assign current value -> masking is re-applied */
     appsettings_set_granted(self, self->ast_granted);
+}
+
+/* ------------------------------------------------------------------------- *
+ * APPSETTINGS_UTILITY
+ * ------------------------------------------------------------------------- */
+
+static app_grant_t
+appsettings_get_allowlisted(const appsettings_t *self)
+{
+    app_grant_t  value = APP_GRANT_DEFAULT;
+    bool         found = false;
+    gchar       *conf  = config_string(appsettings_config(self),
+                                       APP_CONFIG_ALLOWLIST,
+                                       appsettings_appname(self),
+                                       app_grant_name[APP_GRANT_DEFAULT]);
+    for( app_grant_t grant = 0; grant < APP_GRANT_COUNT; ++grant ) {
+        if( !strcmp(conf, app_grant_name[grant]) ) {
+            value = grant;
+            found = true;
+            break;
+        }
+    }
+    if( !found )
+        log_warning("[" APP_CONFIG_ALLOWLIST "] key %s has invalid value: '%s'",
+                    appsettings_appname(self), conf);
+
+    g_free(conf);
+    return value;
 }
