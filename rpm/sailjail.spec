@@ -30,9 +30,12 @@ BuildRequires: pkgconfig(gobject-2.0)
 BuildRequires: pkgconfig(gio-2.0)
 BuildRequires: pkgconfig(libsystemd)
 BuildRequires: pkgconfig(libdbusaccess)
+BuildRequires: sed
 
 # Keep settings in encrypted home partition
 %define _sharedstatedir /home/.system/var/lib
+# Tests directory
+%define _testsdir /opt/tests
 
 %description
 Firejail-based sanboxing for Sailfish OS.
@@ -62,6 +65,12 @@ This package contains daemon that keeps track of:
 - permissions required by applications (under /usr/share/applications)
 - what permissions user has granted to each application
 
+%package daemon-tests
+Summary: Tests files for %{name}-daemon
+
+%description daemon-tests
+%{summary}.
+
 %prep
 %setup -q -n %{name}-%{version}
 
@@ -77,6 +86,11 @@ make %{_smp_mflags} \
   _LIBDIR=%{_libdir}\
   _SHAREDSTATEDIR=%{_sharedstatedir}\
   -C daemon build
+
+make %{_smp_mflags} \
+  VERSION=%{version}\
+  TESTSDIR=%{_testsdir}\
+  -C daemon test-build
 
 %install
 rm -rf %{buildroot}
@@ -95,6 +109,12 @@ make \
   _SHAREDSTATEDIR=%{_sharedstatedir}\
   DESTDIR=%{buildroot}\
   -C daemon install
+
+make %{_smp_mflags} \
+  VERSION=%{version}\
+  DESTDIR=%{buildroot}\
+  TESTSDIR=%{_testsdir}\
+  -C daemon test-install
 
 install -d %{buildroot}%{_unitdir}/multi-user.target.wants
 install -m644 daemon/systemd/sailjaild.service %{buildroot}%{_unitdir}
@@ -135,3 +155,8 @@ make HAVE_FIREJAIL=%{jailfish} -C unit test
 %dir %{_sysconfdir}/sailjail
 %dir %{_sysconfdir}/sailjail/config
 %dir %{_sysconfdir}/sailjail/applications
+
+%files daemon-tests
+%defattr(-,root,root,-)
+%license COPYING
+%{_testsdir}/%{name}-daemon
