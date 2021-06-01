@@ -72,6 +72,7 @@ void            applications_rethink  (applications_t *self);
 control_t         *applications_control  (const applications_t *self);
 const stringset_t *applications_available(applications_t *self);
 appinfo_t         *applications_appinfo  (applications_t *self, const char *appname);
+const config_t    *applications_config   (const applications_t *self);
 
 G_END_DECLS
 
