@@ -2,6 +2,7 @@ appinfo.o:\
 	appinfo.c\
 	appinfo.h\
 	applications.h\
+	config.h\
 	control.h\
 	logging.h\
 	stringset.h\
@@ -11,6 +12,7 @@ appinfo.pic.o:\
 	appinfo.c\
 	appinfo.h\
 	applications.h\
+	config.h\
 	control.h\
 	logging.h\
 	stringset.h\
@@ -179,6 +181,7 @@ service.o:\
 	session.h\
 	settings.h\
 	stringset.h\
+	util.h\
 
 service.pic.o:\
 	service.c\
@@ -193,6 +196,7 @@ service.pic.o:\
 	session.h\
 	settings.h\
 	stringset.h\
+	util.h\
 
 session.o:\
 	session.c\
