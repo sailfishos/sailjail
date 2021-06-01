@@ -47,6 +47,7 @@ G_BEGIN_DECLS
  * ========================================================================= */
 
 typedef struct config_t config_t;
+typedef struct stringset_t stringset_t;
 
 /* ========================================================================= *
  * Prototypes
@@ -65,9 +66,10 @@ void      config_delete_cb(void *self);
  * CONFIG_VALUE
  * ------------------------------------------------------------------------- */
 
-bool   config_boolean(const config_t *self, const gchar *sec, const gchar *key, bool def);
-gint   config_integer(const config_t *self, const gchar *sec, const gchar *key, gint def);
-gchar *config_string (const config_t *self, const gchar *sec, const gchar *key, const gchar *def);
+bool         config_boolean  (const config_t *self, const gchar *sec, const gchar *key, bool def);
+gint         config_integer  (const config_t *self, const gchar *sec, const gchar *key, gint def);
+gchar       *config_string   (const config_t *self, const gchar *sec, const gchar *key, const gchar *def);
+stringset_t *config_stringset(const config_t *self, const gchar *sec, const gchar *key);
 
 G_END_DECLS
 

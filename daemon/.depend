@@ -38,12 +38,14 @@ config.o:\
 	config.c\
 	config.h\
 	logging.h\
+	stringset.h\
 	util.h\
 
 config.pic.o:\
 	config.c\
 	config.h\
 	logging.h\
+	stringset.h\
 	util.h\
 
 control.o:\
