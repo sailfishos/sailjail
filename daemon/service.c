@@ -868,9 +868,11 @@ service_dbus_call_cb(GDBusConnection       *connection,
         g_variant_get(parameters, "(&s)", &app);
 
         if( !(appinfo = service_appinfo(self, app)) ) {
+            log_warning("client query with invalid app '%s'", app);
             error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_APPLICATION, app);
         }
         else if( !(appsettings = service_appsettings(self, uid, app)) ) {
+            log_warning("client query with invalid uid %d", (int)uid);
             error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
         }
         else {
@@ -892,6 +894,7 @@ service_dbus_call_cb(GDBusConnection       *connection,
              */
             app_allowed_t allowed = appsettings_get_allowed(appsettings);
             if( allowed == APP_ALLOWED_NEVER ) {
+                log_warning("client query about permanently denied app '%s'", app);
                 error_reply(G_DBUS_ERROR_AUTH_FAILED, SERVICE_MESSAGE_DENIED_PERMANENTLY);
             }
             else if( allowed == APP_ALLOWED_ALWAYS ) {
@@ -901,8 +904,12 @@ service_dbus_call_cb(GDBusConnection       *connection,
                 value_reply(variant);
                 g_strfreev(vector);
             }
-            else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_QUERY) ||
-                      access(desktop, R_OK) == -1 ) {
+            else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_QUERY) ) {
+                log_warning("client query about not yet allowed app '%s'", app);
+                error_reply(G_DBUS_ERROR_AUTH_FAILED, SERVICE_MESSAGE_NOT_ALLOWED);
+            }
+            else if( access(desktop, R_OK) == -1 ) {
+                log_warning("client prompt without accessible desktop file: %s: %m", desktop);
                 error_reply(G_DBUS_ERROR_AUTH_FAILED, SERVICE_MESSAGE_NOT_ALLOWED);
             }
             else {
