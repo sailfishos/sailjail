@@ -97,6 +97,7 @@ static GDBusConnection  *client_session_bus                     (client_t *self)
 const char              *client_desktop_exec                    (client_t *self);
 const char              *client_sailjail_organization_name      (client_t *self);
 const char              *client_sailjail_application_name       (client_t *self);
+const char              *client_sailjail_data_directory         (client_t *self);
 const char             **client_sailjail_application_permissions(client_t *self);
 const char              *client_maemo_service                   (client_t *self);
 const char              *client_maemo_method                    (client_t *self);
@@ -328,6 +329,12 @@ const char *
 client_sailjail_application_name(client_t *self)
 {
     return client_get_appinfo_string(self, SAILJAIL_KEY_APPLICATION_NAME);
+}
+
+const char *
+client_sailjail_data_directory(client_t *self)
+{
+    return client_get_appinfo_string(self, SAILJAIL_KEY_DATA_DIRECTORY);
 }
 
 const char **
@@ -683,6 +690,7 @@ client_launch_application(client_t *self)
     const char  *exec        = client_desktop_exec(self);
     const char  *org_name    = client_sailjail_organization_name(self);
     const char  *app_name    = client_sailjail_application_name(self);
+    const char  *data_dir    = client_sailjail_data_directory(self);
     const char **permissions = client_sailjail_application_permissions(self);
     const char  *service     = client_maemo_service(self);
     const char  *method      = client_maemo_method(self);
@@ -744,7 +752,7 @@ client_launch_application(client_t *self)
         client_add_firejail_option(self, "--template=ApplicationName:%s", app_name);
 
     client_add_firejail_option(self, "--private-bin=%s", binary_name);
-    client_add_firejail_option(self, "--whitelist=/usr/share/%s", binary_name);
+    client_add_firejail_option(self, "--whitelist=/usr/share/%s", data_dir ?: binary_name);
 
     /* Watch out for alternate desktop files in /etc as whitelisting
      * them while private-etc is used leads to problems */

@@ -144,6 +144,7 @@ const gchar            *appinfo_get_object           (const appinfo_t *self);
 const gchar            *appinfo_get_method           (const appinfo_t *self);
 const gchar            *appinfo_get_organization_name(const appinfo_t *self);
 const gchar            *appinfo_get_application_name (const appinfo_t *self);
+const gchar            *appinfo_get_data_directory   (const appinfo_t *self);
 void                    appinfo_set_name             (appinfo_t *self, const gchar *name);
 void                    appinfo_set_type             (appinfo_t *self, const gchar *type);
 void                    appinfo_set_icon             (appinfo_t *self, const gchar *icon);
@@ -154,6 +155,7 @@ void                    appinfo_set_object           (appinfo_t *self, const gch
 void                    appinfo_set_method           (appinfo_t *self, const gchar *method);
 void                    appinfo_set_organization_name(appinfo_t *self, const gchar *organization_name);
 void                    appinfo_set_application_name (appinfo_t *self, const gchar *application_name);
+void                    appinfo_set_data_directory   (appinfo_t *self, const gchar *data_directory);
 
 /* ------------------------------------------------------------------------- *
  * APPINFO_PERMISSIONS
@@ -227,6 +229,7 @@ struct appinfo_t
     // sailjail properties
     gchar           *anf_sj_organization_name; // SAILJAIL_KEY_ORGANIZATION_NAME
     gchar           *anf_sj_application_name;  // SAILJAIL_KEY_APPLICATION_NAME
+    gchar           *anf_sj_data_directory;    // SAILJAIL_KEY_DATA_DIRECTORY
     stringset_t     *anf_sj_permissions_in;    // SAILJAIL_KEY_PERMISSIONS
     stringset_t     *anf_sj_permissions_out;
 };
@@ -261,6 +264,7 @@ appinfo_ctor(appinfo_t *self, applications_t *applications, const gchar *id)
     self->anf_sj_permissions_out         = stringset_create();
     self->anf_sj_organization_name       = NULL;
     self->anf_sj_application_name        = NULL;
+    self->anf_sj_data_directory          = NULL;
 
     log_info("appinfo(%s): create", appinfo_id(self));
 }
@@ -281,6 +285,7 @@ appinfo_dtor(appinfo_t *self)
 
     appinfo_set_organization_name(self, NULL);
     appinfo_set_application_name(self, NULL);
+    appinfo_set_data_directory(self, NULL);
     stringset_delete_at(&self->anf_sj_permissions_in);
     stringset_delete_at(&self->anf_sj_permissions_out);
 
@@ -380,6 +385,7 @@ appinfo_to_variant(const appinfo_t *self)
          */
         add_string(SAILJAIL_KEY_ORGANIZATION_NAME, appinfo_get_organization_name(self));
         add_string(SAILJAIL_KEY_APPLICATION_NAME, appinfo_get_application_name(self));
+        add_string(SAILJAIL_KEY_DATA_DIRECTORY, appinfo_get_data_directory(self));
         add_stringset(SAILJAIL_KEY_PERMISSIONS, appinfo_get_permissions(self));
     }
 
@@ -536,6 +542,12 @@ appinfo_get_application_name(const appinfo_t *self)
     return self->anf_sj_application_name ?: appinfo_unknown;
 }
 
+const gchar *
+appinfo_get_data_directory(const appinfo_t *self)
+{
+    return self->anf_sj_data_directory ?: appinfo_unknown;
+}
+
 /* - - - - - - - - - - - - - - - - - - - *
  * Setters
  * - - - - - - - - - - - - - - - - - - - */
@@ -607,6 +619,13 @@ void
 appinfo_set_application_name(appinfo_t *self, const gchar *application_name)
 {
     if( change_string(&self->anf_sj_application_name, application_name) )
+        appinfo_set_dirty(self);
+}
+
+void
+appinfo_set_data_directory(appinfo_t *self, const gchar *data_directory)
+{
+    if( change_string(&self->anf_sj_data_directory, data_directory) )
         appinfo_set_dirty(self);
 }
 
@@ -840,6 +859,10 @@ appinfo_parse_desktop(appinfo_t *self)
 
         tmp = keyfile_get_string(ini, group, SAILJAIL_KEY_APPLICATION_NAME, 0),
             appinfo_set_application_name(self, tmp),
+            g_free(tmp);
+
+        tmp = keyfile_get_string(ini, group, SAILJAIL_KEY_DATA_DIRECTORY, 0),
+            appinfo_set_data_directory(self, tmp),
             g_free(tmp);
 
         set = keyfile_get_stringset(ini, group, SAILJAIL_KEY_PERMISSIONS);

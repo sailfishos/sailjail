@@ -116,6 +116,7 @@ G_BEGIN_DECLS
 # define SAILJAIL_SECTION_SECONDARY     "Sailjail"
 # define SAILJAIL_KEY_ORGANIZATION_NAME "OrganizationName"
 # define SAILJAIL_KEY_APPLICATION_NAME  "ApplicationName"
+# define SAILJAIL_KEY_DATA_DIRECTORY    "DataDirectory"
 # define SAILJAIL_KEY_PERMISSIONS       "Permissions"
 
 # define NEMO_KEY_APPLICATION_TYPE      "X-Nemo-Application-Type"
