@@ -197,6 +197,11 @@ service_ctor(service_t *self, control_t *control)
     // downlink
     self->srv_prompter         = prompter_create(self);
 
+    // fetch initial set of already known applications
+    // (to emit Changed rather than Added events)
+    stringset_assign(self->srv_dbus_applications,
+                     control_available_applications(service_control(self)));
+
     // dbus service
     self->srv_dbus_name_own_id = g_bus_own_name(PERMISSIONMGR_BUS,
                                                 PERMISSIONMGR_SERVICE,
