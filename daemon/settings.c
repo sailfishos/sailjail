@@ -165,9 +165,10 @@ static control_t      *usersettings_control (const usersettings_t *self);
  * USERSETTINGS_APPSETTINGS
  * ------------------------------------------------------------------------- */
 
-appsettings_t *usersettings_get_appsettings   (const usersettings_t *self, const gchar *appname);
-appsettings_t *usersettings_add_appsettings   (usersettings_t *self, const gchar *appname);
-bool           usersettings_remove_appsettings(usersettings_t *self, const gchar *appname);
+appsettings_t        *usersettings_get_appsettings   (const usersettings_t *self, const gchar *appname);
+static appsettings_t *usersettings_add_appsettings_ex(usersettings_t *self, const gchar *appname, bool rethink);
+appsettings_t        *usersettings_add_appsettings   (usersettings_t *self, const gchar *appname);
+bool                  usersettings_remove_appsettings(usersettings_t *self, const gchar *appname);
 
 /* ------------------------------------------------------------------------- *
  * USERSETTINGS_STORAGE
@@ -207,20 +208,26 @@ static const gchar    *appsettings_appname     (const appsettings_t *self);
  * APPSETTINGS_NOTIFY
  * ------------------------------------------------------------------------- */
 
-static void appsettings_notify_change(appsettings_t *self);
+static void appsettings_notify_change_ex(appsettings_t *self, bool notify);
+static void appsettings_notify_change   (appsettings_t *self);
 
 /* ------------------------------------------------------------------------- *
  * APPSETTINGS_PROPERTIES
  * ------------------------------------------------------------------------- */
 
-static app_grant_t  appsettings_get_autogrant  (const appsettings_t *self);
-app_allowed_t       appsettings_get_allowed    (const appsettings_t *self);
-app_agreed_t        appsettings_get_agreed     (const appsettings_t *self);
-const stringset_t  *appsettings_get_granted    (appsettings_t *self);
-void                appsettings_set_allowed    (appsettings_t *self, app_allowed_t allowed);
-void                appsettings_set_agreed     (appsettings_t *self, app_agreed_t agreed);
-static void         appsettings_set_permissions(appsettings_t *self, const stringset_t *permissions);
-void                appsettings_set_granted    (appsettings_t *self, const stringset_t *granted);
+app_agreed_t              appsettings_get_agreed        (const appsettings_t *self);
+static bool               appsettings_update_agreed     (appsettings_t *self, app_agreed_t agreed);
+void                      appsettings_set_agreed        (appsettings_t *self, app_agreed_t agreed);
+static const stringset_t *appsettings_get_permissions   (const appsettings_t *self);
+static int                appsettings_update_permissions(appsettings_t *self, stringset_t *added);
+static app_grant_t        appsettings_get_autogrant     (const appsettings_t *self);
+static bool               appsettings_update_autogrant  (appsettings_t *self, app_grant_t autogrant);
+app_allowed_t             appsettings_get_allowed       (const appsettings_t *self);
+bool                      appsettings_update_allowed    (appsettings_t *self, app_allowed_t allowed);
+void                      appsettings_set_allowed       (appsettings_t *self, app_allowed_t allowed);
+const stringset_t        *appsettings_get_granted       (appsettings_t *self);
+static bool               appsettings_update_granted    (appsettings_t *self, const stringset_t *granted);
+void                      appsettings_set_granted       (appsettings_t *self, const stringset_t *granted);
 
 /* ------------------------------------------------------------------------- *
  * APPSETTINGS_STORAGE
@@ -657,15 +664,24 @@ usersettings_get_appsettings(const usersettings_t *self, const gchar *appname)
     return g_hash_table_lookup(self->ust_apps, appname);
 }
 
-appsettings_t *
-usersettings_add_appsettings(usersettings_t *self, const gchar *appname)
+static appsettings_t *
+usersettings_add_appsettings_ex(usersettings_t *self, const gchar *appname,
+                                bool rethink)
 {
     appsettings_t *appsettings = usersettings_get_appsettings(self, appname);
     if( !appsettings ) {
         appsettings = appsettings_create(self, appname);
         g_hash_table_insert(self->ust_apps, g_strdup(appname), appsettings);
+        if( rethink )
+            appsettings_rethink(appsettings);
     }
     return appsettings;
+}
+
+appsettings_t *
+usersettings_add_appsettings(usersettings_t *self, const gchar *appname)
+{
+    return usersettings_add_appsettings_ex(self, appname, true);
 }
 
 bool
@@ -690,7 +706,7 @@ usersettings_load(usersettings_t *self, const char *path)
             const char *appname = groups[i];
             if( control_valid_application(usersettings_control(self), appname) ) {
                 appsettings_t *appsettings =
-                    usersettings_add_appsettings(self, appname);
+                    usersettings_add_appsettings_ex(self, appname, false);
                 appsettings_decode(appsettings, file);
             }
             else {
@@ -866,10 +882,10 @@ appsettings_appname(const appsettings_t *self)
  * ------------------------------------------------------------------------- */
 
 static void
-appsettings_notify_change(appsettings_t *self)
+appsettings_notify_change_ex(appsettings_t *self, bool notify)
 {
     /* Forward application changes upwards */
-    if( settings_initialized(appsettings_settings(self)) )
+    if( notify && settings_initialized(appsettings_settings(self)) )
         control_on_settings_change(appsettings_control(self),
                                    appsettings_appname(self));
 
@@ -878,14 +894,131 @@ appsettings_notify_change(appsettings_t *self)
                         appsettings_uid(self));
 }
 
+static void
+appsettings_notify_change(appsettings_t *self)
+{
+    appsettings_notify_change_ex(self, true);
+}
+
 /* ------------------------------------------------------------------------- *
  * APPSETTINGS_PROPERTIES
  * ------------------------------------------------------------------------- */
+
+app_agreed_t
+appsettings_get_agreed(const appsettings_t *self)
+{
+    return self->ast_agreed;
+}
+
+static bool
+appsettings_update_agreed(appsettings_t *self, app_agreed_t agreed)
+{
+    bool changed = false;
+
+    /* Sanitize invalid values */
+    if( (unsigned)agreed >= APP_AGREED_COUNT  )
+        agreed = APP_AGREED_UNSET;
+
+    if( self->ast_agreed != agreed ) {
+        log_info("%s(uid=%d): agreed: %s -> %s",
+                 appsettings_appname(self),
+                 appsettings_uid(self),
+                 app_agreed_name[self->ast_agreed],
+                 app_agreed_name[agreed]);
+        self->ast_agreed = agreed;
+        changed = true;
+    }
+
+    if( changed )
+        appsettings_notify_change(self);
+
+    return changed;
+}
+
+void
+appsettings_set_agreed(appsettings_t *self, app_agreed_t agreed)
+{
+    appsettings_update_agreed(self, agreed);
+}
+
+static const stringset_t *
+appsettings_get_permissions(const appsettings_t *self)
+{
+    return self->ast_permissions;
+}
+
+static int
+appsettings_update_permissions(appsettings_t *self, stringset_t *added)
+{
+    int change = 0; // no change == 0; new perms > 0; other change < 0
+
+    const stringset_t *permissions = NULL;
+    stringset_t *none = NULL;
+
+    appinfo_t *appinfo = control_appinfo(appsettings_control(self),
+                                         appsettings_appname(self));
+    if( appinfo )
+        permissions = appinfo_get_permissions(appinfo);
+
+    if( !permissions )
+        permissions = none = stringset_create();
+
+    if( !stringset_equal(self->ast_permissions, permissions) ) {
+        stringset_t *temp = stringset_filter_out(permissions,
+                                                 self->ast_permissions);
+        stringset_assign(added, temp);
+        stringset_delete(temp);
+
+        change = stringset_empty(added) ? -1 : +1;
+
+        if( log_p(LOG_INFO) ) {
+            gchar *prev = stringset_to_string(self->ast_permissions);
+            gchar *curr = stringset_to_string(permissions);
+            log_info("%s(uid=%d): permissions: %s -> %s%s",
+                     appsettings_appname(self),
+                     appsettings_uid(self),
+                     prev, curr,
+                     (change > 0) ? " (new permissions)" : "");
+            g_free(prev);
+            g_free(curr);
+        }
+        stringset_assign(self->ast_permissions, permissions);
+    }
+
+    /* Note: "permission" is internal cache -> no D-Bus notifications */
+    if( change )
+        appsettings_notify_change_ex(self, false);
+
+    stringset_delete(none);
+
+    return change;
+}
 
 static app_grant_t
 appsettings_get_autogrant(const appsettings_t *self)
 {
     return self->ast_autogrant;
+}
+
+static bool
+appsettings_update_autogrant(appsettings_t *self, app_grant_t autogrant)
+{
+    bool changed = false;
+    if( self->ast_autogrant != autogrant ) {
+        log_info("%s(uid=%d): autogrant: %s -> %s",
+                 appsettings_appname(self),
+                 appsettings_uid(self),
+                 app_grant_name[self->ast_autogrant],
+                 app_grant_name[autogrant]);
+        self->ast_autogrant = autogrant;
+        changed = true;
+    }
+
+    /* Note: "autogrant" is internal cache -> no D-Bus notifications */
+    if( changed )
+        appsettings_notify_change_ex(self, false);
+
+    return changed;
 }
 
 app_allowed_t
@@ -894,21 +1027,12 @@ appsettings_get_allowed(const appsettings_t *self)
     return self->ast_allowed;
 }
 
-app_agreed_t
-appsettings_get_agreed(const appsettings_t *self)
+bool
+appsettings_update_allowed(appsettings_t *self, app_allowed_t allowed)
 {
-    return self->ast_agreed;
-}
+    bool changed = false;
 
-const stringset_t *
-appsettings_get_granted(appsettings_t *self)
-{
-    return self->ast_granted;
-}
-
-void
-appsettings_set_allowed(appsettings_t *self, app_allowed_t allowed)
-{
+    /* Sanitize invalid values */
     if( (unsigned)allowed >= APP_ALLOWED_COUNT )
         allowed = APP_ALLOWED_UNSET;
 
@@ -926,89 +1050,36 @@ appsettings_set_allowed(appsettings_t *self, app_allowed_t allowed)
     }
 
     if( self->ast_allowed != allowed ) {
+        log_info("%s(uid=%d): allowed: %s -> %s",
+                 appsettings_appname(self),
+                 appsettings_uid(self),
+                 app_allowed_name[self->ast_allowed],
+                 app_allowed_name[allowed]);
         self->ast_allowed = allowed;
-        log_debug("[%u] %s: allowed = %s",
-                  appsettings_uid(self),
-                  appsettings_appname(self),
-                  app_allowed_name[allowed]);
+        changed = true;
+    }
+
+    if( changed )
         appsettings_notify_change(self);
 
-        const stringset_t *granted = NULL;
-        if( allowed == APP_ALLOWED_ALWAYS ) {
-            appinfo_t *appinfo = control_appinfo(appsettings_control(self),
-                                                 appsettings_appname(self));
-            if( appinfo )
-                granted = appinfo_get_permissions(appinfo);
-        }
-        appsettings_set_granted(self, granted);
-    }
+    return changed;
 }
 
 void
-appsettings_set_agreed(appsettings_t *self, app_agreed_t agreed)
+appsettings_set_allowed(appsettings_t *self, app_allowed_t allowed)
 {
-    if( (unsigned)agreed >= APP_AGREED_COUNT  )
-        agreed = APP_AGREED_UNSET;
-
-    if( self->ast_agreed != agreed ) {
-        self->ast_agreed = agreed;
-        log_debug("[%u] %s: agreed = %s",
-                  appsettings_uid(self),
-                  appsettings_appname(self),
-                  app_agreed_name[agreed]);
-        appsettings_notify_change(self);
-    }
+    if( appsettings_update_allowed(self, allowed) )
+        appsettings_update_granted(self, appsettings_get_permissions(self));
 }
 
-static void
-appsettings_set_permissions(appsettings_t *self, const stringset_t *permissions)
+const stringset_t *
+appsettings_get_granted(appsettings_t *self)
 {
-    if( !stringset_equal(self->ast_permissions, permissions) ) {
-        /* If new permissions have been added to application desktop:
-         * user must be prompted again.
-         *
-         * Note that in order to minimize recursion noise, permission
-         * bookkeeping changes must be done before executing allow
-         * value reset.
-         */
-        bool reset_allow = false;
-
-        if( appsettings_get_allowed(self) == APP_ALLOWED_ALWAYS ) {
-            stringset_t * added = stringset_filter_out(permissions,
-                                                       self->ast_permissions);
-            if( !stringset_empty(added) ) {
-                if( log_p(LOG_DEBUG) ) {
-                    gchar *text = stringset_to_string(added);
-                    log_debug("[%u] %s: added permissions = %s",
-                              appsettings_uid(self),
-                              appsettings_appname(self),
-                              text);
-                    g_free(text);
-                }
-                reset_allow = true;
-            }
-            stringset_delete(added);
-        }
-
-        if( stringset_assign(self->ast_permissions, permissions) ) {
-            if( log_p(LOG_DEBUG) ) {
-                gchar *text = stringset_to_string(self->ast_permissions);
-                log_debug("[%u] %s: permissions = %s",
-                          appsettings_uid(self),
-                          appsettings_appname(self),
-                          text);
-                g_free(text);
-            }
-            appsettings_notify_change(self);
-        }
-
-        if( reset_allow )
-            appsettings_set_allowed(self, APP_ALLOWED_UNSET);
-    }
+    return self->ast_granted;
 }
 
-void
-appsettings_set_granted(appsettings_t *self, const stringset_t *granted)
+static bool
+appsettings_update_granted(appsettings_t *self, const stringset_t *granted)
 {
     /* Note: This must be kept so that it works also when
      *       'granted' arg is actually the current value,
@@ -1016,65 +1087,46 @@ appsettings_set_granted(appsettings_t *self, const stringset_t *granted)
      *       state after desktop file changes.
      */
 
-    stringset_t *dummy = stringset_create();
-    stringset_t *effective = NULL;
+    bool changed = false;
 
-    /* Limit to subset of permissions defined in application desktop.
-     *
-     * Note: we might get here due to desktop file removal, and thus
-     *       need to handle no-appinfo-available case gracefully.
-     */
+    stringset_t *none = NULL;
 
-    appinfo_t *appinfo = control_appinfo(appsettings_control(self),
-                                         appsettings_appname(self));
-
-    const stringset_t *permissions = (appinfo_valid(appinfo) ?
-                                      appinfo_get_permissions(appinfo) :
-                                      dummy);
-
-    /* Clear / keep cleared while not allowed.
-     *
-     * And in case of APP_GRANT_ALWAYS we always grant
-     * full set of available permissions.
-     */
     if( appsettings_get_allowed(self) != APP_ALLOWED_ALWAYS )
         granted = NULL;
-    else if( appsettings_get_autogrant(self) == APP_GRANT_ALWAYS )
-        granted = permissions;
 
-    /* Allow use of granted = NULL to clear */
     if( !granted )
-        granted = dummy;
+        granted = none = stringset_create();
 
-    effective = stringset_filter_in(granted, permissions);
+    const stringset_t *permissions = appsettings_get_permissions(self);
 
-    /* Allow new permissions by default with APP_GRANT_LAUNCH */
-    if( appsettings_get_allowed(self) != APP_ALLOWED_NEVER &&
-        appsettings_get_autogrant(self) == APP_GRANT_LAUNCH ) {
-        stringset_t *added = stringset_filter_out(permissions,
-                                                  self->ast_permissions);
-        if( !stringset_empty(added) )
-            stringset_extend(effective, added);
-        stringset_delete(added);
-    }
+    stringset_t *effective = stringset_filter_in(granted, permissions);
 
-    if( stringset_assign(self->ast_granted, effective) ) {
-        if( log_p(LOG_DEBUG) ) {
-            gchar *text = stringset_to_string(self->ast_granted);
-            log_debug("[%u] %s: granted = %s",
-                      appsettings_uid(self),
-                      appsettings_appname(self),
-                      text);
-            g_free(text);
+    if( !stringset_equal(self->ast_granted, effective) ) {
+        if( log_p(LOG_INFO) ) {
+            gchar *prev = stringset_to_string(self->ast_granted);
+            gchar *curr = stringset_to_string(effective);
+            log_info("%s(uid=%d): granted: %s -> %s",
+                     appsettings_appname(self),
+                     appsettings_uid(self),
+                     prev, curr);
+            g_free(prev);
+            g_free(curr);
         }
-        appsettings_notify_change(self);
+        changed = stringset_assign(self->ast_granted, effective);
     }
-
-    /* Record what application permissions were used in above evaluation */
-    appsettings_set_permissions(self, permissions);
-
     stringset_delete(effective);
-    stringset_delete(dummy);
+    stringset_delete(none);
+
+    if( changed )
+        appsettings_notify_change(self);
+
+    return changed;
+}
+
+void
+appsettings_set_granted(appsettings_t *self, const stringset_t *granted)
+{
+    appsettings_update_granted(self, granted);
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1084,7 +1136,7 @@ appsettings_set_granted(appsettings_t *self, const stringset_t *granted)
 static void
 appsettings_decode(appsettings_t *self, GKeyFile *file)
 {
-    /* Read some values as-is.
+    /* Read values as-is.
      *
      * Note that at this stage the values may and are allowed to
      * be in conflict with each other and/or configuration.
@@ -1097,48 +1149,14 @@ appsettings_decode(appsettings_t *self, GKeyFile *file)
     self->ast_autogrant = keyfile_get_integer(file, sec, "Autogrant",
                                               APP_GRANT_DEFAULT);
 
-    /* 'Permissions' value is internal caching at appsettings level.
-     * It must be taken as-is from keyfile (and re-evaluated in
-     * context of 'Granted' value handling later).
-     */
     stringset_delete_at(&self->ast_permissions);
     self->ast_permissions = keyfile_get_stringset(file, sec, "Permissions");
 
-    stringset_t *granted = keyfile_get_stringset(file, sec, "Granted");
+    stringset_delete_at(&self->ast_granted);
+    self->ast_granted = keyfile_get_stringset(file, sec, "Granted");
 
-    /* Check if autogrant has changed in allowlisting configuration
-     * and update launch and permission grants accordingly.
-     */
-    app_grant_t autogrant = appsettings_get_allowlisted(self);
-    if( self->ast_autogrant != autogrant ) {
-        self->ast_autogrant = autogrant;
-        if( self->ast_allowed != APP_ALLOWED_NEVER ) {
-            /* If the change was adding autogrant, it overrides
-             * APP_ALLOWED_UNSET. Otherwise the allow setting
-             * is cleared and user is prompted again.
-             */
-            appsettings_set_allowed(self, APP_ALLOWED_UNSET);
-
-            /* If autogrant is APP_GRANT_LAUNCH, append any new
-             * permissions. Those were collected to self->ast_granted.
-             */
-            if( self->ast_autogrant == APP_GRANT_LAUNCH )
-                stringset_extend(granted, self->ast_granted);
-        }
-    }
-
-    /* 'Granted' needs to be subjected to permissions available in
-     * system, permissions requested in desktop file and current
-     * state of 'allowed' setting -> it needs to be pushed through
-     * evaluator rather than being used as-is.
-     *
-     * This also ensures that if autogrant changes we expand the
-     * permissions to cover all permissions (APP_GRANT_ALWAYS) or
-     * possibly added permissions (APP_GRANT_LAUNCH).
-     */
-    appsettings_set_granted(self, granted);
-
-    stringset_delete(granted);
+    /* Re-evaluate values that depend on each other */
+    appsettings_rethink(self);
 }
 
 static void
@@ -1159,8 +1177,50 @@ appsettings_encode(const appsettings_t *self, GKeyFile *file)
 static void
 appsettings_rethink(appsettings_t *self)
 {
-    /* Assign current value -> masking is re-applied */
-    appsettings_set_granted(self, self->ast_granted);
+    log_info("%s(uid=%d): rethink",
+             appsettings_appname(self),
+             appsettings_uid(self));
+
+    stringset_t *added = stringset_create();
+    int permission_change = appsettings_update_permissions(self, added);
+
+    const stringset_t *permissions = appsettings_get_permissions(self);
+    const stringset_t *granted = appsettings_get_granted(self);
+
+    if( appsettings_update_autogrant(self, appsettings_get_allowlisted(self)) ) {
+        /* Autogrant config changed: choose all or nothing */
+        if( appsettings_get_allowed(self) != APP_ALLOWED_NEVER ) {
+            appsettings_update_allowed(self, APP_ALLOWED_UNSET);
+            granted = permissions;
+        }
+    }
+    else {
+        /* Apply autogrant policy */
+        switch( appsettings_get_autogrant(self) ) {
+        case APP_GRANT_ALWAYS:
+            /* Keep in sync with application requirements */
+            granted = permissions;
+            break;
+        case APP_GRANT_LAUNCH:
+            /* Automatically grant just added permissions */
+            if( permission_change > 0 ) {
+                stringset_extend(added, granted);
+                granted = added;
+            }
+            break;
+        default:
+            /* Prompt user if new permissions are required */
+            if( permission_change > 0 ) {
+                if( appsettings_get_allowed(self) != APP_ALLOWED_NEVER )
+                    appsettings_update_allowed(self, APP_ALLOWED_UNSET);
+            }
+        }
+    }
+
+    /* Re-evaluate granted list */
+    appsettings_update_granted(self, granted);
+
+    stringset_delete(added);
 }
 
 /* ------------------------------------------------------------------------- *
