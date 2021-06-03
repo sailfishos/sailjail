@@ -153,6 +153,7 @@ static void client_notify_launch_canceled(client_t *self, const char *desktop);
 
 static int  sailjailclient_get_field_code(const char *arg);
 static bool sailjailclient_is_option     (const char *arg);
+static bool sailjailclient_ignore_arg    (const char *arg);
 static bool sailjailclient_match_argv    (const char **tpl_argv, const char **app_argv);
 static bool sailjailclient_validate_argv (const char *exec, const gchar **app_argv);
 static bool sailjailclient_test_elf      (const char *filename);
@@ -828,6 +829,12 @@ sailjailclient_is_option(const char *arg)
 }
 
 static bool
+sailjailclient_ignore_arg(const char *arg)
+{
+    return !g_strcmp0(arg, "-prestart");
+}
+
+static bool
 sailjailclient_match_argv(const char **tpl_argv, const char **app_argv)
 {
     bool matching = false;
@@ -841,6 +848,13 @@ sailjailclient_match_argv(const char **tpl_argv, const char **app_argv)
     /* Match each arg in template */
     for( ;; ) {
         const char *want = *tpl_argv++;
+
+        /* Allow some slack e.g. regarding "-prestart" options */
+        while( *app_argv && g_strcmp0(*app_argv, want) &&
+               sailjailclient_ignore_arg(*app_argv) ) {
+            log_warning("ignoring argument: %s", *app_argv);
+            ++app_argv;
+        }
 
         if( !want ) {
             /* Template args exhausted */
