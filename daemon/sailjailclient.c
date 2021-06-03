@@ -40,6 +40,8 @@
 #include "service.h"
 #include "stringset.h"
 
+#include <sys/stat.h>
+
 #include <pwd.h>
 #include <stdio.h>
 #include <errno.h>
@@ -113,6 +115,8 @@ static const gchar  *client_get_desktop1_path  (const client_t *self);
 static void          client_set_desktop1_path  (client_t *self, const char *path);
 static const gchar  *client_get_desktop2_path  (const client_t *self);
 static void          client_set_desktop2_path  (client_t *self, const char *path);
+static const gchar  *client_get_trace_dir      (const client_t *self);
+static void          client_set_trace_dir      (client_t *self, const char *path);
 static void          client_set_appinfo_variant(client_t *self, const char *key, GVariant *val);
 static GVariant     *client_get_appinfo_variant(const client_t *self, const char *key);
 const char          *client_get_appinfo_string (const client_t *self, const char *key);
@@ -188,6 +192,7 @@ struct client_t
     gchar          **cli_argv;
     gchar           *cli_desktop1_path;
     gchar           *cli_desktop2_path;
+    gchar           *cli_trace_dir;
     GDBusConnection *cli_system_bus;
     GDBusConnection *cli_session_bus;
     gchar          **cli_granted;
@@ -207,6 +212,7 @@ client_ctor(client_t *self)
     self->cli_argv          = NULL;
     self->cli_desktop1_path = NULL;
     self->cli_desktop2_path = NULL;
+    self->cli_trace_dir     = NULL;
     self->cli_system_bus    = NULL;
     self->cli_session_bus   = NULL;
     self->cli_granted       = NULL;
@@ -238,6 +244,7 @@ client_dtor(client_t *self)
 
     client_set_desktop1_path(self, NULL);
     client_set_desktop2_path(self, NULL);
+    client_set_trace_dir(self, NULL);
     client_set_argv(self, 0, NULL);
 }
 
@@ -407,6 +414,28 @@ static void
 client_set_desktop2_path(client_t *self, const char *path)
 {
     change_string(&self->cli_desktop2_path, path);
+}
+
+static const gchar *
+client_get_trace_dir(const client_t *self)
+{
+    return self->cli_trace_dir;
+}
+
+static void
+client_set_trace_dir(client_t *self, const char *path)
+{
+    if( path ) {
+        struct stat st = {};
+        if( access(path, W_OK) == -1 ||
+            stat(path, &st) == -1 ||
+            (st.st_mode & S_IFMT) != S_IFDIR ) {
+            log_warning("%s: is not already existing writable directory",
+                        path);
+            path = NULL;
+        }
+    }
+    change_string(&self->cli_trace_dir, path);
 }
 
 static void
@@ -741,6 +770,18 @@ client_launch_application(client_t *self)
     for( size_t i = 0; granted[i]; ++i )
         client_add_firejail_permission(self, granted[i]);
     client_add_firejail_permission(self, "Base");
+
+    /* Tracing options */
+    const gchar *trace_dir = client_get_trace_dir(self);
+    if( trace_dir ) {
+        client_add_firejail_option(self, "--output-stderr=%s/firejail-stderr.log", trace_dir);
+        client_add_firejail_option(self, "--trace=%s/firejail-trace.log", trace_dir);
+        client_add_firejail_option(self, "--dbus-log=%s/firejail-dbus.log", trace_dir);
+        client_add_firejail_option(self, "--dbus-user=filter");
+        client_add_firejail_option(self, "--dbus-system=filter");
+        client_add_firejail_option(self, "--dbus-user.log");
+        client_add_firejail_option(self, "--dbus-system.log");
+    }
 
     /* End of firejail options */
     client_add_firejail_option(self, "--");
@@ -1229,9 +1270,11 @@ sailjailclient_main(int argc, char **argv)
         case 'm':
             match_exec = optarg;
             break;
+        case 't':
+            client_set_trace_dir(client, optarg);
+            break;
         case 's':
         case 'a':
-        case 't':
             log_warning("unsupported sailjail option '-%c' ignored", opt);
             break;
         case 'o':
