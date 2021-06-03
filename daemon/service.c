@@ -486,7 +486,7 @@ service_is_privileged(const gchar *sender)
 {
     static DAPolicy *policy = NULL;
 #ifdef HAVE_LIBDBUSACCESS
-    if (!policy)
+    if( !policy )
         policy = da_policy_new(SERVICE_PRIVILEGED_POLICY);
 #endif
     return service_test_policy(sender, policy);
@@ -497,7 +497,7 @@ service_is_mdm(const gchar *sender)
 {
     static DAPolicy *policy = NULL;
 #ifdef HAVE_LIBDBUSACCESS
-    if (!policy)
+    if( !policy )
         policy = da_policy_new(SERVICE_MDM_POLICY);
 #endif
     return service_test_policy(sender, policy);
@@ -510,7 +510,7 @@ service_test_policy(const gchar *sender, DAPolicy *policy)
     DA_ACCESS access = DA_ACCESS_DENY;
     DAPeer *peer     = da_peer_get(G_BUS_TO_DA_BUS(PERMISSIONMGR_BUS), sender);
 
-    if (peer)
+    if( peer )
         access = da_policy_check(policy, &peer->cred, 0, NULL, DA_ACCESS_DENY);
 
     return access == DA_ACCESS_ALLOW;
@@ -926,7 +926,7 @@ service_dbus_emit_signal(service_t *self, const char *member, const char *value)
     if( !connection ) {
         log_warning("broadcast %s(%s):  skipped: not connected", member, value);
     }
-    else{
+    else {
         GError *error = 0;
         g_dbus_connection_emit_signal(connection, NULL,
                                       PERMISSIONMGR_OBJECT,

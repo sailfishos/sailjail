@@ -676,7 +676,7 @@ appinfo_combined_file_state(appinfo_file_t state1, appinfo_file_t state2)
      *   MISSING  | UNCHANGED |  CHANGED  |  INVALID  |  DELETED  |  MISSING
      */
 
-    if (state2 <= APPINFO_FILE_MISSING) {
+    if( state2 <= APPINFO_FILE_MISSING ) {
         switch (state1) {
         case APPINFO_FILE_UNCHANGED:
             if( state2 == APPINFO_FILE_DELETED )

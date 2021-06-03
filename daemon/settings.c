@@ -506,7 +506,7 @@ void
 settings_save_later(settings_t *self, uid_t uid)
 {
     /* Guest user settings are stored only volatile (in-memory) */
-    if ( !control_user_is_guest(settings_control(self), uid) ) {
+    if( !control_user_is_guest(settings_control(self), uid) ) {
         g_hash_table_add(self->stt_user_changes, GINT_TO_POINTER(uid));
 
         if( !self->stt_save_id ) {
