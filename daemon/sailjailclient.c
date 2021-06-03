@@ -109,8 +109,10 @@ static const gchar **client_get_argv           (const client_t *self, int *pargc
 static void          client_set_argv           (client_t *self, int argc, char **argv);
 static const gchar **client_get_granted        (const client_t *self);
 static void          client_set_granted        (client_t *self, gchar **granted);
-static const gchar  *client_get_desktop_path   (const client_t *self);
-static void          client_set_desktop_path   (client_t *self, const char *path);
+static const gchar  *client_get_desktop1_path  (const client_t *self);
+static void          client_set_desktop1_path  (client_t *self, const char *path);
+static const gchar  *client_get_desktop2_path  (const client_t *self);
+static void          client_set_desktop2_path  (client_t *self, const char *path);
 static void          client_set_appinfo_variant(client_t *self, const char *key, GVariant *val);
 static GVariant     *client_get_appinfo_variant(const client_t *self, const char *key);
 const char          *client_get_appinfo_string (const client_t *self, const char *key);
@@ -184,7 +186,8 @@ struct client_t
 {
     int              cli_argc;
     gchar          **cli_argv;
-    gchar           *cli_desktop_path;
+    gchar           *cli_desktop1_path;
+    gchar           *cli_desktop2_path;
     GDBusConnection *cli_system_bus;
     GDBusConnection *cli_session_bus;
     gchar          **cli_granted;
@@ -202,7 +205,8 @@ client_ctor(client_t *self)
 {
     self->cli_argc          = 0;
     self->cli_argv          = NULL;
-    self->cli_desktop_path  = NULL;
+    self->cli_desktop1_path = NULL;
+    self->cli_desktop2_path = NULL;
     self->cli_system_bus    = NULL;
     self->cli_session_bus   = NULL;
     self->cli_granted       = NULL;
@@ -232,8 +236,8 @@ client_dtor(client_t *self)
             self->cli_session_bus = NULL;
     }
 
-    client_set_desktop_path(self, NULL);
-
+    client_set_desktop1_path(self, NULL);
+    client_set_desktop2_path(self, NULL);
     client_set_argv(self, 0, NULL);
 }
 
@@ -382,15 +386,27 @@ client_set_granted(client_t *self, gchar **granted)
 }
 
 static const gchar *
-client_get_desktop_path(const client_t *self)
+client_get_desktop1_path(const client_t *self)
 {
-    return self->cli_desktop_path;
+    return self->cli_desktop1_path;
 }
 
 static void
-client_set_desktop_path(client_t *self, const char *path)
+client_set_desktop1_path(client_t *self, const char *path)
 {
-    change_string(&self->cli_desktop_path, path);
+    change_string(&self->cli_desktop1_path, path);
+}
+
+static const gchar *
+client_get_desktop2_path(const client_t *self)
+{
+    return self->cli_desktop2_path;
+}
+
+static void
+client_set_desktop2_path(client_t *self, const char *path)
+{
+    change_string(&self->cli_desktop2_path, path);
 }
 
 static void
@@ -588,14 +604,16 @@ EXIT:
 static int
 client_launch_application(client_t *self)
 {
-    int               argc         = 0;
-    const gchar     **argv         = client_get_argv(self, &argc);
-    const gchar      *desktop_path = client_get_desktop_path(self);
-    gchar            *desktop_name = path_to_desktop_name(desktop_path);
-    gchar            *booster_path = NULL;
-    const gchar      *booster_name = NULL;
-    gchar            *binary_path  = NULL;;
-    const char       *binary_name  = NULL;
+    int               argc          = 0;
+    const gchar     **argv          = client_get_argv(self, &argc);
+    const gchar      *desktop1_path = client_get_desktop1_path(self);
+    const gchar      *desktop2_path = client_get_desktop2_path(self);
+    gchar            *desktop_name  = path_to_desktop_name(desktop1_path ?:
+                                                           desktop2_path);
+    gchar            *booster_path  = NULL;
+    const gchar      *booster_name  = NULL;
+    gchar            *binary_path   = NULL;;
+    const char       *binary_name   = NULL;
 
     if( fnmatch(BOOSTER_DIRECTORY "/" BOOSTER_PATTERN, *argv, FNM_PATHNAME) == 0 ) {
         booster_path = g_strdup(*argv);
@@ -692,7 +710,11 @@ client_launch_application(client_t *self)
     client_add_firejail_option(self, "--quiet");
     client_add_firejail_option(self, "--private-bin=%s", binary_name);
     client_add_firejail_option(self, "--whitelist=/usr/share/%s", binary_name);
-    client_add_firejail_option(self, "--whitelist=%s", desktop_path);
+
+    /* Watch out for alternate desktop files in /etc as whitelisting
+     * them while private-etc is used leads to problems */
+    if( desktop1_path && strncmp(desktop1_path, "/etc/", 5) )
+        client_add_firejail_option(self, "--whitelist=%s", desktop1_path);
 
     /* Legacy app binary based data directories are made available.
      * But only if they already exist. */
@@ -754,9 +776,10 @@ client_launch_application(client_t *self)
 
     /* Notify lipstick about imminent application startup.
      * Does not apply when launching application boosters.
+     * Or when /usr/share/applications/APP.desktop is not used.
      */
-    if( !booster_name )
-        client_notify_launching(self, desktop_path);
+    if( !booster_name && desktop1_path )
+        client_notify_launching(self, desktop1_path);
 
     /* Execute the application */
     fflush(NULL);
@@ -765,8 +788,8 @@ client_launch_application(client_t *self)
     log_err("%s: exec failed: %m", *args);
     g_free(args);
 
-    if( !booster_name )
-        client_notify_launch_canceled(self, desktop_path);
+    if( !booster_name && desktop1_path )
+        client_notify_launch_canceled(self, desktop1_path);
 
 EXIT:
     g_free(desktop_name);
@@ -1157,13 +1180,14 @@ sailjailclient_binary_check(const char *binary_path)
 int
 sailjailclient_main(int argc, char **argv)
 {
-    int         exit_code    = EXIT_FAILURE;
-    const char *progname     = path_basename(*argv);
-    config_t   *config       = config_create();
-    client_t   *client       = client_create();
-    const char *desktop_file = NULL;
-    gchar      *desktop_path = NULL;
-    const char *match_exec   = 0;
+    int         exit_code     = EXIT_FAILURE;
+    const char *progname      = path_basename(*argv);
+    config_t   *config        = config_create();
+    client_t   *client        = client_create();
+    const char *desktop_file  = NULL;
+    gchar      *desktop1_path = NULL;
+    gchar      *desktop2_path = NULL;
+    const char *match_exec    = 0;
 
     log_set_target(isatty(STDIN_FILENO) ? LOG_TO_STDERR : LOG_TO_SYSLOG);
 
@@ -1262,12 +1286,22 @@ sailjailclient_main(int argc, char **argv)
         goto EXIT;
 
     /* Sanity check desktop file path */
-    desktop_path = path_from_desktop_name(desktop_file ?: binary);
-    if( access(desktop_path, R_OK) ) {
-        log_err("%s: is not accessible: %m", desktop_path);
+    desktop1_path = path_from_desktop_name(desktop_file ?: binary);
+    desktop2_path = alt_path_from_desktop_name(desktop_file ?: binary);
+    if( access(desktop1_path, R_OK) == 0 ) {
+        client_set_desktop1_path(client, desktop1_path);
+        g_free(desktop1_path), desktop1_path = NULL;
+    }
+    if( access(desktop2_path, R_OK) == 0 ) {
+        client_set_desktop2_path(client, desktop2_path);
+        g_free(desktop2_path), desktop2_path = NULL;
+    }
+    if( desktop1_path && desktop2_path ) {
+        log_warning("Neither '%s' nor '%s' is available/accessible",
+                    desktop1_path, desktop2_path);
+        log_warning("Application permissions are not defined");
         goto EXIT;
     }
-    client_set_desktop_path(client, desktop_path);
 
     /* Check if privileged application handling is possible */
     struct passwd *pw = getpwnam("privileged");
@@ -1286,7 +1320,8 @@ sailjailclient_main(int argc, char **argv)
 
 EXIT:
     client_delete_at(&client);
-    g_free(desktop_path);
+    g_free(desktop1_path);
+    g_free(desktop2_path);
     config_delete(config);
     log_debug("exit %d", exit_code);
     return exit_code;
