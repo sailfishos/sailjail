@@ -95,15 +95,6 @@ typedef struct jail_rules_data {
     GPtrArray* dbus_system_talk;
 } JailRulesData;
 
-typedef struct jail_rules_priv {
-    char *org_name;
-    char *app_name;
-    JailRules rules;
-    JailDBus dbus_user;
-    JailDBus dbus_system;
-    gint ref_count;
-} JailRulesPriv;
-
 static const char* const jail_rules_none[] = { NULL };
 
 static inline
@@ -1162,9 +1153,10 @@ jail_rules_restrict(
         }
 
         // copy org and app names
-        JailRulesPriv* priv = jail_rules_cast(rules);
-        data->org_name = g_strdup(priv->org_name);
-        data->app_name = g_strdup(priv->app_name);
+        data->org_name = g_strdup(jail_rules_get_value(rules,
+                                            SAILJAIL_KEY_ORGANIZATION_NAME));
+        data->app_name = g_strdup(jail_rules_get_value(rules,
+                                            SAILJAIL_KEY_APPLICATION_NAME));
 
         return jail_rules_from_data(data);
     }

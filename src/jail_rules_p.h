@@ -44,6 +44,15 @@
 #define ALTERNATE_DEFAULT_PROFILE_SECTION "X-" DEFAULT_PROFILE_SECTION
 #define PERMISSION_LIST_KEY "Permissions"
 
+typedef struct jail_rules_priv {
+    char *org_name;
+    char *app_name;
+    JailRules rules;
+    JailDBus dbus_user;
+    JailDBus dbus_system;
+    gint ref_count;
+} JailRulesPriv;
+
 typedef struct jail_rules_opt {
     const char* profile;
     const char* section;
