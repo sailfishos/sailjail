@@ -74,9 +74,6 @@ static const char SAILJAIL_KEY_FILE_ACCESS[] = "FileAccess";
 #define SAILJAIL_KEY_FILE_DISALLOW_REQUIRED '!'
 #define SAILJAIL_KEY_FILE_DISALLOW_OPTIONAL '-'
 
-static const char SAILJAIL_KEY_ORGANIZATION_NAME[] = "OrganizationName";
-static const char SAILJAIL_KEY_APPLICATION_NAME[] = "ApplicationName";
-
 static const char SAILJAIL_KEY_DBUS_USER_OWN[] = "DBusUserOwn";
 static const char SAILJAIL_KEY_DBUS_USER_TALK[] = "DBusUserTalk";
 static const char SAILJAIL_KEY_DBUS_SYSTEM_OWN[] = "DBusSystemOwn";
@@ -87,6 +84,8 @@ static const char SAILJAIL_PERM_PRIVILEGED[] = "Privileged";
 
 /* Context for parsing jail rules */
 typedef struct jail_rules_data {
+    char *org_name;
+    char *app_name;
     GPtrArray* permits;
     GPtrArray* profiles;
     GPtrArray* paths;
@@ -97,6 +96,8 @@ typedef struct jail_rules_data {
 } JailRulesData;
 
 typedef struct jail_rules_priv {
+    char *org_name;
+    char *app_name;
     JailRules rules;
     JailDBus dbus_user;
     JailDBus dbus_system;
@@ -108,7 +109,7 @@ static const char* const jail_rules_none[] = { NULL };
 static inline
 JailRulesPriv*
 jail_rules_cast(
-    JailRules* rules)
+    const JailRules* rules)
 {
     return G_CAST(rules, JailRulesPriv, rules);
 }
@@ -471,12 +472,66 @@ jail_rules_data_new(
 }
 
 static
+gboolean
+jail_rules_is_valid_str(
+    const char *str,
+    JAIL_VALIDATE_STR_TYPE type,
+    gboolean def_value)
+{
+    int i;
+
+    if (!str)
+        return def_value;
+
+    /* Must start with a letter and end with alphanumeric, */
+    if (!g_ascii_isalpha(*str) || !g_ascii_isalnum(str[strlen(str) - 1]))
+        return FALSE;
+
+    for (i = 1 ; str[i] ; i++) {
+        if (g_ascii_isalnum(str[i])) {
+            /* Any element separated with dot cannot begin with digit */
+            if (g_ascii_isdigit(str[i]) && str[i-1] == '.')
+                return FALSE;
+
+            continue;
+        }
+
+        switch (type) {
+        /* Dots and hyphens are allowed in org name.*/
+        case JAIL_VALIDATE_STR_ORG:
+            if (str[i] == '.') {
+                /* usage of two dots is discouraged */
+                if (str[i-1] == '.')
+                    return FALSE;
+
+                continue;
+            }
+
+            if (str[i] == '-')
+                continue;
+
+            /* fall through */
+        case JAIL_VALIDATE_STR_COMMON:
+            if (str[i] == '_')
+                continue;
+
+            break;
+        }
+
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+static
 JailRulesData*
 jail_rules_parse_section(
     GKeyFile* kf,
     const char* section,
     const char* app,
-    const JailConf* conf)
+    const JailConf* conf,
+    GError** error)
 {
     JailRulesData* data = jail_rules_data_new(conf);
     char* val;
@@ -611,17 +666,34 @@ jail_rules_parse_section(
 
     /* D-Bus / whitelist rules derived from Orgnanization/ApplicationName */
     {
-        char *org_name = g_key_file_get_string(kf, section, SAILJAIL_KEY_ORGANIZATION_NAME, NULL);
-        char *app_name = g_key_file_get_string(kf, section, SAILJAIL_KEY_APPLICATION_NAME, NULL);
-        if (org_name && app_name) {
+        data->org_name = g_key_file_get_string(kf, section, SAILJAIL_KEY_ORGANIZATION_NAME, NULL);
+        if (!jail_rules_is_valid_str(data->org_name, JAIL_VALIDATE_STR_ORG, TRUE)) {
+            g_propagate_error(error, g_error_new(G_KEY_FILE_ERROR,
+                    G_KEY_FILE_ERROR_INVALID_VALUE, "Invalid value %s for %s",
+                    data->org_name, SAILJAIL_KEY_ORGANIZATION_NAME));
+            goto err;
+        }
+
+        data->app_name = g_key_file_get_string(kf, section, SAILJAIL_KEY_APPLICATION_NAME, NULL);
+        if (!jail_rules_is_valid_str(data->app_name, JAIL_VALIDATE_STR_COMMON, TRUE)) {
+            g_propagate_error(error, g_error_new(G_KEY_FILE_ERROR,
+                    G_KEY_FILE_ERROR_INVALID_VALUE, "Invalid value %s for %s",
+                    data->app_name, SAILJAIL_KEY_APPLICATION_NAME));
+            goto err;
+        }
+
+        /* No proper way to exit here so ignore adding of invalid org / app name content. */
+        if (data->org_name && data->app_name) {
             char *tmp;
-            if ((tmp = g_strdup_printf("%s.%s", org_name, app_name))) {
+            if ((tmp = g_strdup_printf("%s.%s", data->org_name,
+                                                            data->app_name))) {
                 if (g_dbus_is_name(tmp)) {
                     GDEBUG("Allowing dbus-user.own %s", tmp);
                     g_ptr_array_add(data->dbus_user_own, jail_rules_dbus_name_new(tmp, TRUE));
                 }
                 g_free(tmp);
             }
+
             /* If it is left up to the application to create these
              * directories, they might end up being in tmpfs mounts
              * that disappears in thin air when application exits.
@@ -634,24 +706,31 @@ jail_rules_parse_section(
              *        just assumes that all required whitelistings
              *        under $HOME are directories and adds a mkdir too.
              */
-            if ((tmp = g_strdup_printf("${HOME}/.cache/%s/%s", org_name, app_name))) {
+            if ((tmp = g_strdup_printf("${HOME}/.cache/%s/%s", data->org_name,
+                                                            data->app_name))) {
                 jail_rules_add_path(data, tmp, TRUE, SAILJAIL_KEY_FILE_ALLOW_REQUIRED);
                 g_free(tmp);
             }
-            if ((tmp = g_strdup_printf("${HOME}/.local/share/%s/%s", org_name, app_name))) {
+            if ((tmp = g_strdup_printf("${HOME}/.local/share/%s/%s",
+                                            data->org_name, data->app_name))) {
                 jail_rules_add_path(data, tmp, TRUE, SAILJAIL_KEY_FILE_ALLOW_REQUIRED);
                 g_free(tmp);
             }
-            if ((tmp = g_strdup_printf("${HOME}/.config/%s/%s", org_name, app_name))) {
+            if ((tmp = g_strdup_printf("${HOME}/.config/%s/%s", data->org_name,
+                                                            data->app_name))) {
                 jail_rules_add_path(data, tmp, TRUE, SAILJAIL_KEY_FILE_ALLOW_REQUIRED);
                 g_free(tmp);
             }
         }
-        g_free(app_name);
-        g_free(org_name);
     }
 
     return data;
+
+err:
+    g_free(data->org_name);
+    g_free(data->app_name);
+    g_free(data);
+    return NULL;
 }
 
 static
@@ -727,12 +806,15 @@ jail_rules_parse_file(
         }
 
         GDEBUG("Parsing [%s] section from %s", section, fname);
-        data = jail_rules_parse_section(keyfile, section, app, conf);
-        /* jail_rules_parse_section() never returns NULL */
+        data = jail_rules_parse_section(keyfile, section, app, conf, error);
+
         if (out_section) {
             *out_section = g_strdup(section);
         }
         g_free(auto_app);
+
+        if (!data)
+            goto out;
     }
 
     if (!data && error) {
@@ -741,6 +823,7 @@ jail_rules_parse_file(
             program, fname));
     }
 
+out:
     g_strfreev(groups);
     return data;
 }
@@ -902,6 +985,8 @@ jail_rules_from_data(
         rules->paths = jail_rules_ptrv_new(data->paths);
         rules->dbus_user = &priv->dbus_user;
         rules->dbus_system = &priv->dbus_system;
+        priv->org_name = data->org_name; // Allocated when read
+        priv->app_name = data->app_name; // Allocated when read
         priv->dbus_user.own = jail_rules_ptrv_new(data->dbus_user_own);
         priv->dbus_user.talk = jail_rules_ptrv_new(data->dbus_user_talk);
         priv->dbus_system.own = jail_rules_ptrv_new(data->dbus_system_own);
@@ -978,6 +1063,8 @@ jail_rules_unref(
             jail_rules_ptrv_free(priv->dbus_user.talk);
             jail_rules_ptrv_free(priv->dbus_system.own);
             jail_rules_ptrv_free(priv->dbus_system.talk);
+            g_free(priv->org_name);
+            g_free(priv->app_name);
             g_free(priv);
         }
     }
@@ -990,12 +1077,21 @@ jail_rules_keyfile_parse(
     const char* section,
     const char* app) /* Since 1.0.2 */
 {
+    GError *error = NULL;
+
     if (jail && keyfile) {
         JailRulesData* data = jail_rules_parse_section(keyfile,
-            section ? section : SAILJAIL_SECTION_DEFAULT, app, jail->conf);
-        if (data) {
+            section ? section : SAILJAIL_SECTION_DEFAULT, app, jail->conf,
+            &error);
+        if (data && !error) {
             jail_rules_add_profile(data, jail->conf, SAILJAIL_BASE_PERM, TRUE);
         }
+
+        if (error) {
+            GERR("%s", GERRMSG(error));
+            g_error_free(error);
+        }
+
         return jail_rules_from_data(data);
     }
     return NULL;
@@ -1065,7 +1161,30 @@ jail_rules_restrict(
                 data->dbus_system_talk, dbus_system ? dbus_system->talk : NULL);
         }
 
+        // copy org and app names
+        JailRulesPriv* priv = jail_rules_cast(rules);
+        data->org_name = g_strdup(priv->org_name);
+        data->app_name = g_strdup(priv->app_name);
+
         return jail_rules_from_data(data);
+    }
+    return NULL;
+}
+
+const char*
+jail_rules_get_value(
+    const JailRules* rules,
+    const char *key)
+{
+    if (rules) {
+        JailRulesPriv* priv = jail_rules_cast(rules);
+
+        GASSERT(priv->ref_count > 0);
+
+        if (!g_strcmp0(key, SAILJAIL_KEY_APPLICATION_NAME))
+            return priv->app_name;
+        else if (!g_strcmp0(key, SAILJAIL_KEY_ORGANIZATION_NAME))
+           return priv->org_name;
     }
     return NULL;
 }

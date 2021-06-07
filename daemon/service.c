@@ -46,6 +46,7 @@
 #include "session.h"
 #include "stringset.h"
 #include "settings.h"
+#include "util.h"
 
 #include <dbusaccess_peer.h>
 #include <dbusaccess_policy.h>

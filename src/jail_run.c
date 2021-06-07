@@ -165,6 +165,7 @@ jail_run(
     GPtrArray* args_alloc = g_ptr_array_new(); /* Only the allocated ones */
     const JailDBus* dbus_user = rules->dbus_user;
     const JailDBus* dbus_system = rules->dbus_system;
+    gint dbus_system_filter_added = 0;
 
     g_ptr_array_set_free_func(args_alloc, g_free);
 
@@ -184,6 +185,22 @@ jail_run(
         g_ptr_array_add(args, (gpointer) FIREJAIL_QUIET_OPT);
     } else if (gutil_log_default.level > GLOG_LEVEL_DEBUG) {
         g_ptr_array_add(args, (gpointer) FIREJAIL_DEBUG_OPT);
+    }
+
+    const char *org_name = jail_rules_get_value(rules, SAILJAIL_KEY_ORGANIZATION_NAME);
+    if (org_name) {
+        char* opt = g_strconcat("--template=", SAILJAIL_KEY_ORGANIZATION_NAME,
+                                                        ":", org_name, NULL);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
+    }
+
+    const char *app_name = jail_rules_get_value(rules, SAILJAIL_KEY_APPLICATION_NAME);
+    if (app_name) {
+        char* opt = g_strconcat("--template=", SAILJAIL_KEY_APPLICATION_NAME,
+                                                        ":", app_name, NULL);
+        g_ptr_array_add(args, opt);
+        g_ptr_array_add(args_alloc, opt);
     }
 
     /* Profiles */
@@ -235,6 +252,7 @@ jail_run(
     if (jail_ptrv_length(dbus_system->own) ||
         jail_ptrv_length(dbus_system->talk)) {
         g_ptr_array_add(args, (gpointer) FIREJAIL_DBUS_SYSTEM_FILTER);
+        dbus_system_filter_added = 1;
         if (gutil_log_default.level > GLOG_LEVEL_DEBUG) {
             g_ptr_array_add(args, (gpointer) FIREJAIL_DBUS_SYSTEM_LOG);
         }
@@ -255,6 +273,8 @@ jail_run(
         opt = g_strdup_printf(FIREJAIL_DBUS_LOG_OPT_FMT, trace_dir);
         g_ptr_array_add(args, opt);
         g_ptr_array_add(args_alloc, opt);
+        if (!dbus_system_filter_added)
+            g_ptr_array_add(args, (gpointer) FIREJAIL_DBUS_SYSTEM_FILTER);
         g_ptr_array_add(args, (gpointer) FIREJAIL_DBUS_SYSTEM_LOG);
         g_ptr_array_add(args, (gpointer) FIREJAIL_DBUS_USER_LOG);
     }
