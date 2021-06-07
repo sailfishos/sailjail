@@ -95,15 +95,6 @@ typedef struct jail_rules_data {
     GPtrArray* dbus_system_talk;
 } JailRulesData;
 
-typedef struct jail_rules_priv {
-    char *org_name;
-    char *app_name;
-    JailRules rules;
-    JailDBus dbus_user;
-    JailDBus dbus_system;
-    gint ref_count;
-} JailRulesPriv;
-
 static const char* const jail_rules_none[] = { NULL };
 
 static inline

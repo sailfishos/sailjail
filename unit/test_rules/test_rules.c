@@ -865,8 +865,12 @@ test_restrict_empty(
 {
     JailRules rules;
     JailRules* restricted;
+    JailRulesPriv rules_priv;
 
     memset(&rules, 0, sizeof(rules));
+    memset(&rules_priv, 0, sizeof(rules_priv));
+    rules_priv.rules = rules;
+
     restricted = jail_rules_restrict(&rules, NULL, NULL, NULL, NULL, NULL);
     test_assert_rules_not_null(restricted);
     jail_rules_unref(restricted);
@@ -889,9 +893,13 @@ test_restrict_required_permit(
 
     JailRules rules;
     JailRules* restricted;
+    JailRulesPriv rules_priv;
 
     memset(&rules, 0, sizeof(rules));
     rules.permits = permits;
+    memset(&rules_priv, 0, sizeof(rules_priv));
+    rules_priv.rules = rules;
+
     restricted = jail_rules_restrict(&rules, restrict_types,
         NULL, NULL, NULL, NULL);
     test_assert_rules_not_null(restricted);
@@ -934,9 +942,13 @@ test_restrict_invalid_permit(
 
     JailRules rules;
     JailRules* restricted;
+    JailRulesPriv rules_priv;
 
     memset(&rules, 0, sizeof(rules));
     rules.permits = permits;
+    memset(&rules_priv, 0, sizeof(rules_priv));
+    rules_priv.rules = rules;
+
     restricted = jail_rules_restrict(&rules, restrict_types,
         NULL, NULL, NULL, NULL);
     test_assert_rules_not_null(restricted);
@@ -982,8 +994,11 @@ test_restrict_dbus(
 
     JailRules rules;
     JailRules* restricted;
+    JailRulesPriv rules_priv;
 
     memset(&rules, 0, sizeof(rules));
+    memset(&rules_priv, 0, sizeof(rules_priv));
+    rules_priv.rules = rules;
 
     /* First try empty lists. There's nothing to restrict there */
     rules.dbus_user = &dbus_null;
