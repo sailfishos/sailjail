@@ -38,6 +38,7 @@
 
 #include "applications.h"
 #include "control.h"
+#include "config.h"
 #include "stringset.h"
 #include "logging.h"
 #include "util.h"
@@ -90,6 +91,12 @@ typedef struct
 } appinfo_parser_t;
 
 /* ========================================================================= *
+ * Config
+ * ========================================================================= */
+
+#define APPINFO_DEFAULT_PROFILE_SECTION "Default Profile"
+
+/* ========================================================================= *
  * Prototypes
  * ========================================================================= */
 
@@ -115,6 +122,7 @@ gchar       *appinfo_to_string (const appinfo_t *self);
 
 bool            appinfo_valid       (const appinfo_t *self);
 control_t      *appinfo_control     (const appinfo_t *self);
+const config_t *appinfo_config      (const appinfo_t *self);
 applications_t *appinfo_applications(const appinfo_t *self);
 const gchar    *appinfo_id          (const appinfo_t *self);
 
@@ -407,6 +415,12 @@ control_t *
 appinfo_control(const appinfo_t *self)
 {
     return applications_control(appinfo_applications(self));
+}
+
+const config_t *
+appinfo_config(const appinfo_t *self)
+{
+    return applications_config(appinfo_applications(self));
 }
 
 applications_t *
@@ -811,19 +825,31 @@ appinfo_parse_desktop(appinfo_t *self)
         g_free(tmp);
 
     /* Parse sailjail properties */
-    const gchar *group = SAILJAIL_SECTION_PRIMARY;
-    if( !g_key_file_has_group(ini, group) )
+    const gchar *group = NULL;
+    if( g_key_file_has_group(ini, SAILJAIL_SECTION_PRIMARY) )
+        group = SAILJAIL_SECTION_PRIMARY;
+    else if( g_key_file_has_group(ini, SAILJAIL_SECTION_SECONDARY) )
         group = SAILJAIL_SECTION_SECONDARY;
+    /* else: legacy app => use default profile */
 
-    tmp = keyfile_get_string(ini, group, SAILJAIL_KEY_ORGANIZATION_NAME, 0),
-        appinfo_set_organization_name(self, tmp),
-        g_free(tmp);
+    stringset_t *set;
+    if( group ) {
+        tmp = keyfile_get_string(ini, group, SAILJAIL_KEY_ORGANIZATION_NAME, 0),
+            appinfo_set_organization_name(self, tmp),
+            g_free(tmp);
 
-    tmp = keyfile_get_string(ini, group, SAILJAIL_KEY_APPLICATION_NAME, 0),
-        appinfo_set_application_name(self, tmp),
-        g_free(tmp);
+        tmp = keyfile_get_string(ini, group, SAILJAIL_KEY_APPLICATION_NAME, 0),
+            appinfo_set_application_name(self, tmp),
+            g_free(tmp);
 
-    stringset_t *set = keyfile_get_stringset(ini, group, SAILJAIL_KEY_PERMISSIONS);
+        set = keyfile_get_stringset(ini, group, SAILJAIL_KEY_PERMISSIONS);
+    }
+    else {
+        /* Read default profile from configuration */
+        set = config_stringset(appinfo_config(self),
+                               APPINFO_DEFAULT_PROFILE_SECTION,
+                               SAILJAIL_KEY_PERMISSIONS);
+    }
     appinfo_set_permissions(self, set);
     stringset_delete(set);
 

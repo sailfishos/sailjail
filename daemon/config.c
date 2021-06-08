@@ -37,6 +37,7 @@
 #include "config.h"
 
 #include "util.h"
+#include "stringset.h"
 #include "logging.h"
 
 #include <glob.h>
@@ -46,6 +47,7 @@
  * ========================================================================= */
 
 typedef struct config_t config_t;
+typedef struct stringset_t stringset_t;
 
 /* ========================================================================= *
  * Prototypes
@@ -73,9 +75,10 @@ static void config_load  (config_t *self);
  * CONFIG_VALUE
  * ------------------------------------------------------------------------- */
 
-bool   config_boolean(const config_t *self, const gchar *sec, const gchar *key, bool def);
-gint   config_integer(const config_t *self, const gchar *sec, const gchar *key, gint def);
-gchar *config_string (const config_t *self, const gchar *sec, const gchar *key, const gchar *def);
+bool         config_boolean  (const config_t *self, const gchar *sec, const gchar *key, bool def);
+gint         config_integer  (const config_t *self, const gchar *sec, const gchar *key, gint def);
+gchar       *config_string   (const config_t *self, const gchar *sec, const gchar *key, const gchar *def);
+stringset_t *config_stringset(const config_t *self, const gchar *sec, const gchar *key);
 
 /* ========================================================================= *
  * CONFIG
@@ -177,4 +180,10 @@ config_string(const config_t *self, const gchar *sec, const gchar *key,
               const gchar *def)
 {
     return keyfile_get_string(self->cfg_keyfile, sec, key, def);
+}
+
+stringset_t *
+config_stringset(const config_t *self, const gchar *sec, const gchar *key)
+{
+    return keyfile_get_stringset(self->cfg_keyfile, sec, key);
 }
