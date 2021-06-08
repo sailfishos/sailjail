@@ -90,6 +90,7 @@ void         prompter_delete              (prompter_t *self);
 void         prompter_delete_at           (prompter_t **pself);
 void         prompter_delete_cb           (void *self);
 void         prompter_applications_changed(prompter_t *self, const stringset_t *changed);
+void         prompter_session_changed     (prompter_t *self);
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_ATTRIBUTES
@@ -219,6 +220,7 @@ struct prompter_t
     prompter_state_t       prm_state;
     guint                  prm_timer_id;
     guint                  prm_later_id;
+    uid_t                  prm_cached_user;
     GQueue                *prm_queue;           // GDBusMethodInvocation *
     GDBusConnection       *prm_connection;
     GDBusMethodInvocation *prm_invocation;
@@ -233,6 +235,7 @@ prompter_ctor(prompter_t *self, service_t *service)
     self->prm_state       = PROMPTER_STATE_UNDEFINED;
     self->prm_timer_id    = 0;
     self->prm_later_id    = 0;
+    self->prm_cached_user = control_current_user(service_control(service));
     self->prm_queue       = g_queue_new();
     self->prm_connection  = NULL;
     self->prm_invocation  = NULL;
@@ -307,6 +310,27 @@ prompter_applications_changed(prompter_t *self, const stringset_t *changed)
     }
 }
 
+void
+prompter_session_changed(prompter_t *self)
+{
+    /* All invocations are invalid when user changes. By this time all
+     * invocations probably have failed and we have disconnected from
+     * session bus but in case that's not true, fail remaining requests
+     * and disconnect from bus.
+     */
+    if( self->prm_cached_user != SESSION_UID_UNDEFINED ) {
+        if( prompter_current_user(self) != self->prm_cached_user ) {
+            /* Fail all queued requests */
+            prompter_dequeue_all(self);
+            /* Fail pending queued request */
+            prompter_fail_invocation(self);
+            /* Disconnect from old bus */
+            prompter_set_state(self, PROMPTER_STATE_DISCONNECT);
+        }
+    }
+    self->prm_cached_user = prompter_current_user(self);
+}
+
 /* ------------------------------------------------------------------------- *
  * PROMPTER_ATTRIBUTES
  * ------------------------------------------------------------------------- */
@@ -332,8 +356,6 @@ prompter_appsettings(const prompter_t *self, uid_t uid, const char *app)
 static uid_t
 prompter_current_user(const prompter_t *self)
 {
-    // FIXME: this should be cached internally for error
-    //        error reply handling on session change...
     return control_current_user(prompter_control(self));
 }
 
@@ -341,7 +363,7 @@ static gchar *
 prompter_bus_address(const prompter_t *self)
 {
     gchar *addr = NULL;
-    uid_t  uid  = control_current_user(prompter_control(self));
+    uid_t  uid  = prompter_current_user(self);
     if( uid != SESSION_UID_UNDEFINED )
         addr = g_strdup_printf("unix:path=/run/user/%lld/dbus/user_bus_socket",
                                (long long)uid);
@@ -979,8 +1001,6 @@ prompter_drop(prompter_t *self, GList *iter)
     return next;
 }
 
-// FIXME: on session changed -> dequeue_all
-
 /* ------------------------------------------------------------------------- *
  * PROMPTER_CONNECTION
  * ------------------------------------------------------------------------- */
@@ -1017,8 +1037,14 @@ prompter_connect(prompter_t *self)
         g_dbus_connection_new_for_address_sync(address, flags,
                                                NULL, NULL, &error);
 
-    if( error )
+    if( error ) {
         log_err("connecting to %s failed: %s", address, error->message);
+        goto EXIT;
+    }
+
+    /* This is not a user session service, set exit-on-close explicitly false */
+    g_dbus_connection_set_exit_on_close(self->prm_connection, FALSE);
+
 EXIT:
     g_clear_error(&error);
     g_free(address);

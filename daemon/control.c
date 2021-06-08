@@ -44,6 +44,7 @@
 #include "applications.h"
 #include "settings.h"
 #include "service.h"
+#include "prompter.h"
 #include "later.h"
 
 /* ========================================================================= *
@@ -78,6 +79,7 @@ session_t         *control_session               (const control_t *self);
 permissions_t     *control_permissions           (const control_t *self);
 applications_t    *control_applications          (const control_t *self);
 service_t         *control_service               (const control_t *self);
+static prompter_t *control_prompter              (const control_t *self);
 settings_t        *control_settings              (const control_t *self);
 appsettings_t     *control_appsettings           (control_t *self, uid_t uid, const char *app);
 appinfo_t         *control_appinfo               (const control_t *self, const char *appname);
@@ -107,6 +109,7 @@ void control_on_settings_change   (control_t *self, const char *app);
 
 static void control_rethink_applications_cb(gpointer aptr);
 static void control_rethink_settings_cb    (gpointer aptr);
+static void control_rethink_prompter_cb    (gpointer aptr);
 static void control_rethink_broadcast_cb   (gpointer aptr);
 
 /* ========================================================================= *
@@ -122,6 +125,7 @@ struct control_t
     stringset_t    *ctl_changed_applications;
     later_t        *ctl_rethink_applications;
     later_t        *ctl_rethink_settings;
+    later_t        *ctl_rethink_prompter;
     later_t        *ctl_rethink_broadcast;
 
     users_t        *ctl_users;
@@ -151,8 +155,11 @@ control_ctor(control_t *self, const config_t *config)
     self->ctl_rethink_settings =
         later_create("settings", 10, 0,
                      control_rethink_settings_cb, self);
+    self->ctl_rethink_prompter =
+        later_create("prompter", 20, 0,
+                     control_rethink_prompter_cb, self);
     self->ctl_rethink_broadcast  =
-        later_create("broadcast", 20, 0,
+        later_create("broadcast", 30, 0,
                      control_rethink_broadcast_cb, self);
 
     /* Init data tracking */
@@ -186,6 +193,7 @@ control_dtor(control_t *self)
 
     /* Quit re-evaluation pipeline */
     later_delete_at(&self->ctl_rethink_broadcast);
+    later_delete_at(&self->ctl_rethink_prompter);
     later_delete_at(&self->ctl_rethink_settings);
     later_delete_at(&self->ctl_rethink_applications);
     stringset_delete_at(&self->ctl_changed_applications);
@@ -258,6 +266,12 @@ service_t *
 control_service(const control_t *self)
 {
     return self->ctl_service;
+}
+
+static prompter_t *
+control_prompter(const control_t *self)
+{
+    return service_prompter(control_service(self));
 }
 
 settings_t *
@@ -372,6 +386,9 @@ control_on_session_changed(control_t *self)
         later_schedule(self->ctl_rethink_settings);
         // -> control_rethink_settings_cb()
 
+    later_schedule(self->ctl_rethink_prompter);
+    // -> control_rethink_prompter_cb()
+
     self->ctl_session_user = session_current_user(session);
     log_notice("session uid = %d", (int)self->ctl_session_user);
 }
@@ -438,6 +455,14 @@ control_rethink_settings_cb(gpointer aptr)
     control_t *self = aptr;
     settings_rethink(control_settings(self));
     // -> control_on_settings_change()
+}
+
+static void
+control_rethink_prompter_cb(gpointer aptr)
+{
+    log_notice("*** rethink prompter data");
+    control_t *self = aptr;
+    prompter_session_changed(control_prompter(self));
 }
 
 static void

@@ -65,6 +65,7 @@ void        prompter_delete              (prompter_t *self);
 void        prompter_delete_at           (prompter_t **pself);
 void        prompter_delete_cb           (void *self);
 void        prompter_applications_changed(prompter_t *self, const stringset_t *changed);
+void        prompter_session_changed     (prompter_t *self);
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_INVOCATION
