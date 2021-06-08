@@ -973,4 +973,6 @@ service_applications_changed(service_t *self, const stringset_t *changed)
         }
         service_dbus_emit_signal(self, member, app);
     }
+
+    prompter_applications_changed(service_prompter(self), changed);
 }

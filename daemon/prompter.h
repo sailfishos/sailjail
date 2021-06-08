@@ -48,8 +48,9 @@ G_BEGIN_DECLS
 typedef struct appinfo_t      appinfo_t;
 typedef struct service_t      service_t;
 typedef struct applications_t applications_t;
-typedef struct prompter_t prompter_t;
+typedef struct prompter_t     prompter_t;
 typedef struct control_t      control_t;
+typedef struct stringset_t    stringset_t;
 
 /* ========================================================================= *
  * Prototypes
@@ -59,10 +60,11 @@ typedef struct control_t      control_t;
  * PROMPTER
  * ------------------------------------------------------------------------- */
 
-prompter_t *prompter_create   (service_t *service);
-void        prompter_delete   (prompter_t *self);
-void        prompter_delete_at(prompter_t **pself);
-void        prompter_delete_cb(void *self);
+prompter_t *prompter_create              (service_t *service);
+void        prompter_delete              (prompter_t *self);
+void        prompter_delete_at           (prompter_t **pself);
+void        prompter_delete_cb           (void *self);
+void        prompter_applications_changed(prompter_t *self, const stringset_t *changed);
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_INVOCATION

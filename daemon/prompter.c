@@ -68,6 +68,12 @@ typedef enum prompter_state_t {
  * ========================================================================= */
 
 /* ------------------------------------------------------------------------- *
+ * CHANGE
+ * ------------------------------------------------------------------------- */
+
+static bool change_cancellable(GCancellable **pmember, GCancellable *value);
+
+/* ------------------------------------------------------------------------- *
  * PROMPTER_STATE
  * ------------------------------------------------------------------------- */
 
@@ -77,12 +83,13 @@ static const char *prompter_state_repr(prompter_state_t state);
  * PROMPTER
  * ------------------------------------------------------------------------- */
 
-static void  prompter_ctor     (prompter_t *self, service_t *service);
-static void  prompter_dtor     (prompter_t *self);
-prompter_t  *prompter_create   (service_t *service);
-void         prompter_delete   (prompter_t *self);
-void         prompter_delete_at(prompter_t **pself);
-void         prompter_delete_cb(void *self);
+static void  prompter_ctor                (prompter_t *self, service_t *service);
+static void  prompter_dtor                (prompter_t *self);
+prompter_t  *prompter_create              (service_t *service);
+void         prompter_delete              (prompter_t *self);
+void         prompter_delete_at           (prompter_t **pself);
+void         prompter_delete_cb           (void *self);
+void         prompter_applications_changed(prompter_t *self, const stringset_t *changed);
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_ATTRIBUTES
@@ -122,15 +129,17 @@ static gboolean prompter_timer_cb     (gpointer aptr);
  * PROMPTER_INVOCATION
  * ------------------------------------------------------------------------- */
 
-static GDBusMethodInvocation *prompter_current_invocation  (prompter_t *self);
-static void                   prompter_finish_invocation   (prompter_t *self);
-static void                   prompter_fail_invocation     (prompter_t *self);
-static void                   prompter_reply_invocation    (prompter_t *self);
-static GDBusMethodInvocation *prompter_next_invocation     (prompter_t *self);
-static void                   prompter_prompt_invocation_cb(GObject *obj, GAsyncResult *res, gpointer aptr);
-static GVariant              *prompter_invocation_args     (const prompter_t *self, appinfo_t *appinfo);
-static bool                   prompter_prompt_invocation   (prompter_t *self);
-void                          prompter_handle_invocation   (prompter_t *self, GDBusMethodInvocation *invocation);
+static GDBusMethodInvocation *prompter_current_invocation   (prompter_t *self);
+static void                   prompter_finish_invocation    (prompter_t *self);
+static bool                   prompter_try_finish_invocation(prompter_t *self, GDBusMethodInvocation *invocation, const stringset_t *changed);
+static bool                   prompter_check_invocation     (prompter_t *self, GDBusMethodInvocation *invocation);
+static void                   prompter_fail_invocation      (prompter_t *self);
+static void                   prompter_reply_invocation     (prompter_t *self);
+static GDBusMethodInvocation *prompter_next_invocation      (prompter_t *self);
+static void                   prompter_prompt_invocation_cb (GObject *obj, GAsyncResult *res, gpointer aptr);
+static GVariant              *prompter_invocation_args      (const prompter_t *self, appinfo_t *appinfo);
+static bool                   prompter_prompt_invocation    (prompter_t *self);
+void                          prompter_handle_invocation    (prompter_t *self, GDBusMethodInvocation *invocation);
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_RETURN
@@ -147,6 +156,8 @@ static void                   prompter_enqueue    (prompter_t *self, GDBusMethod
 static guint                  prompter_queued     (prompter_t *self);
 static GDBusMethodInvocation *prompter_dequeue    (prompter_t *self);
 static void                   prompter_dequeue_all(prompter_t *self);
+static GList                 *prompter_iter       (prompter_t *self);
+static GList                 *prompter_drop       (prompter_t *self, GList *iter);
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_CONNECTION
@@ -156,6 +167,27 @@ static GDBusConnection *prompter_connection  (const prompter_t *self);
 static bool             prompter_is_connected(const prompter_t *self);
 static bool             prompter_connect     (prompter_t *self);
 static void             prompter_disconnect  (prompter_t *self);
+
+/* ========================================================================= *
+ * UTILITY
+ * ========================================================================= */
+
+static bool
+change_cancellable(GCancellable **pmember, GCancellable *value)
+{
+    bool changed = false;
+    if( *pmember != value ) {
+        if( *pmember ) {
+            g_cancellable_cancel(*pmember);
+            g_object_unref(*pmember);
+            *pmember = NULL;
+        }
+        if( value )
+            *pmember = g_object_ref(value);
+        changed = true;
+    }
+    return changed;
+}
 
 /* ========================================================================= *
  * PROMPTER_STATE
@@ -190,19 +222,21 @@ struct prompter_t
     GQueue                *prm_queue;           // GDBusMethodInvocation *
     GDBusConnection       *prm_connection;
     GDBusMethodInvocation *prm_invocation;
+    GCancellable          *prm_cancellable;
 };
 
 static void
 prompter_ctor(prompter_t *self, service_t *service)
 {
     log_info("prompter() create");
-    self->prm_service    = service;
-    self->prm_state      = PROMPTER_STATE_UNDEFINED;
-    self->prm_timer_id   = 0;
-    self->prm_later_id   = 0;
-    self->prm_queue      = g_queue_new();
-    self->prm_connection = NULL;
-    self->prm_invocation = NULL;
+    self->prm_service     = service;
+    self->prm_state       = PROMPTER_STATE_UNDEFINED;
+    self->prm_timer_id    = 0;
+    self->prm_later_id    = 0;
+    self->prm_queue       = g_queue_new();
+    self->prm_connection  = NULL;
+    self->prm_invocation  = NULL;
+    self->prm_cancellable = NULL;
     prompter_set_state(self, PROMPTER_STATE_IDLE);
 }
 
@@ -250,6 +284,27 @@ void
 prompter_delete_cb(void *self)
 {
     prompter_delete(self);
+}
+
+void
+prompter_applications_changed(prompter_t *self, const stringset_t *changed)
+{
+    /* First check the current invocation */
+    if( prompter_try_finish_invocation(self, prompter_current_invocation(self),
+                                       changed) ) {
+        change_cancellable(&self->prm_cancellable, NULL);
+        self->prm_invocation = NULL;
+        prompter_eval_state_later(self);
+    }
+
+    /* Then check the rest of the invocations */
+    GList *iter = prompter_iter(self);
+    while( iter ) {
+        if( prompter_try_finish_invocation(self, iter->data, changed) )
+            iter = prompter_drop(self, iter);
+        else
+            iter = iter->next;
+    }
 }
 
 /* ------------------------------------------------------------------------- *
@@ -552,46 +607,94 @@ prompter_finish_invocation(prompter_t *self)
 {
     GDBusMethodInvocation *invocation = self->prm_invocation;
     if( invocation ) {
+        change_cancellable(&self->prm_cancellable, NULL);
         self->prm_invocation = NULL;
 
-        uid_t uid = prompter_current_user(self);
-
-        appsettings_t *appsettings = NULL;
-        GVariant *parameters =
-            g_dbus_method_invocation_get_parameters(invocation);
-        const gchar *app = NULL;
-        g_variant_get(parameters, "(&s)", &app);
-        if( !app ) {
-            prompter_return_error(invocation, G_DBUS_ERROR_INVALID_ARGS,
-                                  SERVICE_MESSAGE_INVALID_APPLICATION, app);
-        }
-        else if( !(appsettings = prompter_appsettings(self, uid, app)) ) {
-            prompter_return_error(invocation, G_DBUS_ERROR_INVALID_ARGS,
-                                  SERVICE_MESSAGE_INVALID_USER, uid);
-        }
-        else {
-            app_allowed_t allowed = appsettings_get_allowed(appsettings);
-            if( allowed == APP_ALLOWED_NEVER ) {
-                prompter_return_error(invocation, G_DBUS_ERROR_AUTH_FAILED,
-                                      SERVICE_MESSAGE_DENIED_PERMANENTLY);
-            }
-            else if( allowed == APP_ALLOWED_ALWAYS ) {
-                const stringset_t *granted =
-                    appsettings_get_granted(appsettings);
-                gchar **vector = stringset_to_strv(granted);
-                GVariant *variant =
-                    g_variant_new_strv((const gchar * const *)vector, -1);
-                prompter_return_value(invocation, variant);
-                g_strfreev(vector);
-            }
-            else {
-                prompter_return_error(invocation, G_DBUS_ERROR_AUTH_FAILED,
-                                      SERVICE_MESSAGE_NOT_ALLOWED);
-            }
+        if( !prompter_check_invocation(self, invocation) ) {
+            /* If we get here, the prompt was canceled */
+            prompter_return_error(invocation, G_DBUS_ERROR_AUTH_FAILED,
+                                  SERVICE_MESSAGE_NOT_ALLOWED);
         }
 
         prompter_eval_state_later(self);
     }
+}
+
+static bool
+prompter_try_finish_invocation(prompter_t            *self,
+                               GDBusMethodInvocation *invocation,
+                               const stringset_t     *changed)
+{
+    bool handled = false;
+
+    if( invocation ) {
+        const gchar *app        = NULL;
+        GVariant    *parameters =
+            g_dbus_method_invocation_get_parameters(invocation);
+        g_variant_get(parameters, "(&s)", &app);
+        if( !app ) {
+            /* Should not be reached but it's an error to get here anyway */
+            prompter_return_error(invocation, G_DBUS_ERROR_INVALID_ARGS,
+                                  SERVICE_MESSAGE_INVALID_APPLICATION, app);
+            handled = true;
+        }
+        else if( stringset_has_item(changed, app) ) {
+            /* App was changed => check and handle if possible */
+            handled = prompter_check_invocation(self, invocation);
+        } /* else: the app was not changed */
+    }
+
+    return handled;
+}
+
+static bool
+prompter_check_invocation(prompter_t *self, GDBusMethodInvocation *invocation) {
+    /* Check if invocation can be handled already, i.e. if it's not
+     * still undecided. Returns true if a reply was sent.
+     */
+
+    const gchar   *app         = NULL;
+    appsettings_t *appsettings = NULL;
+    bool           handled     = false;
+    GVariant      *parameters  =
+        g_dbus_method_invocation_get_parameters(invocation);
+    uid_t          uid         = prompter_current_user(self);
+
+    g_variant_get(parameters, "(&s)", &app);
+    if( !app ) {
+        prompter_return_error(invocation, G_DBUS_ERROR_INVALID_ARGS,
+                              SERVICE_MESSAGE_INVALID_APPLICATION, app);
+        handled = true;
+    }
+    else if( !(appsettings = prompter_appsettings(self, uid, app)) ) {
+        if( !control_valid_user(prompter_control(self), uid) )
+            prompter_return_error(invocation, G_DBUS_ERROR_INVALID_ARGS,
+                                  SERVICE_MESSAGE_INVALID_USER, uid);
+        else
+            prompter_return_error(invocation, G_DBUS_ERROR_INVALID_ARGS,
+                                  SERVICE_MESSAGE_INVALID_APPLICATION, app);
+        handled = true;
+    }
+    else {
+        app_allowed_t allowed = appsettings_get_allowed(appsettings);
+        if( allowed == APP_ALLOWED_NEVER ) {
+            prompter_return_error(invocation, G_DBUS_ERROR_AUTH_FAILED,
+                                  SERVICE_MESSAGE_DENIED_PERMANENTLY);
+            handled = true;
+        }
+        else if( allowed == APP_ALLOWED_ALWAYS ) {
+            const stringset_t *granted =
+                appsettings_get_granted(appsettings);
+            gchar **vector = stringset_to_strv(granted);
+            GVariant *variant =
+                g_variant_new_strv((const gchar * const *)vector, -1);
+            prompter_return_value(invocation, variant);
+            handled = true;
+            g_strfreev(vector);
+        }
+    }
+
+    return handled;
 }
 
 static void
@@ -748,7 +851,7 @@ prompter_prompt_invocation(prompter_t *self)
     bool                ack     = false;
     appinfo_t          *appinfo = NULL;
     const gchar        *app     = NULL;
-    GCancellable       *cancellable  = NULL; // <-- FIXME: make this cancellable
+    GCancellable       *cancellable = g_cancellable_new();
     GVariant           *invocation_args = NULL;
 
     GVariant *parameters =
@@ -772,6 +875,8 @@ prompter_prompt_invocation(prompter_t *self)
         goto EXIT;
     }
 
+    change_cancellable(&self->prm_cancellable, cancellable);
+
     g_dbus_connection_call(prompter_connection(self),
                            WINDOWPROMT_SERVICE,
                            WINDOWPROMT_OBJECT,
@@ -788,6 +893,7 @@ prompter_prompt_invocation(prompter_t *self)
     ack = true;
 
 EXIT:
+    g_object_unref(cancellable);
     return ack;
 }
 
@@ -850,7 +956,7 @@ prompter_dequeue(prompter_t *self)
 static void
 prompter_dequeue_all(prompter_t *self)
 {
-    for( GList *iter = self->prm_queue->head; iter; iter = iter->next ) {
+    for( GList *iter = prompter_iter(self); iter; iter = iter->next ) {
         GDBusMethodInvocation *invocation = iter->data;
         iter->data = NULL;
         prompter_return_error(invocation, G_DBUS_ERROR_AUTH_FAILED,
@@ -859,10 +965,21 @@ prompter_dequeue_all(prompter_t *self)
     g_queue_remove_all(self->prm_queue, NULL);
 }
 
+static GList *
+prompter_iter(prompter_t *self)
+{
+    return self->prm_queue->head;
+}
+
+static GList *
+prompter_drop(prompter_t *self, GList *iter)
+{
+    GList *next = iter->next;
+    g_queue_delete_link(self->prm_queue, iter);
+    return next;
+}
+
 // FIXME: on session changed -> dequeue_all
-// FIXME: on app removed -> dequeue_app (rejected due to invalid app)
-// FIXME: on app changed -> dequeue_app (accepted/rejected based on settings)
-// FIXME: and cancel the pending call too when appropriate
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_CONNECTION
