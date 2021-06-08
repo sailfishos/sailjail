@@ -82,9 +82,9 @@ static control_t *users_control(const users_t *self);
  * USERS_USER
  * ------------------------------------------------------------------------- */
 
-uid_t users_first_user (const users_t *self);
-uid_t users_last_user  (const users_t *self);
-bool  users_user_exists(users_t *self, uid_t uid);
+uid_t users_first_user   (const users_t *self);
+uid_t users_last_user    (const users_t *self);
+bool  users_user_exists  (users_t *self, uid_t uid);
 bool  users_user_is_guest(const users_t *self, uid_t uid);
 
 /* ------------------------------------------------------------------------- *

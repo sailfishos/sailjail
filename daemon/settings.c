@@ -138,9 +138,9 @@ void settings_rethink(settings_t *self);
  * SETTINGS_UTILITY
  * ------------------------------------------------------------------------- */
 
-static gchar *settings_userdata_path(uid_t uid);
+static gchar *settings_userdata_path        (uid_t uid);
 static void   settings_remove_stale_userdata(uid_t uid);
-static bool   settings_valid_user(const settings_t *self, uid_t uid);
+static bool   settings_valid_user           (const settings_t *self, uid_t uid);
 
 /* ------------------------------------------------------------------------- *
  * USERSETTINGS
@@ -196,12 +196,12 @@ void           appsettings_delete_cb(void *self);
  * APPSETTINGS_ATTRIBUTES
  * ------------------------------------------------------------------------- */
 
-static const config_t  *appsettings_config      (const appsettings_t *self);
-static control_t       *appsettings_control     (const appsettings_t *self);
-static settings_t      *appsettings_settings    (const appsettings_t *self);
-static usersettings_t  *appsettings_usersettings(const appsettings_t *self);
-static uid_t            appsettings_uid         (appsettings_t *self);
-static const gchar     *appsettings_appname     (const appsettings_t *self);
+static const config_t *appsettings_config      (const appsettings_t *self);
+static control_t      *appsettings_control     (const appsettings_t *self);
+static settings_t     *appsettings_settings    (const appsettings_t *self);
+static usersettings_t *appsettings_usersettings(const appsettings_t *self);
+static uid_t           appsettings_uid         (appsettings_t *self);
+static const gchar    *appsettings_appname     (const appsettings_t *self);
 
 /* ------------------------------------------------------------------------- *
  * APPSETTINGS_NOTIFY
@@ -213,14 +213,14 @@ static void appsettings_notify_change(appsettings_t *self);
  * APPSETTINGS_PROPERTIES
  * ------------------------------------------------------------------------- */
 
-static app_grant_t appsettings_get_autogrant  (const appsettings_t *self);
-app_allowed_t      appsettings_get_allowed    (const appsettings_t *self);
-app_agreed_t       appsettings_get_agreed     (const appsettings_t *self);
-const stringset_t *appsettings_get_granted    (appsettings_t *self);
-void               appsettings_set_allowed    (appsettings_t *self, app_allowed_t allowed);
-void               appsettings_set_agreed     (appsettings_t *self, app_agreed_t agreed);
-static void        appsettings_set_permissions(appsettings_t *self, const stringset_t *permissions);
-void               appsettings_set_granted    (appsettings_t *self, const stringset_t *granted);
+static app_grant_t  appsettings_get_autogrant  (const appsettings_t *self);
+app_allowed_t       appsettings_get_allowed    (const appsettings_t *self);
+app_agreed_t        appsettings_get_agreed     (const appsettings_t *self);
+const stringset_t  *appsettings_get_granted    (appsettings_t *self);
+void                appsettings_set_allowed    (appsettings_t *self, app_allowed_t allowed);
+void                appsettings_set_agreed     (appsettings_t *self, app_agreed_t agreed);
+static void         appsettings_set_permissions(appsettings_t *self, const stringset_t *permissions);
+void                appsettings_set_granted    (appsettings_t *self, const stringset_t *granted);
 
 /* ------------------------------------------------------------------------- *
  * APPSETTINGS_STORAGE
