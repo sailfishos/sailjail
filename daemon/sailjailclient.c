@@ -1129,33 +1129,33 @@ static const char sailjailclient_usage_template[] = ""
 "        Makes tool more verbose.\n"
 "  -q --quiet\n"
 "        Makes tool less verbose.\n"
-"  -d --desktop=<desktop>\n"
-"        Define application file instead of using heuristics based\n"
-"        on path to launched application\n"
-"\n"
-"SAILJAIL BACKWARDS COMPATIBILITY OPTIONS\n"
+"  -o, --output=OUT\n"
+"        Where to output log (stdout|syslog)\n"
+"        (defaults to stderr when executed from shell, syslog otherwise)\n"
 "  -p --profile=<desktop>\n"
 "        Define application file instead of using heuristics based\n"
 "        on path to launched application\n"
-"        (alias for --desktop)\n"
+"\n"
+"        Note: previously arbitrary paths could be used with this\n"
+"        option, but now it needs to be name of a desktop file that\n"
+"        exists in /usr/share/applications or /etc/sailjail/applications\n"
+"        directory. If a path is given, all directory components are\n"
+"        ignored. And \".desktop\" extension can be omitted.\n"
+"  -t, --trace=DIR\n"
+"        Enable libtrace and dbus proxy logging\n"
+"\n"
+"BACKWARDS COMPATIBILITY\n"
 "  -s, --section=NAME\n"
 "        Sailjail section in the profile [Sailjail|X-Sailjail]\n"
 "        (silently ignored)\n"
 "  -a, --app=APP\n"
 "        Force adding Sailfish application directories\n"
 "        (silently ignored)\n"
-"  -o, --output=OUT\n"
-"        Where to output log (stdout|syslog|glib)\n"
-"        (chooses between syslog and stderr)\n"
-"        (defaults to stderr when executed from shell, syslog otherwise)\n"
-"  -t, --trace=DIR\n"
-"        Enable libtrace and dbus proxy logging\n"
-"        (silently ignored)\n"
 "\n"
 "EXAMPLES\n"
 "  %s -- /usr/bin/bar\n"
 "        Launch application bar using permissions from bar.desktop\n"
-"  %s -d org.foo.bar -- /usr/bin/bar\n"
+"  %s -p org.foo.bar -- /usr/bin/bar\n"
 "        Launch application bar using permissions from org.foo.bar.desktop\n"
 "\n"
 "COPYRIGHT\n"
@@ -1172,12 +1172,12 @@ static const struct option long_options[] = {
     {"version",      no_argument,       NULL, 'V'},
     {"verbose",      no_argument,       NULL, 'v'},
     {"quiet",        no_argument,       NULL, 'q'},
-    {"desktop",      required_argument, NULL, 'd'},
+    {"output",       required_argument, NULL, 'o'},
+    {"profile",      required_argument, NULL, 'p'},
+    {"trace",        required_argument, NULL, 't'},
     // bw compat
     {"section",      required_argument, NULL, 's'},
     {"app",          required_argument, NULL, 'a'},
-    {"output",       required_argument, NULL, 'o'},
-    {"trace",        required_argument, NULL, 't'},
     // unadvertised debug features
     {"match-exec",   required_argument, NULL, 'm'},
     {0, 0, 0, 0}
@@ -1188,7 +1188,6 @@ static const char short_options[] =\
 "V"  // --version
 "v"  // --verbose
 "q"  // --quiet
-"d:" // --desktop
 "p:" // --profile
 "s:" // --section
 "a:" // --app
@@ -1269,7 +1268,6 @@ sailjailclient_main(int argc, char **argv)
             printf("%s\n", VERSION);
             exit_code = EXIT_SUCCESS;
             goto EXIT;
-        case 'd':
         case 'p':
             desktop_file = optarg;
             break;
