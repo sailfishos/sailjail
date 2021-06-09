@@ -20,6 +20,7 @@ Requires: sailjail-permissions
 
 Requires: glib2 >= %{glib_version}
 Requires: libglibutil >= %{libglibutil_version}
+Requires: sailjail-daemon
 
 # libglibutil >= 1.0.49 is required for gutil_slice_free() macro
 BuildRequires: pkgconfig(libglibutil) >= 1.0.49
@@ -109,7 +110,7 @@ make HAVE_FIREJAIL=%{jailfish} -C unit test
 %defattr(-,root,root,-)
 %license COPYING
 %if %{jailfish}
-%attr(6755,root,root) %{_bindir}/sailjail
+%attr(2755,root,privileged) %{_bindir}/sailjail
 %endif
 %{_bindir}/sailjail
 

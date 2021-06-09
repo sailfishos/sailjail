@@ -35,7 +35,7 @@ _TESTSDIR       ?= /opt/tests#                   # /opt/tests
 # ----------------------------------------------------------------------------
 
 TARGETS_BIN += sailjaild
-TARGETS_BIN += sailjailclient
+TARGETS_BIN += sailjail
 
 ## QUARANTINE TARGETS_PNG += sailjaild.png
 
@@ -168,6 +168,13 @@ sailjailclient : sailjailclient.o util.o logging.o util.o stringset.o config.o
 
 clean::
 	$(RM) sailjailclient
+
+# - - - - - - - - - - - - - - - - - - - -
+# sailjail
+# - - - - - - - - - - - - - - - - - - - -
+
+sailjail : sailjailclient
+	cp $< $@
 
 # - - - - - - - - - - - - - - - - - - - -
 # desktop_data
