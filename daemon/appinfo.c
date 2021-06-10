@@ -145,6 +145,8 @@ const gchar            *appinfo_get_method           (const appinfo_t *self);
 const gchar            *appinfo_get_organization_name(const appinfo_t *self);
 const gchar            *appinfo_get_application_name (const appinfo_t *self);
 const gchar            *appinfo_get_data_directory   (const appinfo_t *self);
+app_mode_t              appinfo_get_mode             (const appinfo_t *self);
+static const gchar     *appinfo_get_mode_string      (const appinfo_t *self);
 void                    appinfo_set_name             (appinfo_t *self, const gchar *name);
 void                    appinfo_set_type             (appinfo_t *self, const gchar *type);
 void                    appinfo_set_icon             (appinfo_t *self, const gchar *icon);
@@ -156,6 +158,7 @@ void                    appinfo_set_method           (appinfo_t *self, const gch
 void                    appinfo_set_organization_name(appinfo_t *self, const gchar *organization_name);
 void                    appinfo_set_application_name (appinfo_t *self, const gchar *application_name);
 void                    appinfo_set_data_directory   (appinfo_t *self, const gchar *data_directory);
+void                    appinfo_set_mode             (appinfo_t *self, app_mode_t mode);
 
 /* ------------------------------------------------------------------------- *
  * APPINFO_PERMISSIONS
@@ -213,6 +216,7 @@ struct appinfo_t
     appinfo_state_t  anf_state;
     time_t           anf_dt_ctime[APPINFO_DIR_COUNT];
     bool             anf_dirty;
+    app_mode_t       anf_mode;
 
     // desktop properties
     gchar           *anf_dt_name;       // DESKTOP_KEY_NAME
@@ -249,6 +253,8 @@ appinfo_ctor(appinfo_t *self, applications_t *applications, const gchar *id)
     self->anf_dt_ctime[APPINFO_DIR_MAIN] = -1;
     self->anf_dt_ctime[APPINFO_DIR_ALT]  = -1;
     self->anf_dirty                      = false;
+
+    self->anf_mode                       = APP_MODE_NORMAL;
 
     self->anf_dt_name                    = NULL;
     self->anf_dt_type                    = NULL;
@@ -366,6 +372,7 @@ appinfo_to_variant(const appinfo_t *self)
 
     if( self ) {
         add_string("Id", appinfo_id(self));
+        add_string("Mode", appinfo_get_mode_string(self));
 
         /* Desktop properties
          */
@@ -548,6 +555,22 @@ appinfo_get_data_directory(const appinfo_t *self)
     return self->anf_sj_data_directory ?: appinfo_unknown;
 }
 
+app_mode_t
+appinfo_get_mode(const appinfo_t *self)
+{
+    return self->anf_mode;
+}
+
+static const gchar *
+appinfo_get_mode_string(const appinfo_t *self)
+{
+    static const gchar * const lut[] = {
+        [APP_MODE_NORMAL]        = "Normal",
+        [APP_MODE_COMPATIBILITY] = "Compatibility",
+    };
+    return lut[self->anf_mode];
+}
+
 /* - - - - - - - - - - - - - - - - - - - *
  * Setters
  * - - - - - - - - - - - - - - - - - - - */
@@ -627,6 +650,15 @@ appinfo_set_data_directory(appinfo_t *self, const gchar *data_directory)
 {
     if( change_string(&self->anf_sj_data_directory, data_directory) )
         appinfo_set_dirty(self);
+}
+
+void
+appinfo_set_mode(appinfo_t *self, app_mode_t mode)
+{
+    if( self->anf_mode != mode ) {
+        self->anf_mode = mode;
+        appinfo_set_dirty(self);
+    }
 }
 
 /* ------------------------------------------------------------------------- *
@@ -850,6 +882,8 @@ appinfo_parse_desktop(appinfo_t *self)
     else if( g_key_file_has_group(ini, SAILJAIL_SECTION_SECONDARY) )
         group = SAILJAIL_SECTION_SECONDARY;
     /* else: legacy app => use default profile */
+
+    appinfo_set_mode(self, group ? APP_MODE_NORMAL : APP_MODE_COMPATIBILITY);
 
     stringset_t *set;
     if( group ) {
