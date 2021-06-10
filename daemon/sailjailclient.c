@@ -737,6 +737,12 @@ client_launch_application(client_t *self)
     /* Construct firejail command to execute */
     client_add_firejail_option(self, "/usr/bin/firejail");
     client_add_firejail_option(self, "--quiet");
+
+    if( org_name )
+        client_add_firejail_option(self, "--template=OrganizationName:%s", org_name);
+    if( app_name )
+        client_add_firejail_option(self, "--template=ApplicationName:%s", app_name);
+
     client_add_firejail_option(self, "--private-bin=%s", binary_name);
     client_add_firejail_option(self, "--whitelist=/usr/share/%s", binary_name);
 
