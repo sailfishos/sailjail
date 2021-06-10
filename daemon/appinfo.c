@@ -772,9 +772,9 @@ appinfo_parse_desktop(appinfo_t *self)
     gchar         *path2       = NULL;
     GError        *err         = NULL;
     gchar        **permissions = NULL;
-    appinfo_file_t file1_state = APPINFO_STATE_UNSET;
-    appinfo_file_t file2_state = APPINFO_STATE_UNSET;
-    appinfo_file_t combined    = APPINFO_STATE_UNSET;
+    appinfo_file_t file1_state = 0;
+    appinfo_file_t file2_state = 0;
+    appinfo_file_t combined    = 0;
 
     path1 = path_from_desktop_name(appinfo_id(self));
     path2 = alt_path_from_desktop_name(appinfo_id(self));
