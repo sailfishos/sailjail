@@ -762,6 +762,8 @@ client_launch_application(client_t *self)
     /* Legacy app binary based data directories are made available.
      * But only if they already exist. */
     client_add_firejail_directory(self, false, "${HOME}/.local/share/%s", binary_name);
+    client_add_firejail_directory(self, false, "${HOME}/.config/%s", binary_name);
+    client_add_firejail_directory(self, false, "${HOME}/.cache/%s", binary_name);
 
     if( !empty_p(org_name) && !empty_p(app_name) ) {
         client_add_firejail_directory(self, true,  "${HOME}/.cache/%s/%s", org_name, app_name);
