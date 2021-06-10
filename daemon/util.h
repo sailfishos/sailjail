@@ -51,6 +51,10 @@ G_BEGIN_DECLS
 #  define VERSION                       "0.0.0"
 # endif
 
+# ifndef  BINDIR
+#  define BINDIR                        "/usr/bin"
+# endif
+
 # ifndef  SYSCONFDIR
 #  define SYSCONFDIR                    "/etc"
 # endif

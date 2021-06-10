@@ -87,6 +87,7 @@ install -D -m755 tools/measure_launch_time.py \
 make \
   _SYSCONFDIR=%{_sysconfdir}\
   _DATADIR=%{_datadir}\
+  _BINDIR=%{_bindir}\
   _LIBDIR=%{_libdir}\
   _USERUNITDIR=%{_userunitdir}\
   _UNITDIR=%{_unitdir}\
