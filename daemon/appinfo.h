@@ -55,6 +55,7 @@ typedef struct control_t      control_t;
 typedef enum {
     APP_MODE_NORMAL,
     APP_MODE_COMPATIBILITY,
+    APP_MODE_NONE,
 } app_mode_t;
 
 /* ========================================================================= *

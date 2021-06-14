@@ -739,7 +739,8 @@ client_launch_application(client_t *self)
         goto EXIT;
     }
 
-    bool use_compatibility = !g_strcmp0(client_mode(self), "Compatibility");
+    /* Interpret both "Compatibility" and "None" as compatibility mode */
+    bool use_compatibility = g_strcmp0(client_mode(self), "Normal");
 
     if( booster_name ) {
         /* Application booster validates Exec line when it gets

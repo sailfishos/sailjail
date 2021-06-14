@@ -95,6 +95,7 @@ typedef struct
  * ========================================================================= */
 
 #define APPINFO_DEFAULT_PROFILE_SECTION "Default Profile"
+#define APPINFO_KEY_ENABLED             "Enabled"
 
 /* ========================================================================= *
  * Prototypes
@@ -567,6 +568,7 @@ appinfo_get_mode_string(const appinfo_t *self)
     static const gchar * const lut[] = {
         [APP_MODE_NORMAL]        = "Normal",
         [APP_MODE_COMPATIBILITY] = "Compatibility",
+        [APP_MODE_NONE]          = "None",
     };
     return lut[self->anf_mode];
 }
@@ -883,10 +885,15 @@ appinfo_parse_desktop(appinfo_t *self)
         group = SAILJAIL_SECTION_SECONDARY;
     /* else: legacy app => use default profile */
 
-    appinfo_set_mode(self, group ? APP_MODE_NORMAL : APP_MODE_COMPATIBILITY);
+    /* Sandboxing=Disabled means that the app opts out of sandboxing and
+     * launching via sailjail will result in use of compatibility mode.
+     */
+    gchar *sandboxing = NULL;
+    if( group )
+        sandboxing = keyfile_get_string(ini, group, SAILJAIL_KEY_SANDBOXING, 0);
 
     stringset_t *set;
-    if( group ) {
+    if( group && g_strcmp0(sandboxing, "Disabled") ) {
         tmp = keyfile_get_string(ini, group, SAILJAIL_KEY_ORGANIZATION_NAME, 0),
             appinfo_set_organization_name(self, tmp),
             g_free(tmp);
@@ -900,15 +907,26 @@ appinfo_parse_desktop(appinfo_t *self)
             g_free(tmp);
 
         set = keyfile_get_stringset(ini, group, SAILJAIL_KEY_PERMISSIONS);
+
+        appinfo_set_mode(self, APP_MODE_NORMAL);
     }
     else {
         /* Read default profile from configuration */
-        set = config_stringset(appinfo_config(self),
+        const config_t *config = appinfo_config(self);
+        set = config_stringset(config,
                                APPINFO_DEFAULT_PROFILE_SECTION,
                                SAILJAIL_KEY_PERMISSIONS);
+        if( !g_strcmp0(sandboxing, "Disabled") ||
+            !config_boolean(config,
+                            APPINFO_DEFAULT_PROFILE_SECTION,
+                            APPINFO_KEY_ENABLED, false) )
+            appinfo_set_mode(self, APP_MODE_NONE);
+        else
+            appinfo_set_mode(self, APP_MODE_COMPATIBILITY);
     }
     appinfo_set_permissions(self, set);
     stringset_delete(set);
+    g_free(sandboxing);
 
     /* Validate */
     if( appinfo_get_name(self) != appinfo_unknown &&
