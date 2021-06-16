@@ -77,6 +77,7 @@ G_BEGIN_DECLS
 # define PERMISSIONS_DIRECTORY          SYSCONFDIR "/sailjail/permissions"
 # define PERMISSIONS_EXTENSION          ".permission"
 # define PERMISSIONS_PATTERN            "[A-Z]*" PERMISSIONS_EXTENSION
+# define PROFILES_EXTENSION             ".profile"
 
 /* Applications from: *.desktop */
 # define APPLICATIONS_DIRECTORY         DATADIR "/applications"
@@ -90,6 +91,11 @@ G_BEGIN_DECLS
 # define SETTINGS_DIRECTORY             SHAREDSTATEDIR "/sailjail/settings"
 # define SETTINGS_EXTENSION             ".settings"
 # define SETTINGS_PATTERN               "*" SETTINGS_EXTENSION
+
+/* Booster binaries in: /usr/libexec/mapplauncherd/ */
+# define BOOSTER_DIRECTORY              "/usr/libexec/mapplauncherd"
+# define BOOSTER_EXTENSION              ""
+# define BOOSTER_PATTERN                "booster-*"
 
 /* Standard desktop properties */
 # define DESKTOP_SECTION                "Desktop Entry"
@@ -110,7 +116,15 @@ G_BEGIN_DECLS
 # define SAILJAIL_SECTION_SECONDARY     "Sailjail"
 # define SAILJAIL_KEY_ORGANIZATION_NAME "OrganizationName"
 # define SAILJAIL_KEY_APPLICATION_NAME  "ApplicationName"
+# define SAILJAIL_KEY_DATA_DIRECTORY    "DataDirectory"
 # define SAILJAIL_KEY_PERMISSIONS       "Permissions"
+
+# define NEMO_KEY_APPLICATION_TYPE      "X-Nemo-Application-Type"
+# define NEMO_KEY_SINGLE_INSTANCE       "X-Nemo-Single-Instance"
+
+# define MAEMO_KEY_FIXED_ARGS           "X-Maemo-Fixed-Args"
+
+# define OSSO_KEY_SERVICE               "X-Osso-Service"
 
 /* ========================================================================= *
  * Types
@@ -133,6 +147,7 @@ char *strip(char *str);
  * ------------------------------------------------------------------------- */
 
 const gchar *path_basename             (const gchar *path);
+gchar       *path_construct            (const gchar *dir, const gchar *file, const gchar *ext);
 const gchar *path_extension            (const gchar *path);
 gchar       *path_dirname              (const gchar *path);
 gchar       *path_to_desktop_name      (const gchar *path);
@@ -140,6 +155,7 @@ gchar       *path_from_desktop_name    (const gchar *stem);
 gchar       *alt_path_from_desktop_name(const gchar *stem);
 gchar       *path_to_permission_name   (const gchar *path);
 gchar       *path_from_permission_name (const gchar *stem);
+gchar       *path_from_profile_name    (const gchar *stem);
 
 /* ------------------------------------------------------------------------- *
  * GUTIL

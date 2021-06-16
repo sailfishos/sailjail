@@ -44,30 +44,32 @@
  * UTILITY
  * ------------------------------------------------------------------------- */
 
-static void   stringset_ctor       (stringset_t *self);
-static void   stringset_dtor       (stringset_t *self);
-stringset_t  *stringset_create     (void);
-void          stringset_delete     (stringset_t *self);
-void          stringset_delete_at  (stringset_t **pself);
-void          stringset_delete_cb  (void *self);
-guint         stringset_size       (const stringset_t *self);
-bool          stringset_empty      (const stringset_t *self);
-const GList  *stringset_list       (const stringset_t *self);
-bool          stringset_has_item   (const stringset_t *self, const gchar *item);
-bool          stringset_add_item   (stringset_t *self, const gchar *item);
-bool          stringset_remove_item(stringset_t *self, const gchar *item);
-bool          stringset_clear      (stringset_t *self);
-GVariant     *stringset_to_variant (const stringset_t *self);
-gchar        *stringset_to_string  (const stringset_t *self);
-gchar       **stringset_to_strv    (const stringset_t *self);
-stringset_t  *stringset_from_strv  (char **vector);
-stringset_t  *stringset_copy       (const stringset_t *self);
-void          stringset_swap       (stringset_t *self, stringset_t *that);
-stringset_t  *stringset_filter_out (const stringset_t *self, const stringset_t *mask);
-stringset_t  *stringset_filter_in  (const stringset_t *self, const stringset_t *mask);
-bool          stringset_equal      (const stringset_t *self, const stringset_t *that);
-bool          stringset_extend     (stringset_t *self, const stringset_t *that);
-bool          stringset_assign     (stringset_t *self, const stringset_t *that);
+static void   stringset_ctor          (stringset_t *self);
+static void   stringset_dtor          (stringset_t *self);
+stringset_t  *stringset_create        (void);
+void          stringset_delete        (stringset_t *self);
+void          stringset_delete_at     (stringset_t **pself);
+void          stringset_delete_cb     (void *self);
+guint         stringset_size          (const stringset_t *self);
+bool          stringset_empty         (const stringset_t *self);
+const GList  *stringset_list          (const stringset_t *self);
+bool          stringset_has_item      (const stringset_t *self, const gchar *item);
+bool          stringset_add_item      (stringset_t *self, const gchar *item);
+bool          stringset_add_item_steal(stringset_t *self, gchar *item);
+bool          stringset_add_item_fmt  (stringset_t *self, const char *fmt, ...);
+bool          stringset_remove_item   (stringset_t *self, const gchar *item);
+bool          stringset_clear         (stringset_t *self);
+GVariant     *stringset_to_variant    (const stringset_t *self);
+gchar        *stringset_to_string     (const stringset_t *self);
+gchar       **stringset_to_strv       (const stringset_t *self);
+stringset_t  *stringset_from_strv     (char **vector);
+stringset_t  *stringset_copy          (const stringset_t *self);
+void          stringset_swap          (stringset_t *self, stringset_t *that);
+stringset_t  *stringset_filter_out    (const stringset_t *self, const stringset_t *mask);
+stringset_t  *stringset_filter_in     (const stringset_t *self, const stringset_t *mask);
+bool          stringset_equal         (const stringset_t *self, const stringset_t *that);
+bool          stringset_extend        (stringset_t *self, const stringset_t *that);
+bool          stringset_assign        (stringset_t *self, const stringset_t *that);
 
 /* ========================================================================= *
  * STRINGSET
@@ -168,6 +170,32 @@ stringset_add_item(stringset_t *self, const gchar *item)
         g_queue_push_tail(&self->sst_list, add);
         added_item = true;
     }
+    return added_item;
+}
+
+bool
+stringset_add_item_steal(stringset_t *self, gchar *item)
+{
+    bool added_item = false;
+    const gchar *have = g_hash_table_lookup(self->sst_hash, item);
+    if( have ) {
+        g_free(item);
+    }
+    else {
+        g_hash_table_add(self->sst_hash, item);
+        g_queue_push_tail(&self->sst_list, item);
+    }
+    return added_item;
+}
+
+bool
+stringset_add_item_fmt(stringset_t *self, const char *fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+    gchar *item_to_add = g_strdup_vprintf(fmt, va);
+    bool added_item = stringset_add_item_steal(self, item_to_add);
+    va_end(va);
     return added_item;
 }
 

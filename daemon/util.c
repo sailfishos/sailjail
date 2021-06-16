@@ -56,6 +56,7 @@ char *strip(char *str);
  * ------------------------------------------------------------------------- */
 
 const gchar  *path_basename             (const gchar *path);
+gchar        *path_construct            (const gchar *dir, const gchar *file, const gchar *ext);
 const gchar  *path_extension            (const gchar *path);
 gchar        *path_dirname              (const gchar *path);
 static gchar *path_stemname             (const gchar *path, const char *ext_to_remove);
@@ -64,6 +65,7 @@ gchar        *path_from_desktop_name    (const gchar *stem);
 gchar        *alt_path_from_desktop_name(const gchar *stem);
 gchar        *path_to_permission_name   (const gchar *path);
 gchar        *path_from_permission_name (const gchar *stem);
+gchar        *path_from_profile_name    (const gchar *stem);
 
 /* ------------------------------------------------------------------------- *
  * GUTIL
@@ -117,6 +119,7 @@ strip(char *str)
                 break;
             *dst++ = ' ';
         }
+        *dst = 0;
     }
     return str;
 }
@@ -134,6 +137,16 @@ path_basename(const gchar *path)
         base = end ? end + 1 : path;
     }
     return base;
+}
+
+gchar *
+path_construct(const gchar *dir, const gchar *file, const gchar *ext)
+{
+    gchar *path = NULL;
+    const char *base = path_basename(file);
+    if( dir && base )
+        path = g_strdup_printf("%s/%s%s", dir, base, ext ?: "");
+    return path;
 }
 
 const gchar *
@@ -215,6 +228,19 @@ path_from_permission_name(const gchar *stem)
     if( norm )
         path = g_strdup_printf(PERMISSIONS_DIRECTORY "/"
                                "%s" PERMISSIONS_EXTENSION,
+                               norm);
+    g_free(norm);
+    return path;
+}
+
+gchar *
+path_from_profile_name(const gchar *stem)
+{
+    gchar *path = 0;
+    gchar *norm = path_to_permission_name(stem);
+    if( norm )
+        path = g_strdup_printf(PERMISSIONS_DIRECTORY "/"
+                               "%s" PROFILES_EXTENSION,
                                norm);
     g_free(norm);
     return path;

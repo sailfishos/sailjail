@@ -99,25 +99,25 @@ static void applications_notify_changed(applications_t *self, GHashTable *change
  * APPLICATIONS_MONITOR
  * ------------------------------------------------------------------------- */
 
-static void                    applications_start_monitor    (applications_t *self);
-static void                    applications_stop_monitor     (applications_t *self);
-static bool                    applications_monitor_p        (const gchar *path);
-static void                    applications_monitor_cb       (GFileMonitor *mon, GFile *file1, GFile *file2, GFileMonitorEvent event, gpointer aptr);
 static applications_monitor_t  applications_get_monitor      (applications_t *self, GFileMonitor *mon);
 static const char             *applications_monitor_dir_path (applications_monitor_t monitor);
 static const char             *applications_monitor_name     (applications_monitor_t monitor);
 static void                    applications_start_monitor_dir(applications_t *self, applications_monitor_t monitor);
+static void                    applications_start_monitor    (applications_t *self);
 static void                    applications_stop_monitor_dir (applications_t *self, applications_monitor_t monitor);
+static void                    applications_stop_monitor     (applications_t *self);
+static bool                    applications_monitor_p        (const gchar *path);
+static void                    applications_monitor_cb       (GFileMonitor *mon, GFile *file1, GFile *file2, GFileMonitorEvent event, gpointer aptr);
 
 /* ------------------------------------------------------------------------- *
  * APPLICATIONS_SCAN
  * ------------------------------------------------------------------------- */
 
+static void     applications_scan_pattern (GHashTable *scanned, const char *pattern);
 static void     applications_scan_now     (applications_t *self);
 static gboolean applications_rescan_cb    (gpointer aptr);
 static void     applications_rescan_later (applications_t *self);
 static bool     applications_cancel_rescan(applications_t *self);
-static void     applications_scan_pattern (GHashTable *scanned, const char *pattern);
 
 /* ------------------------------------------------------------------------- *
  * APPLICATIONS_APPINFO

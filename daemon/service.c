@@ -48,8 +48,14 @@
 #include "settings.h"
 #include "util.h"
 
-#include <dbusaccess_peer.h>
-#include <dbusaccess_policy.h>
+#ifdef HAVE_LIBDBUSACCESS
+# include <dbusaccess_peer.h>
+# include <dbusaccess_policy.h>
+#else
+/* We should end up here only when e.g. doing debug builds on desktop */
+# warning Missing libdbusaccess package - Access policy is disabled
+typedef void DAPolicy;
+#endif
 
 /* ========================================================================= *
  * Types
@@ -65,6 +71,8 @@ typedef struct service_t  service_t;
 
 #define SERVICE_PRIVILEGED_POLICY "1;user(root)|group(privileged) = allow"
 #define SERVICE_MDM_POLICY "1;user(sailfish-mdm)|group(sailfish-mdm) = allow"
+
+#define G_BUS_TO_DA_BUS(bus) ((bus) == G_BUS_TYPE_SYSTEM ? DA_BUS_SYSTEM : DA_BUS_SESSION)
 
 /* ========================================================================= *
  * Prototypes
@@ -131,8 +139,6 @@ static bool service_is_privileged   (const gchar *sender);
 static bool service_is_mdm          (const gchar *sender);
 static bool service_test_policy     (const gchar *sender, DAPolicy *policy);
 
-#define G_BUS_TO_DA_BUS(bus) ((bus) == G_BUS_TYPE_SYSTEM ? DA_BUS_SYSTEM : DA_BUS_SESSION)
-
 /* ------------------------------------------------------------------------- *
  * SERVICE_DBUS
  * ------------------------------------------------------------------------- */
@@ -190,6 +196,11 @@ service_ctor(service_t *self, control_t *control)
 
     // downlink
     self->srv_prompter         = prompter_create(self);
+
+    // fetch initial set of already known applications
+    // (to emit Changed rather than Added events)
+    stringset_assign(self->srv_dbus_applications,
+                     control_available_applications(service_control(self)));
 
     // dbus service
     self->srv_dbus_name_own_id = g_bus_own_name(PERMISSIONMGR_BUS,
@@ -479,8 +490,10 @@ static bool
 service_is_privileged(const gchar *sender)
 {
     static DAPolicy *policy = NULL;
-    if (!policy)
+#ifdef HAVE_LIBDBUSACCESS
+    if( !policy )
         policy = da_policy_new(SERVICE_PRIVILEGED_POLICY);
+#endif
     return service_test_policy(sender, policy);
 }
 
@@ -488,21 +501,29 @@ static bool
 service_is_mdm(const gchar *sender)
 {
     static DAPolicy *policy = NULL;
-    if (!policy)
+#ifdef HAVE_LIBDBUSACCESS
+    if( !policy )
         policy = da_policy_new(SERVICE_MDM_POLICY);
+#endif
     return service_test_policy(sender, policy);
 }
 
 static bool
 service_test_policy(const gchar *sender, DAPolicy *policy)
 {
+#ifdef HAVE_LIBDBUSACCESS
     DA_ACCESS access = DA_ACCESS_DENY;
     DAPeer *peer     = da_peer_get(G_BUS_TO_DA_BUS(PERMISSIONMGR_BUS), sender);
 
-    if (peer)
+    if( peer )
         access = da_policy_check(policy, &peer->cred, 0, NULL, DA_ACCESS_DENY);
 
     return access == DA_ACCESS_ALLOW;
+#else
+    (void)sender;
+    (void)policy;
+    return true;
+#endif
 }
 
 /* ------------------------------------------------------------------------- *
@@ -852,9 +873,11 @@ service_dbus_call_cb(GDBusConnection       *connection,
         g_variant_get(parameters, "(&s)", &app);
 
         if( !(appinfo = service_appinfo(self, app)) ) {
+            log_warning("client query with invalid app '%s'", app);
             error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_APPLICATION, app);
         }
         else if( !(appsettings = service_appsettings(self, uid, app)) ) {
+            log_warning("client query with invalid uid %d", (int)uid);
             error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
         }
         else {
@@ -876,6 +899,7 @@ service_dbus_call_cb(GDBusConnection       *connection,
              */
             app_allowed_t allowed = appsettings_get_allowed(appsettings);
             if( allowed == APP_ALLOWED_NEVER ) {
+                log_warning("client query about permanently denied app '%s'", app);
                 error_reply(G_DBUS_ERROR_AUTH_FAILED, SERVICE_MESSAGE_DENIED_PERMANENTLY);
             }
             else if( allowed == APP_ALLOWED_ALWAYS ) {
@@ -885,8 +909,12 @@ service_dbus_call_cb(GDBusConnection       *connection,
                 value_reply(variant);
                 g_strfreev(vector);
             }
-            else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_QUERY) ||
-                      access(desktop, R_OK) == -1 ) {
+            else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_QUERY) ) {
+                log_warning("client query about not yet allowed app '%s'", app);
+                error_reply(G_DBUS_ERROR_AUTH_FAILED, SERVICE_MESSAGE_NOT_ALLOWED);
+            }
+            else if( access(desktop, R_OK) == -1 ) {
+                log_warning("client prompt without accessible desktop file: %s: %m", desktop);
                 error_reply(G_DBUS_ERROR_AUTH_FAILED, SERVICE_MESSAGE_NOT_ALLOWED);
             }
             else {
@@ -910,7 +938,7 @@ service_dbus_emit_signal(service_t *self, const char *member, const char *value)
     if( !connection ) {
         log_warning("broadcast %s(%s):  skipped: not connected", member, value);
     }
-    else{
+    else {
         GError *error = 0;
         g_dbus_connection_emit_signal(connection, NULL,
                                       PERMISSIONMGR_OBJECT,

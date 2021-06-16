@@ -165,12 +165,13 @@ void           appsettings_delete_cb(void *self);
  * APPSETTINGS_PROPERTIES
  * ------------------------------------------------------------------------- */
 
-app_allowed_t      appsettings_get_allowed(const appsettings_t *self);
-app_agreed_t       appsettings_get_agreed (const appsettings_t *self);
-const stringset_t *appsettings_get_granted(appsettings_t *self);
-void               appsettings_set_allowed(appsettings_t *self, app_allowed_t allowed);
-void               appsettings_set_agreed (appsettings_t *self, app_agreed_t agreed);
-void               appsettings_set_granted(appsettings_t *self, const stringset_t *granted);
+app_agreed_t       appsettings_get_agreed    (const appsettings_t *self);
+void               appsettings_set_agreed    (appsettings_t *self, app_agreed_t agreed);
+app_allowed_t      appsettings_get_allowed   (const appsettings_t *self);
+bool               appsettings_update_allowed(appsettings_t *self, app_allowed_t allowed);
+void               appsettings_set_allowed   (appsettings_t *self, app_allowed_t allowed);
+const stringset_t *appsettings_get_granted   (appsettings_t *self);
+void               appsettings_set_granted   (appsettings_t *self, const stringset_t *granted);
 
 G_END_DECLS
 
