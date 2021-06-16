@@ -52,6 +52,7 @@ typedef struct usersettings_t usersettings_t;
 typedef struct appsettings_t  appsettings_t;
 typedef struct control_t      control_t;
 typedef struct stringset_t    stringset_t;
+typedef struct migrator_t     migrator_t;
 
 typedef enum
 {
@@ -96,6 +97,7 @@ void        settings_delete_cb(void *self);
  * SETTINGS_ATTRIBUTES
  * ------------------------------------------------------------------------- */
 
+control_t     *settings_control    (const settings_t *self);
 appsettings_t *settings_appsettings(settings_t *self, uid_t uid, const char *app);
 
 /* ------------------------------------------------------------------------- *
@@ -123,6 +125,12 @@ void settings_save_all  (const settings_t *self);
 void settings_load_user (settings_t *self, uid_t uid);
 void settings_save_user (const settings_t *self, uid_t uid);
 void settings_save_later(settings_t *self, uid_t uid);
+
+/* ------------------------------------------------------------------------- *
+ * SETTINGS_SLOTS
+ * ------------------------------------------------------------------------- */
+
+void settings_on_migration_finished(settings_t *self);
 
 /* ------------------------------------------------------------------------- *
  * SETTINGS_RETHINK
