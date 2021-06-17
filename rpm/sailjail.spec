@@ -99,7 +99,6 @@ install -m644 daemon/systemd/sailjaild.service %{buildroot}%{_unitdir}
 ln -s ../sailjaild.service %{buildroot}%{_unitdir}/multi-user.target.wants/
 install -d %{buildroot}%{_sysconfdir}/dbus-1/system.d
 install -m644 daemon/dbus/sailjaild.conf %{buildroot}%{_sysconfdir}/dbus-1/system.d/sailjaild.conf
-install -d %{buildroot}%{_sharedstatedir}/sailjail/settings
 install -d %{buildroot}%{_sysconfdir}/sailjail/config
 install -d %{buildroot}%{_sysconfdir}/sailjail/applications
 
@@ -131,8 +130,6 @@ make HAVE_FIREJAIL=%{jailfish} -C unit test
 %{_unitdir}/*.service
 %{_unitdir}/multi-user.target.wants/*.service
 %config %{_sysconfdir}/dbus-1/system.d/sailjaild.conf
-%attr(0755,root,root) %dir %ghost %{_sharedstatedir}/sailjail
-%attr(0750,root,root) %dir %ghost %{_sharedstatedir}/sailjail/settings
 %dir %{_sysconfdir}/sailjail
 %dir %{_sysconfdir}/sailjail/config
 %dir %{_sysconfdir}/sailjail/applications
