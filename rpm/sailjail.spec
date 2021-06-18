@@ -17,6 +17,7 @@ Requires: xdg-dbus-proxy
 Provides: sailjail-launch-approval
 %endif
 Requires: sailjail-permissions
+Requires(pre): sailfish-setup
 
 Requires: glib2 >= %{glib_version}
 Requires: libglibutil >= %{libglibutil_version}
