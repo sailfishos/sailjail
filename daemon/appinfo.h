@@ -52,6 +52,12 @@ typedef struct appinfo_t      appinfo_t;
 typedef struct config_t       config_t;
 typedef struct control_t      control_t;
 
+typedef enum {
+    APP_MODE_NORMAL,
+    APP_MODE_COMPATIBILITY,
+    APP_MODE_NONE,
+} app_mode_t;
+
 /* ========================================================================= *
  * Prototypes
  * ========================================================================= */
@@ -95,6 +101,7 @@ const gchar *appinfo_get_method           (const appinfo_t *self);
 const gchar *appinfo_get_organization_name(const appinfo_t *self);
 const gchar *appinfo_get_application_name (const appinfo_t *self);
 const gchar *appinfo_get_data_directory   (const appinfo_t *self);
+app_mode_t   appinfo_get_mode             (const appinfo_t *self);
 void         appinfo_set_name             (appinfo_t *self, const gchar *name);
 void         appinfo_set_type             (appinfo_t *self, const gchar *type);
 void         appinfo_set_icon             (appinfo_t *self, const gchar *icon);
@@ -106,6 +113,7 @@ void         appinfo_set_method           (appinfo_t *self, const gchar *method)
 void         appinfo_set_organization_name(appinfo_t *self, const gchar *organization_name);
 void         appinfo_set_application_name (appinfo_t *self, const gchar *application_name);
 void         appinfo_set_data_directory   (appinfo_t *self, const gchar *data_directory);
+void         appinfo_set_mode             (appinfo_t *self, app_mode_t mode);
 
 /* ------------------------------------------------------------------------- *
  * APPINFO_PERMISSIONS

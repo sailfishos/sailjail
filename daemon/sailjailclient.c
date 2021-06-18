@@ -101,6 +101,7 @@ const char              *client_sailjail_data_directory         (client_t *self)
 const char             **client_sailjail_application_permissions(client_t *self);
 const char              *client_maemo_service                   (client_t *self);
 const char              *client_maemo_method                    (client_t *self);
+const char              *client_mode                            (client_t *self);
 
 /* ------------------------------------------------------------------------- *
  * CLIENT_PROPERTIES
@@ -162,7 +163,7 @@ static int  sailjailclient_get_field_code(const char *arg);
 static bool sailjailclient_is_option     (const char *arg);
 static bool sailjailclient_ignore_arg    (const char *arg);
 static bool sailjailclient_match_argv    (const char **tpl_argv, const char **app_argv);
-static bool sailjailclient_validate_argv (const char *exec, const gchar **app_argv);
+static bool sailjailclient_validate_argv (const char *exec, const gchar **app_argv, bool use_compatibility);
 static bool sailjailclient_test_elf      (const char *filename);
 static void sailjailclient_print_usage   (const char *progname);
 static bool sailjailclient_binary_check  (const char *binary_path);
@@ -353,6 +354,12 @@ const char *
 client_maemo_method(client_t *self)
 {
     return client_get_appinfo_string(self, MAEMO_KEY_METHOD);
+}
+
+const char *
+client_mode(client_t *self)
+{
+    return client_get_appinfo_string(self, "Mode");
 }
 
 /* ------------------------------------------------------------------------- *
@@ -732,12 +739,15 @@ client_launch_application(client_t *self)
         goto EXIT;
     }
 
+    /* Interpret both "Compatibility" and "None" as compatibility mode */
+    bool use_compatibility = g_strcmp0(client_mode(self), "Normal");
+
     if( booster_name ) {
         /* Application booster validates Exec line when it gets
          * launch requrest from invoker.
          */
     }
-    else if( !sailjailclient_validate_argv(exec, argv) ) {
+    else if( !sailjailclient_validate_argv(exec, argv, use_compatibility) ) {
         log_err("Command line does not match template");
         goto EXIT;
     }
@@ -760,8 +770,10 @@ client_launch_application(client_t *self)
         client_add_firejail_option(self, "--whitelist=%s", desktop1_path);
 
     /* Legacy app binary based data directories are made available.
-     * But only if they already exist. */
-    client_add_firejail_directory(self, false, "${HOME}/.local/share/%s", binary_name);
+     * But they are not created unless legacy app sandboxing is used. */
+    client_add_firejail_directory(self, use_compatibility, "${HOME}/.local/share/%s", binary_name);
+    client_add_firejail_directory(self, use_compatibility, "${HOME}/.config/%s", binary_name);
+    client_add_firejail_directory(self, use_compatibility, "${HOME}/.cache/%s", binary_name);
 
     if( !empty_p(org_name) && !empty_p(app_name) ) {
         client_add_firejail_directory(self, true,  "${HOME}/.cache/%s/%s", org_name, app_name);
@@ -1039,7 +1051,7 @@ EXIT:
 }
 
 static bool
-sailjailclient_validate_argv(const char *exec, const gchar **app_argv)
+sailjailclient_validate_argv(const char *exec, const gchar **app_argv, bool use_compatibility)
 {
     bool          validated = false;
     GError       *err       = NULL;
@@ -1047,6 +1059,11 @@ sailjailclient_validate_argv(const char *exec, const gchar **app_argv)
 
     if( !app_argv || !*app_argv ) {
         log_err("application argv not defined");
+        goto EXIT;
+    }
+
+    if( use_compatibility && strncmp(app_argv[0], BINDIR "/", sizeof BINDIR) ) {
+        log_err("Legacy apps must be in: " BINDIR "/");
         goto EXIT;
     }
 
@@ -1064,16 +1081,28 @@ sailjailclient_validate_argv(const char *exec, const gchar **app_argv)
     /* Expectation: Exec line might have leading 'wrapper' executables
      * such as sailjail, invoker, etc -> make an attempt to skip those
      * by looking for argv[0] for command we are about to launch.
+     *
+     * While sandboxing aware apps must use absolute path, legacy apps
+     * usually don't and they must reside in BINDIR.
      */
     const char **tpl_argv = (const char **)exec_argv;
+    const char *alternative = app_argv[0] + sizeof (BINDIR "/") - 1;
     for( ; *tpl_argv; ++tpl_argv ) {
         if( !g_strcmp0(*tpl_argv, app_argv[0]) )
+            break;
+        if( use_compatibility && !g_strcmp0(*tpl_argv, alternative) )
             break;
     }
 
     if( !*tpl_argv ) {
         log_err("Exec line does not contain '%s'", *app_argv);
         goto EXIT;
+    }
+
+    if( use_compatibility && strncmp(*tpl_argv, BINDIR "/", sizeof BINDIR) ) {
+        char *temp = (char *)*tpl_argv;
+        *tpl_argv = g_strconcat(BINDIR "/", temp, NULL);
+        g_free(temp);
     }
 
     if( !sailjailclient_match_argv(tpl_argv, app_argv) ) {
@@ -1329,7 +1358,7 @@ sailjailclient_main(int argc, char **argv)
 
     if( match_exec ) {
         if( sailjailclient_validate_argv(match_exec,
-                                         client_get_argv(client, NULL)) )
+                                         client_get_argv(client, NULL), false) )
             exit_code = EXIT_SUCCESS;
         goto EXIT;
     }

@@ -51,6 +51,10 @@ G_BEGIN_DECLS
 #  define VERSION                       "0.0.0"
 # endif
 
+# ifndef  BINDIR
+#  define BINDIR                        "/usr/bin"
+# endif
+
 # ifndef  SYSCONFDIR
 #  define SYSCONFDIR                    "/etc"
 # endif
@@ -118,6 +122,7 @@ G_BEGIN_DECLS
 # define SAILJAIL_KEY_APPLICATION_NAME  "ApplicationName"
 # define SAILJAIL_KEY_DATA_DIRECTORY    "DataDirectory"
 # define SAILJAIL_KEY_PERMISSIONS       "Permissions"
+# define SAILJAIL_KEY_SANDBOXING        "Sandboxing"
 
 # define NEMO_KEY_APPLICATION_TYPE      "X-Nemo-Application-Type"
 # define NEMO_KEY_SINGLE_INSTANCE       "X-Nemo-Single-Instance"
