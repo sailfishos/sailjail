@@ -1,0 +1,6 @@
+[test-app]
+Allowed=1
+Agreed=0
+Autogrant=0
+Granted=Internet
+Permissions=Internet

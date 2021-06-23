@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Test Application
+Type=Application
+Icon=test
+Exec=/usr/bin/true
+
+[X-Sailjail]
+OrganizationName=org.example
+ApplicationName=TestApplication
+Permissions=Internet;NonExistingPermission
