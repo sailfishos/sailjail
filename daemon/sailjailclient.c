@@ -58,7 +58,6 @@
 #define LAUNCHNOTIFY_SERVICE                    "org.nemomobile.lipstick"
 #define LAUNCHNOTIFY_OBJECT                     "/LauncherModel"
 #define LAUNCHNOTIFY_INTERFACE                  "org.nemomobile.lipstick.LauncherModel"
-#define LAUNCHNOTIFY_METHOD_LAUNCHING           "notifyLaunching"
 #define LAUNCHNOTIFY_METHOD_LAUNCH_CANCELED     "cancelNotifyLaunching"
 
 /* ========================================================================= *
@@ -152,7 +151,6 @@ static int client_launch_application(client_t *self);
  * ------------------------------------------------------------------------- */
 
 static void client_notify_launch_status  (client_t *self, const char *method, const char *desktop);
-static void client_notify_launching      (client_t *self, const char *desktop);
 static void client_notify_launch_canceled(client_t *self, const char *desktop);
 
 /* ------------------------------------------------------------------------- *
@@ -841,13 +839,6 @@ client_launch_application(client_t *self)
         goto EXIT;
     }
 
-    /* Notify lipstick about imminent application startup.
-     * Does not apply when launching application boosters.
-     * Or when /usr/share/applications/APP.desktop is not used.
-     */
-    if( !booster_name && desktop1_path )
-        client_notify_launching(self, desktop1_path);
-
     /* Execute the application */
     fflush(NULL);
     errno = 0;
@@ -885,12 +876,6 @@ client_notify_launch_status(client_t *self, const char *method,
         /* But we do want it to go out before we exec*() / exit() */
         g_dbus_connection_flush_sync(connection, NULL, NULL);
     }
-}
-
-static void
-client_notify_launching(client_t *self, const char *desktop)
-{
-    client_notify_launch_status(self, LAUNCHNOTIFY_METHOD_LAUNCHING, desktop);
 }
 
 static void
