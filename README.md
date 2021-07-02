@@ -57,29 +57,21 @@ When going forward we are working towards more dynamic permission management sys
 
 ### Handling privileged user data
 
-In Sailfish OS portion of user data is considered private and although it resides within
-user's home directory the files / directories are owned by "privileged" user / group
-and only select applications are granted access via executing them with effective
-group id set to "privileged." For sandboxed applications "private-data \<directory\>"
-Firejail directive / command line option is used to provide more fine grained access
-to privileged data.
+In Sailfish OS portion of user data is considered private and although it resides within user's home
+directory the files / directories are owned by _privileged_ user / group and only select
+applications are granted access via executing them with effective group id set to _privileged_. For
+sandboxed applications _private-data \<directory\>_ Firejail rule or command line option is used to
+provide more fine grained access to privileged data.
 
-Also noteworthy: sandboxed applications are executed with no-new-privs set. As this
-makes it impossible to have effective gid that differs from real gid, privileged applications
-are running with real group id set to "privileged".
+Also noteworthy: sandboxed applications are executed with _no-new-privs_ set. As this makes it
+impossible to have effective gid that differs from real gid, privileged applications are running
+with real group id set to _privileged_.
 
 ### General fixes that might be eligible for upstreaming
 
-- "mkdir \<path\>" and "mkfile \<path\>"  are available also as command line options
-  (normally available only as profile file directives).
-- "protocol \<list\>" can be adjusted multiple times (original set-once logic made
-   incremental configuration impossible).
-- Symlinks that go through /proc/self are retargeted during sandbox setup (was
-  causing problems with e.g. /etc/mtab which is symlink to ../proc/self/mounts).
-- Bind mounted passwd/group files that are used during sandbox setup are
-  unmounted before private-etc is taken in use (leaving such bind mounts active
-  under synthetized /etc was causing problems in many phones  due to use of
-  relatively old kernel versions).
+- Rule templating. Sailjail defines keywords used in Firejail profiles that Firejail substitutes
+  automatically while parsing the rules.
+- Loading profiles only after parsing arguments instead of loading while parsing.
 
 ## Debugging sandboxed applications
 
