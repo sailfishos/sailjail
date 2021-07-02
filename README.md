@@ -8,23 +8,30 @@ In this document we are following terminology defined by Firejail.
 
 ## Application permissions
 
-Application [permissions](https://github.com/sailfishos/sailjail-permissions#sailfish-os-application-sandboxing-and-permissions) defined in Sailjail-permissions are Firejail profiles. Application developer defines set of required permissions in the application desktop file.
+Application
+[permissions](https://github.com/sailfishos/sailjail-permissions#sailfish-os-application-sandboxing-and-permissions)
+defined in [sailjail-permissions](https://github.com/sailfishos/sailjail-permissions) are Firejail
+profiles. Application developer defines set of required permissions in the application desktop file.
 
-Application desktop file changes are described in the [Sailjail Permissions documentation](https://github.com/sailfishos/sailjail-permissions#enable-sandboxing-for-an-application).
+Application desktop file changes are described in the [Sailjail Permissions
+documentation](https://github.com/sailfishos/sailjail-permissions#enable-sandboxing-for-an-application).
 
-Sailjail parses the permissions and builds Firejail command line arguments out of the requested permissions.
+Sailjail parses the desktop file and builds Firejail command line arguments out of the requested
+permissions.
 
 ## Application data structure
 
-There are three directories that are whitelisted automatically by the Sailjail based on the
-desktop file definition.
+There are three directories that are whitelisted automatically by Sailjail based on desktop file
+content.
 
     $HOME/.local/share/<OrganizationName>/<ApplicationName>
     $HOME/.cache/<OrganizationName>/<ApplicationName>
     $HOME/.config/<OrganizationName>/<ApplicationName>
 
-
-Default user data directories such as [*Pictures*, *Videos*, *Music*, *Documents*](https://www.freedesktop.org/wiki/Software/xdg-user-dirs/) are not whitelisted by default rather application developer needs to request access with predefined [Permissions](https://github.com/sailfishos/sailjail-permissions#permissions).
+Default user data directories such as [*Pictures*, *Videos*, *Music* and
+*Documents*](https://www.freedesktop.org/wiki/Software/xdg-user-dirs/) are not whitelisted by
+default rather application developer needs to request access with predefined
+[permissions](https://github.com/sailfishos/sailjail-permissions#permissions).
 
 ## Implicit D-Bus user service ownership
 
