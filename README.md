@@ -1,8 +1,10 @@
 # Sailjail
 
-Sailfish OS application sandboxes are launched through Sailjail that is a thin Firejail wrapper. The Firejail documentation can be found from [here](https://firejail.wordpress.com/).
+Sailfish OS application sandboxes are launched through **sailjail** command that is a thin Firejail
+wrapper. Sailjail has also a daemon that manages sandboxing permissions and keeps a list of
+applications. Firejail documentation can be found [here](https://firejail.wordpress.com/).
 
-In this document we are following terminology defined by the Firejail.
+In this document we are following terminology defined by Firejail.
 
 ## Application permissions
 
@@ -53,14 +55,12 @@ the names differ you may define the desktop file with **sailjail** command's **-
 Use of absolute paths is required, except for the desktop file which must be located in
 _/usr/share/applications_ or _/etc/sailjail/applications_.
 
-## Homescreen integration
-The Sailjail package contains sailjail-plugin-devel subpackage that provides interfaces for building homescreen integration plugins. The idea is that plugin adds launching hooks and Sailjail triggers a hook to confirm the launch. The plugin in turn replies by denying or accepting the application launch. In case the plugin replies that permissions are not granted (i.e. are denied) Sailjail refuses to start the application.
+## Sailjail daemon
 
-Sailfish OS implements a homescreen integration plugin. Application permission are requested from user upon first application launch and accepted permissions are stored to root readable directory under */var/lib/sailjail-homescreen/\<uid\>/\<full-desktop-file-path\>/X-Sailjail*. Subsequent application launches do not re-trigger the permission request.
-
-When an application is upgraded and new permissions are introduced, permissions are requested again from the user. If permissions are removed from the application during upgrade, already approved permissions are considered sufficient and an intersection of permissions defined in the application desktop file and approved permissions are applied to the application.
-
-When going forward we are working towards more dynamic permission management system. Requested application permissions are visible in Settings -> Apps -> Application when application is sandboxed.
+Sailjail has a daemon called sailjaild. It keeps track of applications' desktop files in
+_/usr/share/applications_ and _/etc/sailjail/applications_. It can be queried over D-Bus for
+information regarding these applications, their sandboxing status and permissions. The daemon also
+handles prompting user for permissions.
 
 ## Sailfish OS specific changes to Firejail
 
