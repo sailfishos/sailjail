@@ -26,25 +26,34 @@ Default user data directories such as [*Pictures*, *Videos*, *Music*, *Documents
 
 ## Implicit D-Bus user service ownership
 
-Based on the [*OrganizationName* and *ApplicationName*](https://github.com/sailfishos/sailjail-permissions#desktop-file-changes) application is granted rights to own its D-Bus user service.
+Based on [*OrganizationName* and
+*ApplicationName* values](https://github.com/sailfishos/sailjail-permissions#desktop-file-changes)
+application is granted rights to own a D-Bus service name on user session bus.
 
 Example desktop file
 
     [Desktop Entry]
     Type=Application
-    Name=MyApplication
+    Name=My Application
     Icon=my-app-icon
-    Exec=/usr/bin/sailjail -p org.foobar.myapp.desktop /usr/bin/org.foobar.myapp
+    Exec=/usr/bin/org.foobar.MyApp
+
     [X-Sailjail]
     Permissions=Internet;Pictures
     OrganizationName=org.foobar
-    ApplicationName=myapp
+    ApplicationName=MyApp
 
-With above example application desktop file Firejail command line arguments contain implicitly *--dbus-user.own=org.foobar.myapp* when launched through Sailjail.
-Use of absolute paths is required, except for the desktop file if it is located in /usr/share/applications which is also required by homescreen integration in most cases.
+With above example application desktop file Firejail command line arguments contain implicitly
+**--dbus-user.own=org.foobar.MyApp** when launched through Sailjail.
+When application's executable matches desktop file name, it is enough to define it in Exec value. If
+the names differ you may define the desktop file with **sailjail** command's **-p** argument:
+
+    Exec=/usr/bin/sailjail -p foobar-myapp.desktop -- /usr/bin/org.foobar.MyApp
+
+Use of absolute paths is required, except for the desktop file which must be located in
+_/usr/share/applications_ or _/etc/sailjail/applications_.
 
 ## Homescreen integration
-
 The Sailjail package contains sailjail-plugin-devel subpackage that provides interfaces for building homescreen integration plugins. The idea is that plugin adds launching hooks and Sailjail triggers a hook to confirm the launch. The plugin in turn replies by denying or accepting the application launch. In case the plugin replies that permissions are not granted (i.e. are denied) Sailjail refuses to start the application.
 
 Sailfish OS implements a homescreen integration plugin. Application permission are requested from user upon first application launch and accepted permissions are stored to root readable directory under */var/lib/sailjail-homescreen/\<uid\>/\<full-desktop-file-path\>/X-Sailjail*. Subsequent application launches do not re-trigger the permission request.
