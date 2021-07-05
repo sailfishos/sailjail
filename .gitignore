@@ -4,6 +4,8 @@ unit/coverage/*.gcov
 *.o
 *.core
 /daemon/sailjaild
+/daemon/sailjail
+/daemon/sailjailclient
 /daemon/test/test_appinfo
 /daemon/test/test_permissions
 /daemon/test/test_settings
@@ -14,3 +16,5 @@ unit/coverage/*.gcov
 /daemon/test/sailjail/permissions/
 /report/
 /coverage
+*.list
+/RPMS/
