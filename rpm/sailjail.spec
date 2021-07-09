@@ -16,6 +16,7 @@ Requires(pre): sailfish-setup
 Requires: glib2 >= %{glib_version}
 Requires: sailjail-daemon
 
+BuildRequires: meson
 BuildRequires: pkgconfig(glib-2.0) >= %{glib_version}
 BuildRequires: pkgconfig(gobject-2.0)
 BuildRequires: pkgconfig(gio-2.0)
@@ -25,6 +26,8 @@ BuildRequires: sed
 
 # Keep settings in encrypted home partition
 %define _sharedstatedir /home/.system/var/lib
+# Directory for D-Bus policy
+%define _dbuspolicydir %{_datadir}/dbus-1/system.d
 # Tests directory
 %define _testsdir /opt/tests
 
@@ -49,7 +52,7 @@ This package contains daemon that keeps track of:
 - what permissions user has granted to each application
 
 %package daemon-tests
-Summary: Tests files for %{name}-daemon
+Summary: QA tests for %{name}-daemon
 
 %description daemon-tests
 %{summary}.
@@ -58,45 +61,23 @@ Summary: Tests files for %{name}-daemon
 %setup -q -n %{name}-%{version}
 
 %build
-make %{_smp_mflags} \
-  VERSION=%{version}\
-  _LIBDIR=%{_libdir}\
-  _SHAREDSTATEDIR=%{_sharedstatedir}\
-  -C daemon build
+%meson \
+    -Dversion=%{version} \
+    -Duserunitdir=%{_userunitdir} \
+    -Dunitdir=%{_unitdir} \
+    -Ddbuspolicydir=%{_dbuspolicydir} \
+    -Dtestsdir=%{_testsdir} \
 
-make %{_smp_mflags} \
-  VERSION=%{version}\
-  TESTSDIR=%{_testsdir}\
-  -C daemon test-build
+%meson_build
 
 %install
-rm -rf %{buildroot}
+%meson_install
 
 install -D -m755 tools/measure_launch_time.py \
         %{buildroot}%{_bindir}/measure_launch_time
 
-make \
-  _SYSCONFDIR=%{_sysconfdir}\
-  _DATADIR=%{_datadir}\
-  _BINDIR=%{_bindir}\
-  _LIBDIR=%{_libdir}\
-  _USERUNITDIR=%{_userunitdir}\
-  _UNITDIR=%{_unitdir}\
-  _SHAREDSTATEDIR=%{_sharedstatedir}\
-  DESTDIR=%{buildroot}\
-  -C daemon install
-
-make %{_smp_mflags} \
-  VERSION=%{version}\
-  DESTDIR=%{buildroot}\
-  TESTSDIR=%{_testsdir}\
-  -C daemon test-install
-
 install -d %{buildroot}%{_unitdir}/multi-user.target.wants
-install -m644 daemon/systemd/sailjaild.service %{buildroot}%{_unitdir}
 ln -s ../sailjaild.service %{buildroot}%{_unitdir}/multi-user.target.wants/
-install -d %{buildroot}%{_sysconfdir}/dbus-1/system.d
-install -m644 daemon/dbus/sailjaild.conf %{buildroot}%{_sysconfdir}/dbus-1/system.d/sailjaild.conf
 install -d %{buildroot}%{_sysconfdir}/sailjail/config
 install -d %{buildroot}%{_sysconfdir}/sailjail/applications
 
@@ -115,7 +96,7 @@ install -d %{buildroot}%{_sysconfdir}/sailjail/applications
 %{_bindir}/sailjaild
 %{_unitdir}/*.service
 %{_unitdir}/multi-user.target.wants/*.service
-%config %{_sysconfdir}/dbus-1/system.d/sailjaild.conf
+%{_dbuspolicydir}/sailjaild.conf
 %dir %{_sysconfdir}/sailjail
 %dir %{_sysconfdir}/sailjail/config
 %dir %{_sysconfdir}/sailjail/applications

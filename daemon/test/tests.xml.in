@@ -6,9 +6,10 @@
        <set name="sailjail-daemon" feature="sandboxing">
            <description>sailjail daemon tests</description>
            <pre_steps>
-               <step>rm -rf @TESTDATA@</step>
+               <step>rm -rf @TESTTMPDATA@</step>
                <step>mkdir -p @SHAREDSTATEDIR@/sailjail/settings</step>
-               <step>cp @TESTSDIR@/sailjail-daemon/data/user-1000.settings @SHAREDSTATEDIR@/sailjail/settings/</step>
+               <step>cp @TESTDATADIR@/user-1000.settings @SHAREDSTATEDIR@/sailjail/settings/</step>
+               <step>cp -r @TESTSDIR@/etc @TESTTMPDATA@/etc</step>
            </pre_steps>
            <case name="util strip" level="Component" type="Functional">
                <step>@BINDIR@/test_util -p "/sailjaild/util/strip"</step>
@@ -28,11 +29,14 @@
            <case name="appinfo" level="Component" type="Functional">
                <step>@BINDIR@/test_appinfo</step>
            </case>
+           <case name="permissions" level="Component" type="Functional">
+               <step>@BINDIR@/test_permissions</step>
+           </case>
            <case name="settings" level="Component" type="Functional">
                <step>@BINDIR@/test_settings -p /sailjaild/settings/settings</step>
            </case>
            <post_steps>
-               <step>rm -rf @TESTDATA@</step>
+               <step>rm -rf @TESTTMPDATA@</step>
            </post_steps>
        </set>
    </suite>
