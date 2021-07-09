@@ -657,6 +657,7 @@ client_launch_application(client_t *self)
     const char       *binary_name   = NULL;
 
     if( fnmatch(BOOSTER_DIRECTORY "/" BOOSTER_PATTERN, *argv, FNM_PATHNAME) == 0 ) {
+        /* If these are set, we are launching application booster */
         booster_path = g_strdup(*argv);
         booster_name = path_basename(booster_path);
 
@@ -760,7 +761,7 @@ client_launch_application(client_t *self)
         client_add_firejail_option(self, "--template=ApplicationName:%s", app_name);
 
     client_add_firejail_option(self, "--private-bin=%s", binary_name);
-    client_add_firejail_option(self, "--whitelist=/usr/share/%s", data_dir ?: binary_name);
+    client_add_firejail_option(self, "--whitelist=/usr/share/%s", data_dir ?: desktop_name);
 
     /* Watch out for alternate desktop files in /etc as whitelisting
      * them while private-etc is used leads to problems */
@@ -769,9 +770,9 @@ client_launch_application(client_t *self)
 
     /* Legacy app binary based data directories are made available.
      * But they are not created unless legacy app sandboxing is used. */
-    client_add_firejail_directory(self, use_compatibility, "${HOME}/.local/share/%s", binary_name);
-    client_add_firejail_directory(self, use_compatibility, "${HOME}/.config/%s", binary_name);
-    client_add_firejail_directory(self, use_compatibility, "${HOME}/.cache/%s", binary_name);
+    client_add_firejail_directory(self, use_compatibility, "${HOME}/.local/share/%s", desktop_name);
+    client_add_firejail_directory(self, use_compatibility, "${HOME}/.config/%s", desktop_name);
+    client_add_firejail_directory(self, use_compatibility, "${HOME}/.cache/%s", desktop_name);
 
     if( !empty_p(org_name) && !empty_p(app_name) ) {
         client_add_firejail_directory(self, true,  "${HOME}/.cache/%s/%s", org_name, app_name);
@@ -788,7 +789,7 @@ client_launch_application(client_t *self)
     client_add_firejail_profile(self, booster_name);
 
     /* Include application specific profile */
-    client_add_firejail_profile(self, binary_name);
+    client_add_firejail_profile(self, desktop_name);
 
     /* Include granted permissions */
     for( size_t i = 0; granted[i]; ++i )
