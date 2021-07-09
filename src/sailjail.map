@@ -1,8 +1,0 @@
-{
-    global:
-        jail_launch_hook_*;
-        jail_plugin_*;
-        jail_rules_*;
-    local:
-        *;
-};
