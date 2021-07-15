@@ -1,0 +1,7 @@
+option('version', type : 'string')
+option('libdbusaccess', type : 'feature', value : 'enabled')
+option('unitdir', type : 'string', value : '/usr/lib/systemd/system')
+option('userunitdir', type : 'string', value : '/usr/lib/systemd/user')
+option('dbuspolicydir', type : 'string', value : '/usr/share/dbus-1/system.d')
+option('testsdir', type : 'string', value : '/opt/tests')
+option('testtmpdata', type : 'string', value : '/tmp/sailjail-daemon-tests')

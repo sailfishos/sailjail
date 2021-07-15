@@ -1,8 +1,0 @@
-name=sailjail
-includedir=/usr/include
-
-Name: ${name}
-Description: Header files for building ${name} plugins
-Version: @version@
-Requires.private: glib-2.0 libglibutil
-Cflags: -I${includedir} -I${includedir}/${name}

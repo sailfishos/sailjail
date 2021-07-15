@@ -13,7 +13,7 @@ Existing User Tracking
   - no action needed
 
 - UID removed:
-  - user must be dropped from settings data [NOT DONE]
+  - user must be dropped from settings data
 
 User Session Tracking
 =====================
@@ -24,7 +24,7 @@ User Session Tracking
   - permissions checking/prompting
 
 - UID changed:
-  - cancels pending/queued prompts [NOT DONE]
+  - cancels pending/queued prompts
 
 Permission File Tracking
 ========================
@@ -55,7 +55,7 @@ Desktop File Tracking
 
 - APPLICATION removed:
   - broadcast ApplicationAdded signal
-  - application settings for each user must be purged [NOT DONE]
+  - application settings for each user must be purged
 
 - APPLICATION changed:
   - broadcast ApplicationAdded signal
@@ -81,12 +81,12 @@ User / Application Settings
 - maintained data:
   - tree of: settings(1) -> users(n) -> applications (n)
   - leaf node holds:
-    - launch_allowed = UNSET|ALWAYS|NEVER
-    - granted_permissions:
+    - launch\_allowed = UNSET|ALWAYS|NEVER
+    - granted\_permissions:
       - subset of: intersection of PERMISSIONS and APPLICATION.permissions
       - cleared/filled on launch_allowed changes
       - possible to modify while launch_allowed=ALWAYS
-    - license_agreed = UNSET|YES|NO
+    - license\_agreed = UNSET|YES|NO
       - proof of concept / placeholder (=how to add new data)
 
 - persistent storage:
@@ -103,7 +103,7 @@ User / Application Settings
   - method int GetLaunchAllowed(uint uid, QString application)
   - method void SetLaunchAllowed(uint uid, QString application, int allowed)
     - values: UNSET=0|ALWAYS=1|NEVER=2
-    - setter needs to be under access contrl [NOT DONE]
+    - setter needs to be under access control
     - changing value affects also granted permissions
 
   - method QStringList GetGrantedPermissions(uint uid, QString application)
@@ -135,7 +135,7 @@ Internal Structure
   - ref: dot -Tpng sailjaild.dot -o sailjaild.png
 
 - CONTROL: "root object"
-  - CONFIG: access to configuration data [not used atm]
+  - CONFIG: access to configuration data
   - USERS: existing users tracking
   - SESSION: user session tracking
   - PERMISSIONS: *.permission file tracking, Exec/Permissions/etc properties
@@ -151,43 +151,11 @@ Directories Used
 - CONFIG:       "/etc/sailjail/config"
 - PERMISSIONS:  "/etc/sailjail/permissions"
 - APPLICATIONS: "/usr/share/applications"
-- SETTINGS:     "/usr/lib/sailjail/settings" [TBD, PLACEHOLDER]
+- SETTINGS:     "/home/.system/var/lib/sailjail/settings"
 
 What Is Missing
 ===============
 
-- basically we have a functioning thing, but ...
-
 - user prompting
   - does asynchronous call to window prompt service
     - but does not handle cancellation yet
-  - placeholder error replies
-    -> needs to be improved
-
-- dbus ipc
- - access controls are missing
-    -> where and how needs to be defined and implemented
- - still using placeholder names
-    -> needs to be decided
-
-- applications without APP.desktop
-  - originally sailjail allowed alternate file to be defined in command line
-  - this is not feasible with daemon setup
-  - proposal: use /etc/sailjail/applications/*.desktop files
-    - used in addition to /usr/share/applications/*.desktop files
-    - data from both is merged before use
-    - we can:
-      - provide desktop like data for ui-less applications
-      - override/augment data that is defined in application desktop
-
-- bypass confirmation configuration
-  - this is part of launch itself (=sailjail)
-  - does not concern daemon (=sailjaild)
-  - except for:
-    - if the permission set is "empty" when permission has not been granted
-    - how launcher obtains permissions that would be applicable if accepted?
-
-- data migration
-  - sandboxing feature has been in general use
-  - there is existing sailjail allowance data present in devices
-  - should be migrated to daemon and then purged
