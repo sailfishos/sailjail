@@ -71,7 +71,8 @@ void        prompter_session_changed     (prompter_t *self);
  * PROMPTER_INVOCATION
  * ------------------------------------------------------------------------- */
 
-void prompter_handle_invocation(prompter_t *self, GDBusMethodInvocation *invocation);
+void prompter_handle_invocation (prompter_t *self, GDBusMethodInvocation *invocation);
+void prompter_dbus_reload_config(prompter_t *self);
 
 G_END_DECLS
 

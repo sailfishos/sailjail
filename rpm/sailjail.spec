@@ -45,6 +45,8 @@ Contains a script to measure launching time.
 %package daemon
 Summary: Daemon for managing application sandboxing permissions
 
+Requires: mapplauncherd >= 4.2.8
+
 %description daemon
 This package contains daemon that keeps track of:
 - defined permissions (under /etc/sailjail/permissions)

@@ -141,6 +141,7 @@ static void                   prompter_prompt_invocation_cb (GObject *obj, GAsyn
 static GVariant              *prompter_invocation_args      (const prompter_t *self, appinfo_t *appinfo);
 static bool                   prompter_prompt_invocation    (prompter_t *self);
 void                          prompter_handle_invocation    (prompter_t *self, GDBusMethodInvocation *invocation);
+void                          prompter_dbus_reload_config(prompter_t *self);
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_RETURN
@@ -164,10 +165,11 @@ static GList                 *prompter_drop       (prompter_t *self, GList *iter
  * PROMPTER_CONNECTION
  * ------------------------------------------------------------------------- */
 
-static GDBusConnection *prompter_connection  (const prompter_t *self);
-static bool             prompter_is_connected(const prompter_t *self);
-static bool             prompter_connect     (prompter_t *self);
-static void             prompter_disconnect  (prompter_t *self);
+static GDBusConnection *prompter_connection          (const prompter_t *self);
+static bool             prompter_is_connected        (const prompter_t *self);
+static bool             prompter_connect             (prompter_t *self);
+static void             prompter_disconnect          (prompter_t *self);
+static void             prompter_disconnect_flush_cb (GObject *obj, GAsyncResult *res, gpointer aptr);
 
 /* ========================================================================= *
  * UTILITY
@@ -926,6 +928,40 @@ prompter_handle_invocation(prompter_t *self, GDBusMethodInvocation *invocation)
     prompter_eval_state_later(self);
 }
 
+void
+prompter_dbus_reload_config(prompter_t *self)
+{
+    log_info("reload dbus config");
+
+    bool connected = prompter_is_connected(self);
+
+    if( !connected ) {
+        log_info("temporarily connecting to the user session");
+        if( !prompter_connect(self) ) {
+            log_err("unable to connect to the user session to reload dbus config");
+            return;
+        }
+    }
+
+    g_dbus_connection_call(prompter_connection(self),
+                           DBUS_SERVICE,
+                           DBUS_PATH,
+                           DBUS_INTERFACE,
+                           DBUS_METHOD_RELOAD_CONFIG,
+                           NULL,
+                           NULL,
+                           G_DBUS_CALL_FLAGS_NONE,
+                           -1,
+                           NULL,
+                           NULL,
+                           self);
+
+    if( !connected ) {
+        log_info("disconnecting temporary user session connection");
+        prompter_disconnect(self);
+    }
+}
+
 /* ------------------------------------------------------------------------- *
  * PROMPTER_RETURN
  * ------------------------------------------------------------------------- */
@@ -1055,7 +1091,18 @@ static void
 prompter_disconnect(prompter_t *self)
 {
     if( self->prm_connection ) {
-        g_object_unref(self->prm_connection),
+        g_dbus_connection_flush(self->prm_connection, NULL,
+                                prompter_disconnect_flush_cb, NULL),
             self->prm_connection = NULL;
     }
+}
+
+static void
+prompter_disconnect_flush_cb (GObject *obj, GAsyncResult *res, gpointer aptr)
+{
+    GDBusConnection *con  = G_DBUS_CONNECTION(obj);
+
+    g_dbus_connection_flush_finish(con, res, NULL);
+
+    g_object_unref(con);
 }

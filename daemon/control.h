@@ -57,6 +57,7 @@ typedef struct service_t      service_t;
 typedef struct appinfo_t      appinfo_t;
 typedef struct settings_t     settings_t;
 typedef struct appsettings_t  appsettings_t;
+typedef struct appservices_t  appservices_t;
 
 /* ========================================================================= *
  * Prototypes
@@ -82,6 +83,7 @@ permissions_t     *control_permissions           (const control_t *self);
 applications_t    *control_applications          (const control_t *self);
 service_t         *control_service               (const control_t *self);
 settings_t        *control_settings              (const control_t *self);
+appservices_t     *control_appservices           (const control_t *self);
 appsettings_t     *control_appsettings           (control_t *self, uid_t uid, const char *app);
 appinfo_t         *control_appinfo               (const control_t *self, const char *appname);
 uid_t              control_current_user          (const control_t *self);
@@ -103,6 +105,7 @@ void control_on_session_changed   (control_t *self);
 void control_on_permissions_change(control_t *self);
 void control_on_application_change(control_t *self, GHashTable *changed);
 void control_on_settings_change   (control_t *self, const char *app);
+void control_on_appservices_change(control_t *self);
 
 G_END_DECLS
 

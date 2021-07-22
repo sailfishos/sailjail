@@ -46,6 +46,11 @@ G_BEGIN_DECLS;
  * DBUS
  * ========================================================================= */
 
+#define DBUS_SERVICE                           "org.freedesktop.DBus"
+#define DBUS_PATH                              "/"
+#define DBUS_INTERFACE                         "org.freedesktop.DBus"
+#define DBUS_METHOD_RELOAD_CONFIG              "ReloadConfig"
+
 # define WINDOWPROMT_SERVICE                   "com.jolla.windowprompt"
 # define WINDOWPROMT_OBJECT                    "/com/jolla/windowprompt"
 # define WINDOWPROMT_INTERFACE                 "com.jolla.windowprompt"
