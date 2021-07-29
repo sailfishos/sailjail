@@ -34,26 +34,20 @@
  * any official policies, either expressed or implied.
  */
 
-#ifndef  SESSION_H_
-# define SESSION_H_
+#ifndef  APPSERVICES_H_
+# define APPSERVICES_H_
 
 # include <glib.h>
 
 G_BEGIN_DECLS
 
 /* ========================================================================= *
- * Constants
- * ========================================================================= */
-
-# define SESSION_UID_UNDEFINED ((uid_t)(-1))
-# define SESSION_GID_UNDEFINED ((gid_t)(-1))
-
-/* ========================================================================= *
  * Types
  * ========================================================================= */
 
-typedef struct config_t       config_t;
-typedef struct session_t      session_t;
+typedef struct stringset_t    stringset_t;
+typedef struct appservices_t  appservices_t;
+typedef struct appinfo_t      appinfo_t;
 typedef struct control_t      control_t;
 
 /* ========================================================================= *
@@ -61,20 +55,18 @@ typedef struct control_t      control_t;
  * ========================================================================= */
 
 /* ------------------------------------------------------------------------- *
- * SESSION
+ * APPSERVICES
  * ------------------------------------------------------------------------- */
 
-session_t *session_create   (control_t *control);
-void       session_delete   (session_t *self);
-void       session_delete_at(session_t **pself);
-void       session_delete_cb(void *self);
-
-/* ------------------------------------------------------------------------- *
- * SESSION_USER
- * ------------------------------------------------------------------------- */
-
-uid_t session_current_user(const session_t *self);
+appservices_t *appservices_create              (control_t *control);
+void           appservices_delete              (appservices_t *self);
+void           appservices_delete_at           (appservices_t **pself);
+void           appservices_delete_cb           (void *self);
+void           appservices_rethink             (appservices_t *self);
+void           appservices_application_changed (appservices_t *self, const char *appname, appinfo_t *appinfo);
+void           appservices_application_added   (appservices_t *self, const char *appname, appinfo_t *appinfo);
+void           appservices_application_removed (appservices_t *self, const char *appname);
 
 G_END_DECLS
 
-#endif /* SESSION_H_ */
+#endif /* APPSERVICES_H_ */

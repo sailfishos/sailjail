@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2013 - 2020 Jolla Ltd.
  * Copyright (c) 2021 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
@@ -126,6 +127,7 @@ control_t      *appinfo_control     (const appinfo_t *self);
 const config_t *appinfo_config      (const appinfo_t *self);
 applications_t *appinfo_applications(const appinfo_t *self);
 const gchar    *appinfo_id          (const appinfo_t *self);
+bool            appinfo_dbus_auto_start(const appinfo_t *self);
 
 /* ------------------------------------------------------------------------- *
  * APPINFO_PROPERTY
@@ -145,6 +147,7 @@ const gchar            *appinfo_get_object           (const appinfo_t *self);
 const gchar            *appinfo_get_method           (const appinfo_t *self);
 const gchar            *appinfo_get_organization_name(const appinfo_t *self);
 const gchar            *appinfo_get_application_name (const appinfo_t *self);
+const gchar            *appinfo_get_exec_dbus        (const appinfo_t *self);
 const gchar            *appinfo_get_data_directory   (const appinfo_t *self);
 app_mode_t              appinfo_get_mode             (const appinfo_t *self);
 static const gchar     *appinfo_get_mode_string      (const appinfo_t *self);
@@ -158,6 +161,7 @@ void                    appinfo_set_object           (appinfo_t *self, const gch
 void                    appinfo_set_method           (appinfo_t *self, const gchar *method);
 void                    appinfo_set_organization_name(appinfo_t *self, const gchar *organization_name);
 void                    appinfo_set_application_name (appinfo_t *self, const gchar *application_name);
+void                    appinfo_set_exec_dbus        (appinfo_t *self, const gchar *exec_dbus);
 void                    appinfo_set_data_directory   (appinfo_t *self, const gchar *data_directory);
 void                    appinfo_set_mode             (appinfo_t *self, app_mode_t mode);
 
@@ -178,6 +182,7 @@ void         appinfo_clear_permissions   (appinfo_t *self);
 static appinfo_file_t appinfo_combined_file_state    (appinfo_file_t state1, appinfo_file_t state2);
 static appinfo_file_t appinfo_check_desktop_from_path(appinfo_t *self, const gchar *path, appinfo_dir_t dir);
 bool                  appinfo_parse_desktop          (appinfo_t *self);
+static gchar         *appinfo_read_exec_dbus         (appinfo_t *self, GKeyFile *ini, const gchar *group);
 
 /* ========================================================================= *
  * APPINFO
@@ -206,6 +211,7 @@ bool                  appinfo_parse_desktop          (appinfo_t *self);
  * Permissions=Phone;CallRecordings;Contacts;Bluetooth;Privileged;Sharing
  * OrganizationName=com.jolla
  * ApplicationName=voicecall
+ * ExecDBus=/usr/bin/sailjail -p voicecall-ui.desktop /usr/bin/voicecall-ui -prestart
  */
 
 struct appinfo_t
@@ -234,6 +240,7 @@ struct appinfo_t
     // sailjail properties
     gchar           *anf_sj_organization_name; // SAILJAIL_KEY_ORGANIZATION_NAME
     gchar           *anf_sj_application_name;  // SAILJAIL_KEY_APPLICATION_NAME
+    gchar           *anf_sj_exec_dbus;         // SAILJAIL_KEY_EXEC_DBUS
     gchar           *anf_sj_data_directory;    // SAILJAIL_KEY_DATA_DIRECTORY
     stringset_t     *anf_sj_permissions_in;    // SAILJAIL_KEY_PERMISSIONS
     stringset_t     *anf_sj_permissions_out;
@@ -271,6 +278,7 @@ appinfo_ctor(appinfo_t *self, applications_t *applications, const gchar *id)
     self->anf_sj_permissions_out         = stringset_create();
     self->anf_sj_organization_name       = NULL;
     self->anf_sj_application_name        = NULL;
+    self->anf_sj_exec_dbus               = NULL;
     self->anf_sj_data_directory          = NULL;
 
     log_info("appinfo(%s): create", appinfo_id(self));
@@ -292,6 +300,7 @@ appinfo_dtor(appinfo_t *self)
 
     appinfo_set_organization_name(self, NULL);
     appinfo_set_application_name(self, NULL);
+    appinfo_set_exec_dbus(self, NULL);
     appinfo_set_data_directory(self, NULL);
     stringset_delete_at(&self->anf_sj_permissions_in);
     stringset_delete_at(&self->anf_sj_permissions_out);
@@ -393,6 +402,7 @@ appinfo_to_variant(const appinfo_t *self)
          */
         add_string(SAILJAIL_KEY_ORGANIZATION_NAME, appinfo_get_organization_name(self));
         add_string(SAILJAIL_KEY_APPLICATION_NAME, appinfo_get_application_name(self));
+        add_string(SAILJAIL_KEY_EXEC_DBUS, appinfo_get_exec_dbus(self));
         add_string(SAILJAIL_KEY_DATA_DIRECTORY, appinfo_get_data_directory(self));
         add_stringset(SAILJAIL_KEY_PERMISSIONS, appinfo_get_permissions(self));
     }
@@ -447,6 +457,16 @@ const gchar *
 appinfo_id(const appinfo_t *self)
 {
     return self->anf_appname;
+}
+
+
+bool
+appinfo_dbus_auto_start(const appinfo_t *self)
+{
+    return self->anf_state == APPINFO_STATE_VALID &&
+            self->anf_sj_organization_name &&
+            self->anf_sj_application_name &&
+            self->anf_sj_exec_dbus;
 }
 
 /* ------------------------------------------------------------------------- *
@@ -551,6 +571,12 @@ appinfo_get_application_name(const appinfo_t *self)
 }
 
 const gchar *
+appinfo_get_exec_dbus(const appinfo_t *self)
+{
+    return self->anf_sj_exec_dbus ?: appinfo_unknown;
+}
+
+const gchar *
 appinfo_get_data_directory(const appinfo_t *self)
 {
     return self->anf_sj_data_directory ?: appinfo_unknown;
@@ -644,6 +670,13 @@ void
 appinfo_set_application_name(appinfo_t *self, const gchar *application_name)
 {
     if( change_string(&self->anf_sj_application_name, application_name) )
+        appinfo_set_dirty(self);
+}
+
+void
+appinfo_set_exec_dbus(appinfo_t *self, const gchar *exec_dbus)
+{
+    if( change_string(&self->anf_sj_exec_dbus, exec_dbus) )
         appinfo_set_dirty(self);
 }
 
@@ -902,6 +935,10 @@ appinfo_parse_desktop(appinfo_t *self)
             appinfo_set_application_name(self, tmp),
             g_free(tmp);
 
+        tmp = appinfo_read_exec_dbus(self, ini, group),
+            appinfo_set_exec_dbus(self, tmp),
+            g_free(tmp);
+
         tmp = keyfile_get_string(ini, group, SAILJAIL_KEY_DATA_DIRECTORY, 0),
             appinfo_set_data_directory(self, tmp),
             g_free(tmp);
@@ -945,4 +982,40 @@ EXIT:
     g_free(path2);
 
     return appinfo_clear_dirty(self);
+}
+
+gchar *
+appinfo_read_exec_dbus(appinfo_t *self, GKeyFile *ini, const gchar *group)
+{
+    gchar *exec = keyfile_get_string(ini, group, SAILJAIL_KEY_EXEC_DBUS, 0);
+    if( exec ) {
+        /* As in libcontentaction, add invoker to the command line if it doesn't exist already. */
+        if( g_strstr_len(exec, -1, "invoker") != exec &&
+                g_strstr_len(exec, -1, "/usr/bin/invoker") != exec) {
+            gchar *booster = keyfile_get_string(ini, DESKTOP_SECTION,
+                    NEMO_KEY_APPLICATION_TYPE, NULL);
+            if( booster == NULL || g_strcmp0(booster, "no-invoker") == 0 ) {
+                /* Default booster type is "generic". This can be overridden via
+                  "X-Nemo-Application-Type=<boostertype>".
+                  "no-invoker" is synonymous to "generic" */
+                g_free(booster);
+                booster = g_strdup("generic");
+            }
+
+            gchar *single_instance = keyfile_get_string(ini, DESKTOP_SECTION,
+                    NEMO_KEY_SINGLE_INSTANCE, NULL);
+
+            gchar *tmp = g_strdup_printf("/usr/bin/invoker --type=%s --id=%s %s%s",
+                                          booster,
+                                          appinfo_id(self),
+                                          g_strcmp0(single_instance, "no") ? "--single-instance " : "",
+                                          exec);
+            g_free(exec);
+            g_free(booster);
+            g_free(single_instance);
+
+            exec = tmp;
+        }
+    }
+    return exec;
 }

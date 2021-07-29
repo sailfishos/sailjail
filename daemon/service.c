@@ -41,6 +41,7 @@
 #include "prompter.h"
 #include "control.h"
 #include "appinfo.h"
+#include "appservices.h"
 #include "applications.h"
 #include "permissions.h"
 #include "session.h"
@@ -959,6 +960,8 @@ service_applications_changed(service_t *self, const stringset_t *changed)
 {
     log_notice("*** applications changed broadcast");
 
+    appservices_t *appservices = control_appservices(service_control(self));
+
     for( const GList *iter = stringset_list(changed); iter; iter = iter->next ) {
         const char *app = iter->data;
         appinfo_t *appinfo = service_appinfo(self, app);
@@ -966,10 +969,17 @@ service_applications_changed(service_t *self, const stringset_t *changed)
         if( !appinfo_valid(appinfo) ) {
             member = PERMISSIONMGR_SIGNAL_APP_REMOVED;
             stringset_remove_item(self->srv_dbus_applications, app);
+
+            appservices_application_removed(appservices, app);
         }
         else if( !stringset_has_item(self->srv_dbus_applications, app) ) {
             member = PERMISSIONMGR_SIGNAL_APP_ADDED;
             stringset_add_item(self->srv_dbus_applications, app);
+
+            appservices_application_added(appservices, app, appinfo);
+        }
+        else {
+            appservices_application_changed(appservices, app, appinfo);
         }
         service_dbus_emit_signal(self, member, app);
     }

@@ -85,6 +85,7 @@ control_t      *appinfo_control     (const appinfo_t *self);
 const config_t *appinfo_config      (const appinfo_t *self);
 applications_t *appinfo_applications(const appinfo_t *self);
 const gchar    *appinfo_id          (const appinfo_t *self);
+bool            appinfo_dbus_auto_start(const appinfo_t *self);
 
 /* ------------------------------------------------------------------------- *
  * APPINFO_PROPERTY
@@ -100,6 +101,7 @@ const gchar *appinfo_get_object           (const appinfo_t *self);
 const gchar *appinfo_get_method           (const appinfo_t *self);
 const gchar *appinfo_get_organization_name(const appinfo_t *self);
 const gchar *appinfo_get_application_name (const appinfo_t *self);
+const gchar *appinfo_get_exec_dbus        (const appinfo_t *self);
 const gchar *appinfo_get_data_directory   (const appinfo_t *self);
 app_mode_t   appinfo_get_mode             (const appinfo_t *self);
 void         appinfo_set_name             (appinfo_t *self, const gchar *name);
@@ -112,6 +114,7 @@ void         appinfo_set_object           (appinfo_t *self, const gchar *object)
 void         appinfo_set_method           (appinfo_t *self, const gchar *method);
 void         appinfo_set_organization_name(appinfo_t *self, const gchar *organization_name);
 void         appinfo_set_application_name (appinfo_t *self, const gchar *application_name);
+void         appinfo_set_exec_dbus        (appinfo_t *self, const gchar *exec_dbus);
 void         appinfo_set_data_directory   (appinfo_t *self, const gchar *data_directory);
 void         appinfo_set_mode             (appinfo_t *self, app_mode_t mode);
 

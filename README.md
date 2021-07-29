@@ -51,6 +51,7 @@ Example desktop file
     Permissions=Internet;Pictures
     OrganizationName=org.foobar
     ApplicationName=MyApp
+    ExecDBus=/usr/bin/org.foobar.MyApp -prestart
 
 With above example application desktop file Firejail command line arguments contain implicitly
 **--dbus-user.own=org.foobar.MyApp** when launched through Sailjail.
@@ -61,6 +62,9 @@ the names differ you may define the desktop file with **sailjail** command's **-
 
 Use of absolute paths is required, except for the desktop file which must be located in
 _/usr/share/applications_ or _/etc/sailjail/applications_.
+
+The ExecDBus value is an optional command line which will be used to auto start the application
+to provide the <OrganizationName>.<ApplicationName> DBus service.
 
 ## Sailjail daemon
 

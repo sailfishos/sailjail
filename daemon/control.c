@@ -44,6 +44,7 @@
 #include "applications.h"
 #include "settings.h"
 #include "service.h"
+#include "appservices.h"
 #include "prompter.h"
 #include "later.h"
 
@@ -81,6 +82,7 @@ applications_t    *control_applications          (const control_t *self);
 service_t         *control_service               (const control_t *self);
 static prompter_t *control_prompter              (const control_t *self);
 settings_t        *control_settings              (const control_t *self);
+appservices_t     *control_appservices           (const control_t *self);
 appsettings_t     *control_appsettings           (control_t *self, uid_t uid, const char *app);
 appinfo_t         *control_appinfo               (const control_t *self, const char *appname);
 uid_t              control_current_user          (const control_t *self);
@@ -111,6 +113,8 @@ static void control_rethink_applications_cb(gpointer aptr);
 static void control_rethink_settings_cb    (gpointer aptr);
 static void control_rethink_prompter_cb    (gpointer aptr);
 static void control_rethink_broadcast_cb   (gpointer aptr);
+static void control_rethink_appservices_cb (gpointer aptr);
+static void control_rethink_dbusconfig_cb  (gpointer aptr);
 
 /* ========================================================================= *
  * CONTROL
@@ -127,6 +131,8 @@ struct control_t
     later_t        *ctl_rethink_settings;
     later_t        *ctl_rethink_prompter;
     later_t        *ctl_rethink_broadcast;
+    later_t        *ctl_rethink_appservices;
+    later_t        *ctl_rethink_dbusconfig;
 
     users_t        *ctl_users;
     session_t      *ctl_session;
@@ -134,6 +140,7 @@ struct control_t
     applications_t *ctl_applications;
     settings_t     *ctl_settings;
     service_t      *ctl_service;
+    appservices_t  *ctl_appservices;
 };
 
 /* ========================================================================= *
@@ -161,6 +168,12 @@ control_ctor(control_t *self, const config_t *config)
     self->ctl_rethink_broadcast  =
         later_create("broadcast", 30, 0,
                      control_rethink_broadcast_cb, self);
+    self->ctl_rethink_appservices  =
+        later_create("appservices", 40, 0,
+                     control_rethink_appservices_cb, self);
+    self->ctl_rethink_dbusconfig  =
+        later_create("dbusconfig", 50, 0,
+                     control_rethink_dbusconfig_cb, self);
 
     /* Init data tracking */
     self->ctl_users        = users_create(self);
@@ -174,6 +187,8 @@ control_ctor(control_t *self, const config_t *config)
 
     /* Init D-Bus service */
     self->ctl_service      = service_create(self);
+
+    self->ctl_appservices  = appservices_create(self);
 }
 
 static void
@@ -189,9 +204,12 @@ control_dtor(control_t *self)
     applications_delete_at(&self->ctl_applications);
     permissions_delete_at(&self->ctl_permissions);
     session_delete_at(&self->ctl_session);
+    appservices_delete_at(&self->ctl_appservices);
     users_delete_at(&self->ctl_users);
 
     /* Quit re-evaluation pipeline */
+    later_delete_at(&self->ctl_rethink_dbusconfig);
+    later_delete_at(&self->ctl_rethink_appservices);
     later_delete_at(&self->ctl_rethink_broadcast);
     later_delete_at(&self->ctl_rethink_prompter);
     later_delete_at(&self->ctl_rethink_settings);
@@ -278,6 +296,12 @@ settings_t *
 control_settings(const control_t *self)
 {
     return self->ctl_settings;
+}
+
+appservices_t *
+control_appservices(const control_t *self)
+{
+    return self->ctl_appservices;
 }
 
 appsettings_t *
@@ -389,6 +413,9 @@ control_on_session_changed(control_t *self)
     later_schedule(self->ctl_rethink_prompter);
     // -> control_rethink_prompter_cb()
 
+    later_schedule(self->ctl_rethink_appservices);
+    // -> control_rethink_appservices_cb()
+
     self->ctl_session_user = session_current_user(session);
     log_notice("session uid = %d", (int)self->ctl_session_user);
 }
@@ -435,6 +462,14 @@ control_on_settings_change(control_t *self, const char *app)
     // -> control_rethink_broadcast_cb()
 }
 
+void
+control_on_appservices_change(control_t *self)
+{
+    log_notice("*** app services changed notification");
+    later_schedule(self->ctl_rethink_dbusconfig);
+    // -> control_rethink_dbusconfig_cb()
+}
+
 /* ------------------------------------------------------------------------- *
  * CONTROL_RETHINK
  * ------------------------------------------------------------------------- */
@@ -473,4 +508,20 @@ control_rethink_broadcast_cb(gpointer aptr)
     service_applications_changed(control_service(self),
                                  self->ctl_changed_applications);
     stringset_clear(self->ctl_changed_applications);
+}
+
+static void
+control_rethink_appservices_cb(gpointer aptr)
+{
+    log_notice("*** rethink appservices data");
+    control_t *self = aptr;
+    appservices_rethink(control_appservices(self));
+}
+
+static void
+control_rethink_dbusconfig_cb(gpointer aptr)
+{
+    log_notice("*** rethink dbusconfig");
+    control_t *self = aptr;
+    prompter_dbus_reload_config(service_prompter(control_service(self)));
 }

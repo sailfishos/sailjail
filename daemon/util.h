@@ -67,6 +67,11 @@ G_BEGIN_DECLS
 #  define DATADIR                       "/usr/share"
 # endif
 
+# define RUNTIME_DATADIR                "/run/user"
+
+# define HOME_LOCALDIR                  "/.local"
+# define HOME_DATADIR                   HOME_LOCALDIR "/share"
+
 /* Config from: *.conf */
 # define CONFIG_DIRECTORY               SYSCONFDIR "/sailjail/config"
 # define CONFIG_EXTENSION               ".conf"
@@ -90,6 +95,12 @@ G_BEGIN_DECLS
 
 /* Sailjail overrides from: *.desktop */
 # define SAILJAIL_APP_DIRECTORY         SYSCONFDIR "/sailjail/applications"
+
+/* Writable DBus services */
+# define DBUS_DIRECTORY                 "/dbus-1"
+# define DBUS_SERVICES_DIRECTORY        DBUS_DIRECTORY "/services"
+# define DBUS_SERVICES_EXTENSION        ".service"
+# define DBUS_SERVICES_PATTERN          "*" DBUS_SERVICES_EXTENSION
 
 /* Settings from: *.settings */
 # define SETTINGS_DIRECTORY             SHAREDSTATEDIR "/sailjail/settings"
@@ -123,6 +134,7 @@ G_BEGIN_DECLS
 # define SAILJAIL_KEY_DATA_DIRECTORY    "DataDirectory"
 # define SAILJAIL_KEY_PERMISSIONS       "Permissions"
 # define SAILJAIL_KEY_SANDBOXING        "Sandboxing"
+# define SAILJAIL_KEY_EXEC_DBUS         "ExecDBus"
 
 # define NEMO_KEY_APPLICATION_TYPE      "X-Nemo-Application-Type"
 # define NEMO_KEY_SINGLE_INSTANCE       "X-Nemo-Single-Instance"
@@ -130,6 +142,12 @@ G_BEGIN_DECLS
 # define MAEMO_KEY_FIXED_ARGS           "X-Maemo-Fixed-Args"
 
 # define OSSO_KEY_SERVICE               "X-Osso-Service"
+
+/* DBus service file properties */
+# define DBUS_SERVICE_SECTION            "D-BUS Service"
+# define DBUS_KEY_NAME                   "Name"
+# define DBUS_KEY_EXEC                   "Exec"
+# define DBUS_KEY_APPLICATION            "X-Sailjail-Application"
 
 /* ========================================================================= *
  * Types

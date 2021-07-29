@@ -30,6 +30,7 @@ daemon_src = files([
   'sailjaild.c',
   'appinfo.c',
   'applications.c',
+  'appservices.c',
   'config.c',
   'control.c',
   'later.c',
