@@ -182,6 +182,14 @@ static bool empty_p(const char *str)
     return !str || !*str;
 }
 
+static bool path_dirname_eq(const char *path, const char *target)
+{
+    gchar *dir_path = path_dirname(path);
+    bool result = !strcmp(dir_path, target);
+    g_free(dir_path);
+    return result;
+}
+
 /* ========================================================================= *
  * CLIENT
  * ========================================================================= */
@@ -915,12 +923,6 @@ sailjailclient_match_argv(const char **tpl_argv, const char **app_argv)
 {
     bool matching = false;
 
-    /* Rule out template starting with a field code */
-    if( sailjailclient_get_field_code(*tpl_argv) ) {
-        log_err("Exec line starts with field code");
-        goto EXIT;
-    }
-
     /* Match each arg in template */
     for( ;; ) {
         const char *want = *tpl_argv++;
@@ -1048,7 +1050,8 @@ sailjailclient_validate_argv(const char *exec, const gchar **app_argv, bool use_
         goto EXIT;
     }
 
-    if( use_compatibility && strncmp(app_argv[0], BINDIR "/", sizeof BINDIR) ) {
+    if( use_compatibility && !path_dirname_eq(app_argv[0], BINDIR) ) {
+        /* Legacy apps must always be located in BINDIR */
         log_err("Legacy apps must be in: " BINDIR "/");
         goto EXIT;
     }
@@ -1068,30 +1071,30 @@ sailjailclient_validate_argv(const char *exec, const gchar **app_argv, bool use_
      * such as sailjail, invoker, etc -> make an attempt to skip those
      * by looking for argv[0] for command we are about to launch.
      *
-     * While sandboxing aware apps must use absolute path, legacy apps
-     * usually don't and they must reside in BINDIR.
+     * App may also be defined without absolute path, in which case it
+     * must reside in BINDIR and it must not have any 'wrapper'
+     * executables. Thus check the path of app_argv[0] and compare Exec
+     * line to the binary name.
      */
     const char **tpl_argv = (const char **)exec_argv;
-    const char *alternative = app_argv[0] + sizeof (BINDIR "/") - 1;
-    for( ; *tpl_argv; ++tpl_argv ) {
-        if( !g_strcmp0(*tpl_argv, app_argv[0]) )
-            break;
-        if( use_compatibility && !g_strcmp0(*tpl_argv, alternative) )
-            break;
+    if( !path_dirname_eq(app_argv[0], BINDIR) ||
+        g_strcmp0(*tpl_argv, path_basename(app_argv[0])) ) {
+        /* App is not specified without path as the first argument,
+         * => there might be 'wrappers' and we match to full path.
+         */
+        for( ; *tpl_argv; ++tpl_argv ) {
+            if( !g_strcmp0(*tpl_argv, app_argv[0]) )
+                break;
+        }
+
+        if( !*tpl_argv ) {
+            log_err("Exec line does not contain '%s'", *app_argv);
+            goto EXIT;
+        }
     }
 
-    if( !*tpl_argv ) {
-        log_err("Exec line does not contain '%s'", *app_argv);
-        goto EXIT;
-    }
-
-    if( use_compatibility && strncmp(*tpl_argv, BINDIR "/", sizeof BINDIR) ) {
-        char *temp = (char *)*tpl_argv;
-        *tpl_argv = g_strconcat(BINDIR "/", temp, NULL);
-        g_free(temp);
-    }
-
-    if( !sailjailclient_match_argv(tpl_argv, app_argv) ) {
+    /* Argument zero has been checked already */
+    if( !sailjailclient_match_argv(tpl_argv + 1, app_argv + 1) ) {
         gchar *args = g_strjoinv(" ", (gchar **)app_argv);
         log_err("Application args do not match Exec line template");
         log_err("exec: %s", exec);
