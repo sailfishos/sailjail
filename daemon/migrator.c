@@ -76,6 +76,15 @@
  */
 
 /* ========================================================================= *
+ * Constants
+ * ========================================================================= */
+
+#define APPROVAL_SECTION        "Approval"
+#define HOMESCREEN_DATA_PATH    "/var/lib/sailjail-homescreen"
+#define APPROVAL_PATTERN        HOMESCREEN_DATA_PATH "/*" APPLICATIONS_DIRECTORY "/" APPLICATIONS_PATTERN "/*"
+#define MIGRATION_UID_UNDEFINED ((uid_t)(-1))
+
+/* ========================================================================= *
  * Types
  * ========================================================================= */
 
@@ -106,18 +115,20 @@ static const char *migrator_state_repr(migrator_state_t state);
  * MIGRATOR
  * ------------------------------------------------------------------------- */
 
-migrator_t *migrator_create   (settings_t *settings);
-void        migrator_delete   (migrator_t *self);
-void        migrator_delete_at(migrator_t **pself);
-void        migrator_delete_cb(void *self);
+static void  migrator_ctor     (migrator_t *self, settings_t *settings);
+static void  migrator_dtor     (migrator_t *self);
+migrator_t  *migrator_create   (settings_t *settings);
+void         migrator_delete   (migrator_t *self);
+void         migrator_delete_at(migrator_t **pself);
+void         migrator_delete_cb(void *self);
 
 /* ------------------------------------------------------------------------- *
  * MIGRATOR_PROPERTIES
  * ------------------------------------------------------------------------- */
 
-static settings_t      *migrator_settings   (const migrator_t *self);
-static control_t       *migrator_control    (const migrator_t *self);
-static const appinfo_t *migrator_appinfo    (const migrator_t *self, const gchar *appname);
+static settings_t      *migrator_settings(const migrator_t *self);
+static control_t       *migrator_control (const migrator_t *self);
+static const appinfo_t *migrator_appinfo (const migrator_t *self, const gchar *appname);
 
 /* ------------------------------------------------------------------------- *
  * MIGRATOR_STM
@@ -166,11 +177,10 @@ void migrator_on_settings_saved(migrator_t *self);
  * APPROVAL
  * ------------------------------------------------------------------------- */
 
-static void  approval_ctor     (approval_t *self, const migrator_t *migrator, const gchar *approval_file);
-static void  approval_dtor     (approval_t *self);
-approval_t  *approval_create   (const migrator_t *migrator, const gchar *approval_file);
-void         approval_delete   (approval_t *self);
-void         approval_delete_cb(void *self);
+static void        approval_ctor  (approval_t *self, const migrator_t *migrator, const gchar *approval_file);
+static void        approval_dtor  (approval_t *self);
+static approval_t *approval_create(const migrator_t *migrator, const gchar *approval_file);
+static void        approval_delete(approval_t *self);
 
 /* ------------------------------------------------------------------------- *
  * APPROVAL_ATTRIBUTES
@@ -194,15 +204,6 @@ static bool         may_remove_approval_path  (const gchar *path);
 static gchar       *profile_from_approval_path(const gchar *path);
 static uid_t        uid_from_approval_path    (const gchar *path, const control_t *control);
 static const gchar *without_leading_data_path (const gchar *path);
-
-/* ------------------------------------------------------------------------- *
- * APPROVAL_DATA
- * ------------------------------------------------------------------------- */
-
-#define APPROVAL_SECTION "Approval"
-#define HOMESCREEN_DATA_PATH "/var/lib/sailjail-homescreen"
-#define APPROVAL_PATTERN HOMESCREEN_DATA_PATH "/*" APPLICATIONS_DIRECTORY "/" APPLICATIONS_PATTERN "/*"
-#define MIGRATION_UID_UNDEFINED ((uid_t)(-1))
 
 /* ========================================================================= *
  * MIGRATOR_STATE
@@ -642,7 +643,7 @@ approval_dtor(approval_t *self)
     change_string(&self->apr_application, NULL);
 }
 
-approval_t *
+static approval_t *
 approval_create(const migrator_t *migrator, const gchar *approval_file)
 {
     approval_t *self = g_malloc0(sizeof *self);
@@ -650,19 +651,13 @@ approval_create(const migrator_t *migrator, const gchar *approval_file)
     return self;
 }
 
-void
+static void
 approval_delete(approval_t *self)
 {
     if( self ) {
         approval_dtor(self);
         g_free(self);
     }
-}
-
-void
-approval_delete_cb(void *self)
-{
-    approval_delete(self);
 }
 
 /* ------------------------------------------------------------------------- *

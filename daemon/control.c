@@ -104,6 +104,7 @@ void control_on_session_changed   (control_t *self);
 void control_on_permissions_change(control_t *self);
 void control_on_application_change(control_t *self, GHashTable *changed);
 void control_on_settings_change   (control_t *self, const char *app);
+void control_on_appservices_change(control_t *self);
 
 /* ------------------------------------------------------------------------- *
  * CONTROL_RETHINK

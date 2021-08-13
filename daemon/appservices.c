@@ -86,7 +86,6 @@ static char *appservices_service_filename     (appservices_t *self, const char *
 static void  appservices_write_service_file   (appservices_t *self, const char *appname, appinfo_t *appinfo);
 static void  appservices_remove_service_file  (appservices_t *self, const char *appname);
 
-
 /* ------------------------------------------------------------------------- *
  * SERVICEINFO
  * ------------------------------------------------------------------------- */
@@ -309,9 +308,9 @@ appservices_update_user(appservices_t *self)
         /* Verify the dbus services directory exists under run and create it if necessary
            Note the default directory ownership is incorrect in this instance and needs to
            be corrected for each subdirectory created */
-        if( self->asv_run_dir && (
-                    !appservices_ensure_run_directory(self, DBUS_DIRECTORY) ||
-                    !appservices_ensure_run_directory(self, DBUS_SERVICES_DIRECTORY))) {
+        if( self->asv_run_dir &&
+            (!appservices_ensure_run_directory(self, DBUS_DIRECTORY) ||
+             !appservices_ensure_run_directory(self, DBUS_SERVICES_DIRECTORY)) ) {
             g_free(self->asv_run_dir);
             self->asv_run_dir = NULL;
         }
@@ -376,7 +375,7 @@ appservices_write_service_file(appservices_t *self, const char *appname, appinfo
         changed = true;
     }
     /* If the existing name and executable are unchanged do nothing */
-    else if( current_service && !strcmp(exec, current_service->exec)) {
+    else if( current_service && !strcmp(exec, current_service->exec) ) {
         g_free(service_name);
 
         return;
