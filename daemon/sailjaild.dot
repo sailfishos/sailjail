@@ -28,11 +28,13 @@ digraph foo {
   USERS;
   APPLICATIONS;
   APPINFO;
+  APPSERVICES;
   PERMISSIONS;
   SESSION;
   WINDOW_PROMPT         [label=" Permission\l Dialog in\l SessionBus\l"]
   ANY                   [label=" (any)\l"]
   DBUS_CLIENT           [label=" D-Bus\l client in\l SystemBus\l"]
+  SESSION_BUS           [label=" SessionBus\l daemon\l"]
 
   /* - - - - - - - - - - - - - - - - - - - *
    * DATASTORES
@@ -52,6 +54,7 @@ digraph foo {
   REMOVAL_QUEUE         [label=" removal\l queue\l"]
   APPROVAL_FILES        [label=" /var/lib/sailjail-homescreen/**/\l APPLICATION.desktop/X-Sailjail\l"]
   SESSION_STATE         [label=" /run/systemd/\l sessions\l"];
+  ACTIVATION_FILES      [label=" /run/user/UID/dbus-1/services/\l DBUSNAME.service\l"]
 
   /* - - - - - - - - - - - - - - - - - - - *
    * DATAFLOWS (SYNC)
@@ -112,6 +115,7 @@ digraph foo {
   APPLICATIONS -> APPINFO         [label=" update\l"];
   APPINFO -> DESKTOP_FILES        [label=" read\l"];
   APPLICATIONS -> DESKTOP_FILES   [label=" scan\l"];
+  APPSERVICES -> ACTIVATION_FILES [label=" read\l write\l remove\l"];
 
   /* - - - - - - - - - - - - - - - - - - - *
    * DATAFLOWS (ASYNC)
@@ -146,4 +150,10 @@ digraph foo {
   SESSION_STATE -> SESSION        [label=" inotify\l"]
 
   SETTINGS -> CONTROL             [label=" changed\l"];
+
+  CONTROL -> APPSERVICES          [label=" applications\l changed\l"];
+  APPSERVICES -> CONTROL          [label=" activation\l changed\l"];
+
+  CONTROL -> PROMPTER             [label=" activation\l changed\l"];
+  PROMPTER -> SESSION_BUS         [label=" ReloadConfig\l"];
 }

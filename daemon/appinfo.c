@@ -122,11 +122,11 @@ gchar       *appinfo_to_string (const appinfo_t *self);
  * APPINFO_ATTRIBUTE
  * ------------------------------------------------------------------------- */
 
-bool            appinfo_valid       (const appinfo_t *self);
-control_t      *appinfo_control     (const appinfo_t *self);
-const config_t *appinfo_config      (const appinfo_t *self);
-applications_t *appinfo_applications(const appinfo_t *self);
-const gchar    *appinfo_id          (const appinfo_t *self);
+bool            appinfo_valid          (const appinfo_t *self);
+control_t      *appinfo_control        (const appinfo_t *self);
+const config_t *appinfo_config         (const appinfo_t *self);
+applications_t *appinfo_applications   (const appinfo_t *self);
+const gchar    *appinfo_id             (const appinfo_t *self);
 bool            appinfo_dbus_auto_start(const appinfo_t *self);
 
 /* ------------------------------------------------------------------------- *
@@ -179,10 +179,10 @@ void         appinfo_clear_permissions   (appinfo_t *self);
  * APPINFO_PARSE
  * ------------------------------------------------------------------------- */
 
-static appinfo_file_t appinfo_combined_file_state    (appinfo_file_t state1, appinfo_file_t state2);
-static appinfo_file_t appinfo_check_desktop_from_path(appinfo_t *self, const gchar *path, appinfo_dir_t dir);
-bool                  appinfo_parse_desktop          (appinfo_t *self);
-static gchar         *appinfo_read_exec_dbus         (appinfo_t *self, GKeyFile *ini, const gchar *group);
+static appinfo_file_t  appinfo_combined_file_state    (appinfo_file_t state1, appinfo_file_t state2);
+static appinfo_file_t  appinfo_check_desktop_from_path(appinfo_t *self, const gchar *path, appinfo_dir_t dir);
+bool                   appinfo_parse_desktop          (appinfo_t *self);
+static gchar          *appinfo_read_exec_dbus         (appinfo_t *self, GKeyFile *ini, const gchar *group);
 
 /* ========================================================================= *
  * APPINFO
@@ -458,7 +458,6 @@ appinfo_id(const appinfo_t *self)
 {
     return self->anf_appname;
 }
-
 
 bool
 appinfo_dbus_auto_start(const appinfo_t *self)
@@ -984,14 +983,14 @@ EXIT:
     return appinfo_clear_dirty(self);
 }
 
-gchar *
+static gchar *
 appinfo_read_exec_dbus(appinfo_t *self, GKeyFile *ini, const gchar *group)
 {
     gchar *exec = keyfile_get_string(ini, group, SAILJAIL_KEY_EXEC_DBUS, 0);
     if( exec ) {
         /* As in libcontentaction, add invoker to the command line if it doesn't exist already. */
         if( g_strstr_len(exec, -1, "invoker") != exec &&
-                g_strstr_len(exec, -1, "/usr/bin/invoker") != exec) {
+            g_strstr_len(exec, -1, "/usr/bin/invoker") != exec ) {
             gchar *booster = keyfile_get_string(ini, DESKTOP_SECTION,
                     NEMO_KEY_APPLICATION_TYPE, NULL);
             if( booster == NULL || g_strcmp0(booster, "no-invoker") == 0 ) {

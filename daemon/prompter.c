@@ -141,7 +141,7 @@ static void                   prompter_prompt_invocation_cb (GObject *obj, GAsyn
 static GVariant              *prompter_invocation_args      (const prompter_t *self, appinfo_t *appinfo);
 static bool                   prompter_prompt_invocation    (prompter_t *self);
 void                          prompter_handle_invocation    (prompter_t *self, GDBusMethodInvocation *invocation);
-void                          prompter_dbus_reload_config(prompter_t *self);
+void                          prompter_dbus_reload_config   (prompter_t *self);
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_RETURN
@@ -165,11 +165,11 @@ static GList                 *prompter_drop       (prompter_t *self, GList *iter
  * PROMPTER_CONNECTION
  * ------------------------------------------------------------------------- */
 
-static GDBusConnection *prompter_connection          (const prompter_t *self);
-static bool             prompter_is_connected        (const prompter_t *self);
-static bool             prompter_connect             (prompter_t *self);
-static void             prompter_disconnect          (prompter_t *self);
-static void             prompter_disconnect_flush_cb (GObject *obj, GAsyncResult *res, gpointer aptr);
+static GDBusConnection *prompter_connection         (const prompter_t *self);
+static bool             prompter_is_connected       (const prompter_t *self);
+static bool             prompter_connect            (prompter_t *self);
+static void             prompter_disconnect         (prompter_t *self);
+static void             prompter_disconnect_flush_cb(GObject *obj, GAsyncResult *res, gpointer aptr);
 
 /* ========================================================================= *
  * UTILITY

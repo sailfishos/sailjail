@@ -80,11 +80,11 @@ gchar     *appinfo_to_string (const appinfo_t *self);
  * APPINFO_ATTRIBUTE
  * ------------------------------------------------------------------------- */
 
-bool            appinfo_valid       (const appinfo_t *self);
-control_t      *appinfo_control     (const appinfo_t *self);
-const config_t *appinfo_config      (const appinfo_t *self);
-applications_t *appinfo_applications(const appinfo_t *self);
-const gchar    *appinfo_id          (const appinfo_t *self);
+bool            appinfo_valid          (const appinfo_t *self);
+control_t      *appinfo_control        (const appinfo_t *self);
+const config_t *appinfo_config         (const appinfo_t *self);
+applications_t *appinfo_applications   (const appinfo_t *self);
+const gchar    *appinfo_id             (const appinfo_t *self);
 bool            appinfo_dbus_auto_start(const appinfo_t *self);
 
 /* ------------------------------------------------------------------------- *
