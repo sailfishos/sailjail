@@ -51,10 +51,13 @@ G_BEGIN_DECLS;
 #define DBUS_INTERFACE                         "org.freedesktop.DBus"
 #define DBUS_METHOD_RELOAD_CONFIG              "ReloadConfig"
 
-# define WINDOWPROMT_SERVICE                   "com.jolla.windowprompt"
-# define WINDOWPROMT_OBJECT                    "/com/jolla/windowprompt"
-# define WINDOWPROMT_INTERFACE                 "com.jolla.windowprompt"
-# define WINDOWPROMT_METHOD_PROMPT             "showPermissionPrompt"
+# define WINDOWPROMPT_SERVICE                  "com.jolla.windowprompt"
+# define WINDOWPROMPT_OBJECT                   "/com/jolla/windowprompt"
+# define WINDOWPROMPT_INTERFACE                "com.jolla.windowprompt"
+# define WINDOWPROMPT_METHOD_PROMPT            "newPermissionPrompt"
+# define WINDOWPROMPT_PROMPT_INTERFACE         "com.jolla.windowprompt.Prompt"
+# define WINDOWPROMPT_PROMPT_METHOD_WAIT       "wait"
+# define WINDOWPROMPT_PROMPT_METHOD_CANCEL     "cancel"
 
 # define PERMISSIONMGR_BUS                     G_BUS_TYPE_SYSTEM
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Open Mobile Platform LLC.
+ * Copyright (c) 2021 Jolla Ltd.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
