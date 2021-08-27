@@ -8,6 +8,3 @@ RequiresMountsFor=/home
 Type=notify
 ExecStart=/usr/bin/sailjaild --systemd
 Restart=always
-
-[Install]
-WantedBy=multi-user.target
