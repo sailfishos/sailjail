@@ -72,7 +72,7 @@ typedef enum prompter_state_t {
  * CHANGE
  * ------------------------------------------------------------------------- */
 
-static bool change_cancellable(GCancellable **pmember, GCancellable *value);
+static bool change_cancellable_steal(GCancellable **pmember, GCancellable *value);
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_STATE
@@ -179,7 +179,7 @@ static void             prompter_disconnect_flush_cb(GObject *obj, GAsyncResult 
  * ========================================================================= */
 
 static bool
-change_cancellable(GCancellable **pmember, GCancellable *value)
+change_cancellable_steal(GCancellable **pmember, GCancellable *value)
 {
     bool changed = false;
     if( *pmember != value ) {
@@ -189,7 +189,7 @@ change_cancellable(GCancellable **pmember, GCancellable *value)
             *pmember = NULL;
         }
         if( value )
-            *pmember = g_object_ref(value);
+            *pmember = value;
         changed = true;
     }
     return changed;
@@ -811,7 +811,6 @@ prompter_next_invocation(prompter_t *self)
 static void
 prompter_prompt_invocation_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
 {
-    GCancellable    *cancellable = g_cancellable_new();
     GDBusConnection *con  = G_DBUS_CONNECTION(obj);
     prompter_t      *self = aptr;
     GError          *err  = NULL;
@@ -833,7 +832,7 @@ prompter_prompt_invocation_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
         gchar *object_path = NULL;
         g_variant_get(rsp, "(o)", &object_path);
         change_string(&self->prm_prompt, object_path);
-        change_cancellable(&self->prm_cancellable, cancellable);
+        change_cancellable_steal(&self->prm_cancellable, g_cancellable_new());
         g_dbus_connection_call(prompter_connection(self),
                                WINDOWPROMPT_SERVICE,
                                self->prm_prompt,
@@ -843,7 +842,7 @@ prompter_prompt_invocation_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
                                NULL,
                                G_DBUS_CALL_FLAGS_NONE,
                                G_MAXINT,
-                               cancellable,
+                               self->prm_cancellable,
                                prompter_prompt_wait_cb,
                                self);
         g_free(object_path);
@@ -852,7 +851,6 @@ prompter_prompt_invocation_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
     if( rsp )
         g_variant_unref(rsp);
     g_clear_error(&err);
-    g_object_unref(cancellable);
 }
 
 static void
@@ -927,7 +925,6 @@ prompter_prompt_invocation(prompter_t *self)
     bool                ack     = false;
     appinfo_t          *appinfo = NULL;
     const gchar        *app     = NULL;
-    GCancellable       *cancellable = g_cancellable_new();
     GVariant           *invocation_args = NULL;
 
     GVariant *parameters =
@@ -951,7 +948,7 @@ prompter_prompt_invocation(prompter_t *self)
         goto EXIT;
     }
 
-    change_cancellable(&self->prm_cancellable, cancellable);
+    change_cancellable_steal(&self->prm_cancellable, g_cancellable_new());
 
     g_dbus_connection_call(prompter_connection(self),
                            WINDOWPROMPT_SERVICE,
@@ -962,14 +959,13 @@ prompter_prompt_invocation(prompter_t *self)
                            NULL,
                            G_DBUS_CALL_FLAGS_NONE,
                            G_MAXINT,
-                           cancellable,
+                           self->prm_cancellable,
                            prompter_prompt_invocation_cb,
                            self);
 
     ack = true;
 
 EXIT:
-    g_object_unref(cancellable);
     return ack;
 }
 
@@ -983,7 +979,7 @@ prompter_handle_invocation(prompter_t *self, GDBusMethodInvocation *invocation)
 void
 prompter_cancel_invocation(prompter_t *self)
 {
-    change_cancellable(&self->prm_cancellable, NULL);
+    change_cancellable_steal(&self->prm_cancellable, NULL);
     self->prm_invocation = NULL;
 
     if( self->prm_prompt ) {
