@@ -74,7 +74,8 @@ typedef struct client_t client_t;
  * UTILITY
  * ------------------------------------------------------------------------- */
 
-static bool empty_p(const char *str);
+static bool empty_p        (const char *str);
+static bool path_dirname_eq(const char *path, const char *target);
 
 /* ------------------------------------------------------------------------- *
  * CLIENT
