@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Open Mobile Platform LLC.
+ * Copyright (c) 2021 Jolla Ltd.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -71,7 +72,7 @@ typedef enum prompter_state_t {
  * CHANGE
  * ------------------------------------------------------------------------- */
 
-static bool change_cancellable(GCancellable **pmember, GCancellable *value);
+static bool change_cancellable_steal(GCancellable **pmember, GCancellable *value);
 
 /* ------------------------------------------------------------------------- *
  * PROMPTER_STATE
@@ -138,9 +139,11 @@ static void                   prompter_fail_invocation      (prompter_t *self);
 static void                   prompter_reply_invocation     (prompter_t *self);
 static GDBusMethodInvocation *prompter_next_invocation      (prompter_t *self);
 static void                   prompter_prompt_invocation_cb (GObject *obj, GAsyncResult *res, gpointer aptr);
+static void                   prompter_prompt_wait_cb       (GObject *obj, GAsyncResult *res, gpointer aptr);
 static GVariant              *prompter_invocation_args      (const prompter_t *self, appinfo_t *appinfo);
 static bool                   prompter_prompt_invocation    (prompter_t *self);
 void                          prompter_handle_invocation    (prompter_t *self, GDBusMethodInvocation *invocation);
+void                          prompter_cancel_invocation    (prompter_t *self);
 void                          prompter_dbus_reload_config   (prompter_t *self);
 
 /* ------------------------------------------------------------------------- *
@@ -176,7 +179,7 @@ static void             prompter_disconnect_flush_cb(GObject *obj, GAsyncResult 
  * ========================================================================= */
 
 static bool
-change_cancellable(GCancellable **pmember, GCancellable *value)
+change_cancellable_steal(GCancellable **pmember, GCancellable *value)
 {
     bool changed = false;
     if( *pmember != value ) {
@@ -186,7 +189,7 @@ change_cancellable(GCancellable **pmember, GCancellable *value)
             *pmember = NULL;
         }
         if( value )
-            *pmember = g_object_ref(value);
+            *pmember = value;
         changed = true;
     }
     return changed;
@@ -227,6 +230,7 @@ struct prompter_t
     GDBusConnection       *prm_connection;
     GDBusMethodInvocation *prm_invocation;
     GCancellable          *prm_cancellable;
+    gchar                 *prm_prompt;
 };
 
 static void
@@ -242,6 +246,7 @@ prompter_ctor(prompter_t *self, service_t *service)
     self->prm_connection  = NULL;
     self->prm_invocation  = NULL;
     self->prm_cancellable = NULL;
+    self->prm_prompt      = NULL;
     prompter_set_state(self, PROMPTER_STATE_IDLE);
 }
 
@@ -297,8 +302,7 @@ prompter_applications_changed(prompter_t *self, const stringset_t *changed)
     /* First check the current invocation */
     if( prompter_try_finish_invocation(self, prompter_current_invocation(self),
                                        changed) ) {
-        change_cancellable(&self->prm_cancellable, NULL);
-        self->prm_invocation = NULL;
+        prompter_cancel_invocation(self);
         prompter_eval_state_later(self);
     }
 
@@ -631,8 +635,7 @@ prompter_finish_invocation(prompter_t *self)
 {
     GDBusMethodInvocation *invocation = self->prm_invocation;
     if( invocation ) {
-        change_cancellable(&self->prm_cancellable, NULL);
-        self->prm_invocation = NULL;
+        prompter_cancel_invocation(self);
 
         if( !prompter_check_invocation(self, invocation) ) {
             /* If we get here, the prompt was canceled */
@@ -821,10 +824,57 @@ prompter_prompt_invocation_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
             log_err("null reply");
         prompter_fail_invocation(self);
     }
-    else {
-        prompter_reply_invocation(self);
+    else if( !g_variant_check_format_string(rsp, "(o)", true) ) {
+        log_err("Invalid signature in reply: %s",
+                g_variant_get_type_string(rsp));
+        prompter_fail_invocation(self);
+    } else {
+        gchar *object_path = NULL;
+        g_variant_get(rsp, "(o)", &object_path);
+        change_string(&self->prm_prompt, object_path);
+        change_cancellable_steal(&self->prm_cancellable, g_cancellable_new());
+        g_dbus_connection_call(prompter_connection(self),
+                               WINDOWPROMPT_SERVICE,
+                               self->prm_prompt,
+                               WINDOWPROMPT_PROMPT_INTERFACE,
+                               WINDOWPROMPT_PROMPT_METHOD_WAIT,
+                               NULL,
+                               NULL,
+                               G_DBUS_CALL_FLAGS_NONE,
+                               G_MAXINT,
+                               self->prm_cancellable,
+                               prompter_prompt_wait_cb,
+                               self);
+        g_free(object_path);
     }
 
+    if( rsp )
+        g_variant_unref(rsp);
+    g_clear_error(&err);
+}
+
+static void
+prompter_prompt_wait_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
+{
+    GDBusConnection *con  = G_DBUS_CONNECTION(obj);
+    prompter_t      *self = aptr;
+    GError          *err  = NULL;
+    GVariant        *rsp  = NULL;
+
+    if( !(rsp = g_dbus_connection_call_finish(con, res, &err)) ) {
+        if( err )
+            log_err("error reply: domain=%u code=%d message='%s'",
+                    (unsigned)err->domain, err->code, err->message);
+        else
+            log_err("null reply");
+        prompter_fail_invocation(self);
+    }
+    else {
+        prompter_reply_invocation(self);
+        g_variant_unref(rsp);
+    }
+
+    change_string(&self->prm_prompt, NULL);
     g_clear_error(&err);
 }
 
@@ -875,7 +925,6 @@ prompter_prompt_invocation(prompter_t *self)
     bool                ack     = false;
     appinfo_t          *appinfo = NULL;
     const gchar        *app     = NULL;
-    GCancellable       *cancellable = g_cancellable_new();
     GVariant           *invocation_args = NULL;
 
     GVariant *parameters =
@@ -899,25 +948,24 @@ prompter_prompt_invocation(prompter_t *self)
         goto EXIT;
     }
 
-    change_cancellable(&self->prm_cancellable, cancellable);
+    change_cancellable_steal(&self->prm_cancellable, g_cancellable_new());
 
     g_dbus_connection_call(prompter_connection(self),
-                           WINDOWPROMT_SERVICE,
-                           WINDOWPROMT_OBJECT,
-                           WINDOWPROMT_INTERFACE,
-                           WINDOWPROMT_METHOD_PROMPT,
+                           WINDOWPROMPT_SERVICE,
+                           WINDOWPROMPT_OBJECT,
+                           WINDOWPROMPT_INTERFACE,
+                           WINDOWPROMPT_METHOD_PROMPT,
                            invocation_args,
                            NULL,
                            G_DBUS_CALL_FLAGS_NONE,
                            G_MAXINT,
-                           cancellable,
+                           self->prm_cancellable,
                            prompter_prompt_invocation_cb,
                            self);
 
     ack = true;
 
 EXIT:
-    g_object_unref(cancellable);
     return ack;
 }
 
@@ -926,6 +974,29 @@ prompter_handle_invocation(prompter_t *self, GDBusMethodInvocation *invocation)
 {
     prompter_enqueue(self, invocation);
     prompter_eval_state_later(self);
+}
+
+void
+prompter_cancel_invocation(prompter_t *self)
+{
+    change_cancellable_steal(&self->prm_cancellable, NULL);
+    self->prm_invocation = NULL;
+
+    if( self->prm_prompt ) {
+        g_dbus_connection_call(prompter_connection(self),
+                               WINDOWPROMPT_SERVICE,
+                               self->prm_prompt,
+                               WINDOWPROMPT_PROMPT_INTERFACE,
+                               WINDOWPROMPT_PROMPT_METHOD_CANCEL,
+                               NULL,
+                               NULL,
+                               G_DBUS_CALL_FLAGS_NONE,
+                               -1,
+                               NULL,
+                               NULL,
+                               self);
+        change_string(&self->prm_prompt, NULL);
+    }
 }
 
 void
