@@ -143,7 +143,7 @@ static void                   prompter_prompt_wait_cb       (GObject *obj, GAsyn
 static GVariant              *prompter_invocation_args      (const prompter_t *self, appinfo_t *appinfo);
 static bool                   prompter_prompt_invocation    (prompter_t *self);
 void                          prompter_handle_invocation    (prompter_t *self, GDBusMethodInvocation *invocation);
-void                          prompter_cancel_invocation    (prompter_t *self);
+static void                   prompter_cancel_invocation    (prompter_t *self);
 void                          prompter_dbus_reload_config   (prompter_t *self);
 
 /* ------------------------------------------------------------------------- *
@@ -976,7 +976,7 @@ prompter_handle_invocation(prompter_t *self, GDBusMethodInvocation *invocation)
     prompter_eval_state_later(self);
 }
 
-void
+static void
 prompter_cancel_invocation(prompter_t *self)
 {
     change_cancellable_steal(&self->prm_cancellable, NULL);
