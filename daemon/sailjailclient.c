@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Open Mobile Platform LLC.
+ * Copyright (c) 2021 Jolla Ltd.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -74,7 +75,8 @@ typedef struct client_t client_t;
  * UTILITY
  * ------------------------------------------------------------------------- */
 
-static bool empty_p(const char *str);
+static bool empty_p        (const char *str);
+static bool path_dirname_eq(const char *path, const char *target);
 
 /* ------------------------------------------------------------------------- *
  * CLIENT
@@ -116,6 +118,10 @@ static const gchar  *client_get_desktop1_path  (const client_t *self);
 static void          client_set_desktop1_path  (client_t *self, const char *path);
 static const gchar  *client_get_desktop2_path  (const client_t *self);
 static void          client_set_desktop2_path  (client_t *self, const char *path);
+static bool          client_get_debug_mode     (const client_t *self);
+static void          client_set_debug_mode     (client_t *self, bool debug_mode);
+static bool          client_get_dry_run        (const client_t *self);
+static void          client_set_dry_run        (client_t *self, bool dry_run);
 static const gchar  *client_get_trace_dir      (const client_t *self);
 static void          client_set_trace_dir      (client_t *self, const char *path);
 static void          client_set_appinfo_variant(client_t *self, const char *key, GVariant *val);
@@ -201,6 +207,8 @@ struct client_t
     gchar           *cli_desktop1_path;
     gchar           *cli_desktop2_path;
     gchar           *cli_trace_dir;
+    bool             cli_debug_mode;
+    bool             cli_dry_run;
     GDBusConnection *cli_system_bus;
     GDBusConnection *cli_session_bus;
     gchar          **cli_granted;
@@ -221,6 +229,8 @@ client_ctor(client_t *self)
     self->cli_desktop1_path = NULL;
     self->cli_desktop2_path = NULL;
     self->cli_trace_dir     = NULL;
+    self->cli_debug_mode    = false;
+    self->cli_dry_run       = false;
     self->cli_system_bus    = NULL;
     self->cli_session_bus   = NULL;
     self->cli_granted       = NULL;
@@ -434,6 +444,30 @@ static void
 client_set_desktop2_path(client_t *self, const char *path)
 {
     change_string(&self->cli_desktop2_path, path);
+}
+
+static bool
+client_get_debug_mode(const client_t *self)
+{
+    return self->cli_debug_mode;
+}
+
+static void
+client_set_debug_mode(client_t *self, bool debug_mode)
+{
+    self->cli_debug_mode = debug_mode;
+}
+
+static bool
+client_get_dry_run(const client_t *self)
+{
+    return self->cli_dry_run;
+}
+
+static void
+client_set_dry_run(client_t *self, bool dry_run)
+{
+    self->cli_dry_run = dry_run;
 }
 
 static const gchar *
@@ -653,6 +687,7 @@ EXIT:
 static int
 client_launch_application(client_t *self)
 {
+    int               exit_code     = EXIT_FAILURE;
     int               argc          = 0;
     const gchar     **argv          = client_get_argv(self, &argc);
     const gchar      *desktop1_path = client_get_desktop1_path(self);
@@ -761,7 +796,10 @@ client_launch_application(client_t *self)
 
     /* Construct firejail command to execute */
     client_add_firejail_option(self, "/usr/bin/firejail");
-    client_add_firejail_option(self, "--quiet");
+    if( client_get_debug_mode(self) )
+        client_add_firejail_option(self, "--debug");
+    else
+        client_add_firejail_option(self, "--quiet");
 
     if( org_name )
         client_add_firejail_option(self, "--template=OrganizationName:%s", org_name);
@@ -848,6 +886,15 @@ client_launch_application(client_t *self)
         goto EXIT;
     }
 
+    /* Handle --dry-run */
+    if( client_get_dry_run(self) ) {
+        for( size_t i = 0; args[i]; ++i )
+            printf("%s%s", i ? " " : "", args[i]);
+        printf("\n");
+        exit_code = EXIT_SUCCESS;
+        goto EXIT;
+    }
+
     /* Execute the application */
     fflush(NULL);
     errno = 0;
@@ -863,7 +910,7 @@ EXIT:
     g_free(binary_path);
     g_free(booster_path);
 
-    return EXIT_FAILURE;
+    return exit_code;
 }
 
 /* ------------------------------------------------------------------------- *
@@ -1169,6 +1216,10 @@ static const char sailjailclient_usage_template[] = ""
 "        ignored. And \".desktop\" extension can be omitted.\n"
 "  -t, --trace=DIR\n"
 "        Enable libtrace and dbus proxy logging\n"
+"  -d, --debug-mode\n"
+"        Execute firejail in debug verbosity\n"
+"  -D, --dry-run\n"
+"        Print out firejail command line instead of executing it\n"
 "\n"
 "BACKWARDS COMPATIBILITY\n"
 "  -s, --section=NAME\n"
@@ -1186,6 +1237,7 @@ static const char sailjailclient_usage_template[] = ""
 "\n"
 "COPYRIGHT\n"
 "  Copyright (c) 2021 Open Mobile Platform LLC.\n"
+"  Copyright (c) 2021 Jolla Ltd.\n"
 "\n"
 "SEE ALSO\n"
 "  sailjaild\n"
@@ -1201,6 +1253,8 @@ static const struct option long_options[] = {
     {"output",       required_argument, NULL, 'o'},
     {"profile",      required_argument, NULL, 'p'},
     {"trace",        required_argument, NULL, 't'},
+    {"debug-mode",   no_argument,       NULL, 'd'},
+    {"dry-run",      no_argument,       NULL, 'D'},
     // bw compat
     {"section",      required_argument, NULL, 's'},
     {"app",          required_argument, NULL, 'a'},
@@ -1220,6 +1274,8 @@ static const char short_options[] =\
 "o:" // --output
 "t:" // --trace
 "m:" // --match-exec
+"d"  // --debug-mode
+"D"  // --dry-run
 ;
 
 static void
@@ -1302,6 +1358,12 @@ sailjailclient_main(int argc, char **argv)
             break;
         case 't':
             client_set_trace_dir(client, optarg);
+            break;
+        case 'd':
+            client_set_debug_mode(client, true);
+            break;
+        case 'D':
+            client_set_dry_run(client, true);
             break;
         case 's':
         case 'a':
