@@ -184,6 +184,11 @@ static appinfo_file_t  appinfo_check_desktop_from_path(appinfo_t *self, const gc
 bool                   appinfo_parse_desktop          (appinfo_t *self);
 static gchar          *appinfo_read_exec_dbus         (appinfo_t *self, GKeyFile *ini, const gchar *group);
 
+/* ------------------------------------------------------------------------- *
+ * UTILS
+ * ------------------------------------------------------------------------- */
+static bool needs_exclusion_from_sandboxing(const gchar *exec);
+
 /* ========================================================================= *
  * APPINFO
  * ========================================================================= */
@@ -955,7 +960,8 @@ appinfo_parse_desktop(appinfo_t *self)
         if( !g_strcmp0(sandboxing, "Disabled") ||
             !config_boolean(config,
                             APPINFO_DEFAULT_PROFILE_SECTION,
-                            APPINFO_KEY_ENABLED, false) )
+                            APPINFO_KEY_ENABLED, false) ||
+            needs_exclusion_from_sandboxing(appinfo_get_exec(self)) )
             appinfo_set_mode(self, APP_MODE_NONE);
         else
             appinfo_set_mode(self, APP_MODE_COMPATIBILITY);
@@ -1017,4 +1023,17 @@ appinfo_read_exec_dbus(appinfo_t *self, GKeyFile *ini, const gchar *group)
         }
     }
     return exec;
+}
+
+/* ------------------------------------------------------------------------- *
+ * UTILS
+ * ------------------------------------------------------------------------- */
+static bool
+needs_exclusion_from_sandboxing(const gchar *exec)
+{
+    /* Apps and handlers launched via apkd-launcher must not be sandboxed */
+    if (g_str_has_prefix(exec, "apkd-launcher "))
+        return true;
+    /* Something else */
+    return false;
 }
