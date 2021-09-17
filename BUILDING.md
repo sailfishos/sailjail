@@ -31,13 +31,16 @@ coverage reports support:
 It will print you URI to the generated report, assuming that you have
 the commands to build the reports in your system.
 
-Sailjail daemon diagram
------------------------
+Sailjail daemon diagrams
+------------------------
 There is an architecture diagram generated with graphviz and a png
 version of it can be generated with `sailjaild.png` target. You can find
 it in _build/daemon/_ after building it:
 
     meson compile sailjaild.png -C build
+
+Similarly a dataflow diagram can be built with `dataflow.png` target
+and prompter state diagram with `prompter.png` target.
 
 Cheatsheet for make users
 -------------------------
