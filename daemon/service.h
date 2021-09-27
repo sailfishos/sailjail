@@ -74,6 +74,7 @@ G_BEGIN_DECLS;
 # define PERMISSIONMGR_METHOD_SET_LAUNCHABLE   "SetLaunchAllowed"
 # define PERMISSIONMGR_METHOD_GET_GRANTED      "GetGrantedPermissions"
 # define PERMISSIONMGR_METHOD_SET_GRANTED      "SetGrantedPermissions"
+# define PERMISSIONMGR_METHOD_SET_X_GRANTED    "SetGrantedXPermissions"
 # define PERMISSIONMGR_SIGNAL_APP_ADDED        "ApplicationAdded"
 # define PERMISSIONMGR_SIGNAL_APP_CHANGED      "ApplicationChanged"
 # define PERMISSIONMGR_SIGNAL_APP_REMOVED      "ApplicationRemoved"

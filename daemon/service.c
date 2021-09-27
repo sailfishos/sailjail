@@ -580,6 +580,12 @@ static const gchar introspect_xml[] =\
 "      <arg type='as' name='permissions' direction='in'/>"
 "    </method>"
 
+"    <method name='" PERMISSIONMGR_METHOD_SET_X_GRANTED "'>"
+"      <arg type='u' name='uid' direction='in'/>"
+"      <arg type='s' name='application' direction='in'/>"
+"      <arg type='as' name='permissions' direction='in'/>"
+"    </method>"
+
 "    <method name='" PERMISSIONMGR_METHOD_PROMPT "'>"
 "      <arg type='s' name='application' direction='in'/>"
 "      <arg type='as' name='granted' direction='out'/>"
@@ -859,6 +865,57 @@ service_dbus_call_cb(GDBusConnection       *connection,
             else {
                 stringset_t *granted = stringset_from_strv(vector);
                 appsettings_set_granted(appsettings, granted);
+                stringset_delete(granted);
+                value_reply(NULL);
+            }
+            g_strfreev(vector);
+        }
+    }
+    else if( !g_strcmp0(method_name, PERMISSIONMGR_METHOD_SET_X_GRANTED) ) {
+        if( !service_may_administrate(sender) ) {
+            error_reply(G_DBUS_ERROR_ACCESS_DENIED, SERVICE_MESSAGE_RESTRICTED_METHOD, sender,
+                        method_name);
+        } else {
+            const char *path = "/etc/sailjail/config/user-grantlist.conf";
+            guint32      uid    = SESSION_UID_UNDEFINED;
+            const gchar *app    = NULL;
+            gchar **vector      = NULL;
+            g_variant_get(parameters, "(u&s^as)", &uid, &app, &vector);
+            appsettings_t *appsettings = NULL;
+            if( control_user_is_guest(service_control(self), uid) &&
+                control_current_user(service_control(self)) != uid ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_GUEST_NOT_LOGGED_IN);
+            }
+            else if( !control_valid_user(service_control(self), uid) ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_USER, uid);
+            }
+            else if( !(appsettings = control_appsettings(service_control(self), uid, app)) ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_APPLICATION, app);
+            }
+            else if( !vector ) {
+                error_reply(G_DBUS_ERROR_INVALID_ARGS, SERVICE_MESSAGE_INVALID_PERMISSIONS);
+            }
+            else {
+                stringset_t *granted = stringset_from_strv(vector);
+                appsettings_set_granted(appsettings, granted);
+                GError *err = NULL;
+                GKeyFile *file = g_key_file_new();
+                bool ret = g_key_file_load_from_file(file, path, G_KEY_FILE_NONE, &err);
+                if ( ret && !g_key_file_has_key(file, "Grantlist", app, &err) ) {
+                    gchar **vec = stringset_to_strv(granted);
+                    gsize len = 0;
+                    if ( vec )
+                        while ( vec[len] )
+                            ++len;
+                    if ( len > 0 )
+                        g_key_file_set_string_list(file, "Grantlist", app, (const gchar * const *)vec, len);
+                    else
+                        g_key_file_set_string(file, "Grantlist", app, "");
+                    g_strfreev(vec);
+                }
+                g_key_file_save_to_file(file, path, &err);
+                g_key_file_unref(file);
+                g_clear_error(&err);
                 stringset_delete(granted);
                 value_reply(NULL);
             }

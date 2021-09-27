@@ -83,6 +83,9 @@ ln -s ../sailjaild.service %{buildroot}%{_unitdir}/multi-user.target.wants/
 install -d %{buildroot}%{_sysconfdir}/sailjail/config
 install -d %{buildroot}%{_sysconfdir}/sailjail/applications
 
+install -D -m755 daemon/conf/user-grantlist.conf \
+        %{buildroot}%{_sysconfdir}/sailjail/config
+
 %files
 %defattr(-,root,root,-)
 %license COPYING
@@ -102,6 +105,7 @@ install -d %{buildroot}%{_sysconfdir}/sailjail/applications
 %dir %{_sysconfdir}/sailjail
 %dir %{_sysconfdir}/sailjail/config
 %dir %{_sysconfdir}/sailjail/applications
+%{_sysconfdir}/sailjail/config/user-grantlist.conf
 
 %files daemon-tests
 %defattr(-,root,root,-)
