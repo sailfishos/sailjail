@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Open Mobile Platform LLC.
+ * Copyright (c) 2021 Jolla Ltd.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -50,6 +51,7 @@ G_BEGIN_DECLS;
 #define DBUS_PATH                              "/"
 #define DBUS_INTERFACE                         "org.freedesktop.DBus"
 #define DBUS_METHOD_RELOAD_CONFIG              "ReloadConfig"
+#define DBUS_METHOD_NAME_HAS_OWNER             "NameHasOwner"
 
 # define WINDOWPROMPT_SERVICE                  "com.jolla.windowprompt"
 # define WINDOWPROMPT_OBJECT                   "/com/jolla/windowprompt"
@@ -86,6 +88,8 @@ G_BEGIN_DECLS;
 # define SERVICE_MESSAGE_NOT_ALLOWED           "Not allowed"
 # define SERVICE_MESSAGE_RESTRICTED_METHOD     "%s is not allowed to access %s"
 # define SERVICE_MESSAGE_GUEST_NOT_LOGGED_IN   "Guest user is not logged in"
+# define SERVICE_MESSAGE_DISMISSED             "Dismissed"
+# define SERVICE_MESSAGE_DISCONNECTED          "Disconnected"
 
 # define PERMISSIONMGR_NOTIFY_DELAY            0 // [ms]
 

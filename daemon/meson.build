@@ -87,12 +87,24 @@ executable('sailjail',
   install_dir : bindir)
 
 # ----------------------------------------------------------------------------
-# Sailjaild diagram
+# Diagrams
 # ----------------------------------------------------------------------------
 if dot.found()
   custom_target('sailjaild.png',
     input : files('sailjaild.dot'),
     output: 'sailjaild.png',
+    command: [dot, '-Tpng', '@INPUT@', '-o', '@OUTPUT@'],
+    install : false)
+
+  custom_target('dataflow.png',
+    input : files('dataflow.dot'),
+    output: 'dataflow.png',
+    command: [dot, '-Tpng', '@INPUT@', '-o', '@OUTPUT@'],
+    install : false)
+
+  custom_target('prompter.png',
+    input : files('prompter.dot'),
+    output: 'prompter.png',
     command: [dot, '-Tpng', '@INPUT@', '-o', '@OUTPUT@'],
     install : false)
 endif

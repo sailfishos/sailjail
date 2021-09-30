@@ -1,0 +1,59 @@
+/* -*- mode: c -*- */
+digraph foo {
+  node[shape=box];
+  node[style=filled]
+  node[fillcolor=wheat];
+  node[width=0.001];
+  node[height=0.001];
+  node[fontsize=8];
+
+  edge[fontsize=7];
+  edge[color=grey30];
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * STATES
+   * - - - - - - - - - - - - - - - - - - - */
+
+  UNDEFINED          [label="UNDEFINED"];
+  IDLE               [label="IDLE"];
+  CONNECT            [label="CONNECT"];
+  PROMPT             [label="PROMPT"];
+  WAIT               [label="WAIT"];
+  DISCONNECT         [label="DISCONNECT"];
+  CONNECTION_FAILURE [label="CONNECTION_FAILURE"];
+  PROMPTING_FAILURE  [label="PROMPTING_FAILURE"];
+  FINAL              [label="FINAL"];
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * STATE CHANGES (IN PROMPTER)
+   * - - - - - - - - - - - - - - - - - - - */
+
+  node[fillcolor=pink];
+  edge[color=grey30];
+
+  UNDEFINED -> IDLE;
+  IDLE -> CONNECT;
+  CONNECT -> CONNECTION_FAILURE;
+  CONNECT -> PROMPT;
+  PROMPT -> WAIT;
+  PROMPT -> DISCONNECT;
+  PROMPT -> PROMPTING_FAILURE;
+  WAIT -> PROMPT;
+  DISCONNECT -> IDLE;
+  CONNECTION_FAILURE -> IDLE;
+  PROMPTING_FAILURE -> DISCONNECT;
+
+  /* - - - - - - - - - - - - - - - - - - - *
+   * STATE CHANGES (FROM OUTSIDE)
+   * - - - - - - - - - - - - - - - - - - - */
+  edge[color=blue, style=dotted];
+
+  UNDEFINED -> FINAL;
+  IDLE -> FINAL;
+  CONNECT -> FINAL;
+  PROMPT -> FINAL;
+  WAIT -> FINAL;
+  DISCONNECT -> FINAL;
+  CONNECTION_FAILURE -> FINAL;
+  PROMPTING_FAILURE -> FINAL;
+}

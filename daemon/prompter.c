@@ -52,12 +52,14 @@
 
 typedef struct service_t service_t;
 typedef struct appinfo_t appinfo_t;
+typedef struct watcher_t watcher_t;
 
 typedef enum prompter_state_t {
     PROMPTER_STATE_UNDEFINED,
     PROMPTER_STATE_IDLE,
     PROMPTER_STATE_CONNECT,
     PROMPTER_STATE_PROMPT,
+    PROMPTER_STATE_WAIT,
     PROMPTER_STATE_DISCONNECT,
     PROMPTER_STATE_CONNECTION_FAILURE,
     PROMPTER_STATE_PROMPTING_FAILURE,
@@ -104,6 +106,12 @@ static uid_t          prompter_current_user(const prompter_t *self);
 static gchar         *prompter_bus_address (const prompter_t *self);
 
 /* ------------------------------------------------------------------------- *
+ * PROMPTER_PROPERTIES
+ * ------------------------------------------------------------------------- */
+static bool prompter_get_prompt_canceled(prompter_t *self);
+static void prompter_set_prompt_canceled(prompter_t *self, bool canceled);
+
+/* ------------------------------------------------------------------------- *
  * PROMPTER_STM
  * ------------------------------------------------------------------------- */
 
@@ -138,12 +146,17 @@ static bool                   prompter_check_invocation     (prompter_t *self, G
 static void                   prompter_fail_invocation      (prompter_t *self);
 static void                   prompter_reply_invocation     (prompter_t *self);
 static GDBusMethodInvocation *prompter_next_invocation      (prompter_t *self);
-static void                   prompter_prompt_invocation_cb (GObject *obj, GAsyncResult *res, gpointer aptr);
-static void                   prompter_prompt_wait_cb       (GObject *obj, GAsyncResult *res, gpointer aptr);
 static GVariant              *prompter_invocation_args      (const prompter_t *self, appinfo_t *appinfo);
 static bool                   prompter_prompt_invocation    (prompter_t *self);
+static void                   prompter_prompt_invocation_cb (GObject *obj, GAsyncResult *res, gpointer aptr);
+static bool                   prompter_wait_invocation      (prompter_t *self);
+static void                   prompter_wait_invocation_cb   (GObject *obj, GAsyncResult *res, gpointer aptr);
 void                          prompter_handle_invocation    (prompter_t *self, GDBusMethodInvocation *invocation);
 static void                   prompter_cancel_invocation    (prompter_t *self);
+static void                   prompter_cancel_prompt        (prompter_t *self);
+static void                   prompter_watch_name           (prompter_t *self, GDBusConnection *connection, const gchar *name);
+static void                   prompter_unwatch_name         (prompter_t *self, const gchar *name);
+static void                   prompter_handle_name_lost     (prompter_t *self, const gchar *name);
 void                          prompter_dbus_reload_config   (prompter_t *self);
 
 /* ------------------------------------------------------------------------- *
@@ -173,6 +186,22 @@ static bool             prompter_is_connected       (const prompter_t *self);
 static bool             prompter_connect            (prompter_t *self);
 static void             prompter_disconnect         (prompter_t *self);
 static void             prompter_disconnect_flush_cb(GObject *obj, GAsyncResult *res, gpointer aptr);
+
+/* ------------------------------------------------------------------------- *
+ * WATCHER
+ * ------------------------------------------------------------------------- */
+
+static void       watcher_ctor               (watcher_t *self, prompter_t *prompter, GDBusConnection *connection, const gchar *name);
+static void       watcher_dtor               (watcher_t *self);
+static watcher_t *watcher_create             (prompter_t *prompter, GDBusConnection *connection, const gchar *name);
+static void       watcher_delete             (watcher_t *self);
+static void       watcher_delete_cb          (void *self);
+static void       watcher_watch              (watcher_t *self);
+static void       watcher_unwatch            (watcher_t *self);
+static void       watcher_handle_name_lost_cb(GDBusConnection *connection, const gchar *name, gpointer aptr);
+static void       watcher_name_has_owner     (watcher_t *self);
+static void       watcher_name_has_owner_cb  (GObject *obj, GAsyncResult *res, gpointer aptr);
+static void       watcher_notify_name_lost   (watcher_t *self);
 
 /* ========================================================================= *
  * UTILITY
@@ -207,6 +236,7 @@ prompter_state_repr(prompter_state_t state)
         [PROMPTER_STATE_IDLE]               = "IDLE",
         [PROMPTER_STATE_CONNECT]            = "CONNECT",
         [PROMPTER_STATE_PROMPT]             = "PROMPT",
+        [PROMPTER_STATE_WAIT]               = "WAIT",
         [PROMPTER_STATE_DISCONNECT]         = "DISCONNECT",
         [PROMPTER_STATE_CONNECTION_FAILURE] = "CONNECTION_FAILURE",
         [PROMPTER_STATE_PROMPTING_FAILURE]  = "PROMPTING_FAILURE",
@@ -231,6 +261,8 @@ struct prompter_t
     GDBusMethodInvocation *prm_invocation;
     GCancellable          *prm_cancellable;
     gchar                 *prm_prompt;
+    GHashTable            *prm_watchers;        // watched busnames -> watcher_t*
+    bool                   prm_canceled;
 };
 
 static void
@@ -247,6 +279,8 @@ prompter_ctor(prompter_t *self, service_t *service)
     self->prm_invocation  = NULL;
     self->prm_cancellable = NULL;
     self->prm_prompt      = NULL;
+    self->prm_watchers    = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, watcher_delete_cb);
+    self->prm_canceled    = false;
     prompter_set_state(self, PROMPTER_STATE_IDLE);
 }
 
@@ -263,6 +297,9 @@ prompter_dtor(prompter_t *self)
 
     g_queue_free(self->prm_queue),
         self->prm_queue = NULL;
+
+    g_hash_table_destroy(self->prm_watchers),
+        self->prm_watchers = NULL;
 
     self->prm_service = NULL;
 }
@@ -385,6 +422,26 @@ prompter_applications(const prompter_t *self)
 #endif
 
 /* ------------------------------------------------------------------------- *
+ * PROMPTER_PROPERTIES
+ * ------------------------------------------------------------------------- */
+
+static bool
+prompter_get_prompt_canceled(prompter_t *self)
+{
+    return self->prm_canceled;
+}
+
+static void
+prompter_set_prompt_canceled(prompter_t *self, bool canceled)
+{
+    if( canceled )
+        log_debug("set prompt to be canceled");
+    else if( self->prm_canceled )
+        log_debug("prompt canceling cleared");
+    self->prm_canceled = canceled;
+}
+
+/* ------------------------------------------------------------------------- *
  * PROMPTER_STM
  * ------------------------------------------------------------------------- */
 
@@ -412,6 +469,11 @@ prompter_enter_state(prompter_t *self)
         break;
 
     case PROMPTER_STATE_PROMPT:
+        break;
+
+    case PROMPTER_STATE_WAIT:
+        if( !prompter_wait_invocation(self) )
+            prompter_fail_invocation(self);
         break;
 
     case PROMPTER_STATE_DISCONNECT:
@@ -453,7 +515,13 @@ prompter_leave_state(prompter_t *self)
         break;
 
     case PROMPTER_STATE_PROMPT:
+        break;
+
+    case PROMPTER_STATE_WAIT:
         prompter_fail_invocation(self);
+        prompter_set_prompt_canceled(self, false);
+        change_cancellable_steal(&self->prm_cancellable, NULL);
+        change_string(&self->prm_prompt, NULL);
         break;
 
     case PROMPTER_STATE_DISCONNECT:
@@ -493,14 +561,28 @@ prompter_eval_state_now(prompter_t *self)
         break;
 
     case PROMPTER_STATE_PROMPT:
-        if( prompter_current_invocation(self) ) {
-            /* We have a pending call */
+        if( prompter_get_prompt_canceled(self) ||
+            prompter_current_invocation(self) ) {
+            /* We have a pending call or pending call was canceled */
+            if( self->prm_prompt )
+                prompter_set_state(self, PROMPTER_STATE_WAIT);
         }
         else if( !prompter_next_invocation(self) ) {
             prompter_set_state(self, PROMPTER_STATE_DISCONNECT);
         }
         else if( !prompter_prompt_invocation(self) ) {
             prompter_fail_invocation(self);
+        }
+        break;
+
+    case PROMPTER_STATE_WAIT:
+        if( prompter_get_prompt_canceled(self) ) {
+            prompter_cancel_prompt(self);
+            prompter_set_state(self, PROMPTER_STATE_PROMPT);
+        }
+        else if( !prompter_current_invocation(self) ) {
+            /* We resolved the pending call */
+            prompter_set_state(self, PROMPTER_STATE_PROMPT);
         }
         break;
 
@@ -635,8 +717,7 @@ prompter_finish_invocation(prompter_t *self)
 {
     GDBusMethodInvocation *invocation = self->prm_invocation;
     if( invocation ) {
-        prompter_cancel_invocation(self);
-
+        self->prm_invocation = NULL;
         if( !prompter_check_invocation(self, invocation) ) {
             /* If we get here, the prompt was canceled */
             prompter_return_error(invocation, G_DBUS_ERROR_AUTH_FAILED,
@@ -828,10 +909,23 @@ prompter_prompt_invocation_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
         log_err("Invalid signature in reply: %s",
                 g_variant_get_type_string(rsp));
         prompter_fail_invocation(self);
-    } else {
+    }
+    else {
         gchar *object_path = NULL;
         g_variant_get(rsp, "(o)", &object_path);
-        change_string(&self->prm_prompt, object_path);
+        change_string_steal(&self->prm_prompt, object_path);
+        prompter_eval_state_later(self);
+    }
+
+    if( rsp )
+        g_variant_unref(rsp);
+    g_clear_error(&err);
+}
+
+static bool
+prompter_wait_invocation(prompter_t *self)
+{
+    if( !prompter_get_prompt_canceled(self) ) {
         change_cancellable_steal(&self->prm_cancellable, g_cancellable_new());
         g_dbus_connection_call(prompter_connection(self),
                                WINDOWPROMPT_SERVICE,
@@ -843,18 +937,15 @@ prompter_prompt_invocation_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
                                G_DBUS_CALL_FLAGS_NONE,
                                G_MAXINT,
                                self->prm_cancellable,
-                               prompter_prompt_wait_cb,
+                               prompter_wait_invocation_cb,
                                self);
-        g_free(object_path);
+        return true;
     }
-
-    if( rsp )
-        g_variant_unref(rsp);
-    g_clear_error(&err);
+    return false;
 }
 
 static void
-prompter_prompt_wait_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
+prompter_wait_invocation_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
 {
     GDBusConnection *con  = G_DBUS_CONNECTION(obj);
     prompter_t      *self = aptr;
@@ -874,7 +965,6 @@ prompter_prompt_wait_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
         g_variant_unref(rsp);
     }
 
-    change_string(&self->prm_prompt, NULL);
     g_clear_error(&err);
 }
 
@@ -948,8 +1038,6 @@ prompter_prompt_invocation(prompter_t *self)
         goto EXIT;
     }
 
-    change_cancellable_steal(&self->prm_cancellable, g_cancellable_new());
-
     g_dbus_connection_call(prompter_connection(self),
                            WINDOWPROMPT_SERVICE,
                            WINDOWPROMPT_OBJECT,
@@ -959,7 +1047,7 @@ prompter_prompt_invocation(prompter_t *self)
                            NULL,
                            G_DBUS_CALL_FLAGS_NONE,
                            G_MAXINT,
-                           self->prm_cancellable,
+                           NULL,
                            prompter_prompt_invocation_cb,
                            self);
 
@@ -973,16 +1061,27 @@ void
 prompter_handle_invocation(prompter_t *self, GDBusMethodInvocation *invocation)
 {
     prompter_enqueue(self, invocation);
+    prompter_watch_name(self,
+                        g_dbus_method_invocation_get_connection(invocation),
+                        g_dbus_method_invocation_get_sender(invocation));
     prompter_eval_state_later(self);
 }
 
 static void
 prompter_cancel_invocation(prompter_t *self)
 {
-    change_cancellable_steal(&self->prm_cancellable, NULL);
     self->prm_invocation = NULL;
+    prompter_set_prompt_canceled(self, true);
+}
 
-    if( self->prm_prompt ) {
+static void
+prompter_cancel_prompt(prompter_t *self)
+{
+    if( !self->prm_prompt ) {
+        /* You are only supposed to call this within WAIT state and only once */
+        log_err("tried to cancel prompt without object path");
+    } else {
+        log_debug("canceling windowprompt");
         g_dbus_connection_call(prompter_connection(self),
                                WINDOWPROMPT_SERVICE,
                                self->prm_prompt,
@@ -996,6 +1095,55 @@ prompter_cancel_invocation(prompter_t *self)
                                NULL,
                                self);
         change_string(&self->prm_prompt, NULL);
+    }
+}
+
+static void
+prompter_watch_name(prompter_t *self, GDBusConnection *connection, const gchar *name)
+{
+    if( !g_hash_table_contains(self->prm_watchers, name) ) {
+        g_hash_table_insert(self->prm_watchers, g_strdup(name),
+                            watcher_create(self, connection, name));
+    }
+}
+
+static void
+prompter_unwatch_name(prompter_t *self, const gchar *name)
+{
+    g_hash_table_remove(self->prm_watchers, name);
+}
+
+static void
+prompter_handle_name_lost(prompter_t *self, const gchar *name)
+{
+    prompter_unwatch_name(self, name);
+
+    /* First check the current invocation */
+    GDBusMethodInvocation *invocation = self->prm_invocation;
+    if( invocation && !g_strcmp0(g_dbus_method_invocation_get_sender(invocation), name) ) {
+        log_debug("-> canceling %p", invocation);
+        prompter_cancel_invocation(self);
+        /* Must call g_dbus_method_invocation_return_* to destroy the invocation */
+        prompter_return_error(invocation, G_DBUS_ERROR_AUTH_FAILED,
+                              SERVICE_MESSAGE_DISCONNECTED);
+        prompter_eval_state_later(self);
+    }
+
+    /* Then check the rest of the invocations */
+    GList *iter = prompter_iter(self);
+    while( iter ) {
+        invocation = iter->data;
+        if( !g_strcmp0(g_dbus_method_invocation_get_sender(invocation), name) ) {
+            log_debug("-> skipping %p", invocation);
+            iter->data = NULL;
+            /* Must call g_dbus_method_invocation_return_* to destroy the invocation */
+            prompter_return_error(invocation, G_DBUS_ERROR_AUTH_FAILED,
+                                  SERVICE_MESSAGE_DISCONNECTED);
+            iter = prompter_drop(self, iter);
+        }
+        else {
+            iter = iter->next;
+        }
     }
 }
 
@@ -1089,7 +1237,7 @@ prompter_dequeue_all(prompter_t *self)
         GDBusMethodInvocation *invocation = iter->data;
         iter->data = NULL;
         prompter_return_error(invocation, G_DBUS_ERROR_AUTH_FAILED,
-                              "Dismissed");
+                              SERVICE_MESSAGE_DISMISSED);
     }
     g_queue_remove_all(self->prm_queue, NULL);
 }
@@ -1169,11 +1317,169 @@ prompter_disconnect(prompter_t *self)
 }
 
 static void
-prompter_disconnect_flush_cb (GObject *obj, GAsyncResult *res, gpointer aptr)
+prompter_disconnect_flush_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
 {
     GDBusConnection *con  = G_DBUS_CONNECTION(obj);
 
     g_dbus_connection_flush_finish(con, res, NULL);
 
     g_object_unref(con);
+}
+
+/* ------------------------------------------------------------------------- *
+ * WATCHER
+ * ------------------------------------------------------------------------- */
+
+struct watcher_t
+{
+    prompter_t      *wtc_prompter;
+    GDBusConnection *wtc_connection;
+    gchar           *wtc_name;
+    guint            wtc_watcher;
+    GCancellable    *wtc_cancellable;
+};
+
+static void
+watcher_ctor(watcher_t *self, prompter_t *prompter, GDBusConnection *connection, const gchar *name)
+{
+    log_info("watcher() create");
+    self->wtc_prompter          = prompter;
+    self->wtc_connection        = g_object_ref(connection);
+    self->wtc_name              = g_strdup(name);
+    self->wtc_watcher           = 0;
+    self->wtc_cancellable       = NULL;
+
+    watcher_watch(self);
+    watcher_name_has_owner(self);
+}
+
+static void
+watcher_dtor(watcher_t *self)
+{
+    log_info("watcher() delete");
+
+    change_cancellable_steal(&self->wtc_cancellable, NULL);
+
+    watcher_unwatch(self);
+
+    change_string(&self->wtc_name, NULL);
+
+    g_object_unref(self->wtc_connection),
+        self->wtc_connection = NULL;
+
+    self->wtc_prompter = NULL;
+}
+
+static watcher_t *
+watcher_create(prompter_t *prompter, GDBusConnection *connection, const gchar *name)
+{
+    watcher_t *self = g_malloc0(sizeof *self);
+    watcher_ctor(self, prompter, connection, name);
+    return self;
+}
+
+static void
+watcher_delete(watcher_t *self)
+{
+    if( self ) {
+        watcher_dtor(self);
+        g_free(self);
+    }
+}
+
+static void
+watcher_delete_cb(void *self)
+{
+    watcher_delete(self);
+}
+
+static void
+watcher_watch(watcher_t *self)
+{
+    self->wtc_watcher = g_bus_watch_name_on_connection(
+            self->wtc_connection, self->wtc_name, G_BUS_NAME_OWNER_FLAGS_NONE,
+            NULL, watcher_handle_name_lost_cb, self, NULL);
+    log_debug("watching for '%s' to leave bus", self->wtc_name);
+}
+
+static void
+watcher_unwatch(watcher_t *self)
+{
+    if( self->wtc_watcher )
+        g_bus_unwatch_name(self->wtc_watcher);
+    self->wtc_watcher = 0;
+}
+
+static void
+watcher_handle_name_lost_cb(GDBusConnection *connection, const gchar *name, gpointer aptr)
+{
+    (void)connection; // unused
+    (void)name; // unused
+    watcher_t *self = aptr;
+    log_debug("'%s' left bus", self->wtc_name);
+    watcher_notify_name_lost(self);
+}
+
+static void
+watcher_name_has_owner(watcher_t *self)
+{
+    change_cancellable_steal(&self->wtc_cancellable, g_cancellable_new());
+    g_dbus_connection_call(self->wtc_connection,
+                           DBUS_SERVICE,
+                           DBUS_PATH,
+                           DBUS_INTERFACE,
+                           DBUS_METHOD_NAME_HAS_OWNER,
+                           g_variant_new("(s)", self->wtc_name),
+                           NULL,
+                           G_DBUS_CALL_FLAGS_NONE,
+                           -1,
+                           self->wtc_cancellable,
+                           watcher_name_has_owner_cb,
+                           self);
+}
+
+static void
+watcher_name_has_owner_cb(GObject *obj, GAsyncResult *res, gpointer aptr)
+{
+    GDBusConnection *con  = G_DBUS_CONNECTION(obj);
+    GError          *err  = NULL;
+    GVariant        *rsp  = NULL;
+    /* NB: aptr might be invalid pointer,
+     *     check before use if the call was canceled */
+    watcher_t       *self = aptr;
+    gboolean    has_owner = true;
+
+    if( !(rsp = g_dbus_connection_call_finish(con, res, &err)) ) {
+        if( err ) {
+            log_err("error reply from dbus server: domain=%u code=%d message='%s'",
+                    (unsigned)err->domain, err->code, err->message);
+            /* aptr is invalid if the call was cancelled */
+            if( err->code == G_IO_ERROR_CANCELLED )
+                self = NULL;
+        }
+        else {
+            log_err("null reply from dbus server");
+        }
+    }
+    else {
+        g_variant_get(rsp, "(b)", &has_owner);
+        log_debug("'%s' %s owner", self->wtc_name, (has_owner ? "has" :  "doesn't have"));
+    }
+
+    if( self ) {
+        change_cancellable_steal(&self->wtc_cancellable, NULL);
+        if( !has_owner )
+            watcher_notify_name_lost(self);
+    }
+    if( rsp )
+        g_variant_unref(rsp);
+    g_clear_error(&err);
+}
+
+static void
+watcher_notify_name_lost(watcher_t *self)
+{
+    gchar *name = g_strdup(self->wtc_name);
+    prompter_handle_name_lost(self->wtc_prompter, name);
+    g_free(name);
 }
