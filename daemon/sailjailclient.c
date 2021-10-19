@@ -96,6 +96,7 @@ void         client_delete_cb(void *self);
 static GDBusConnection  *client_system_bus                      (client_t *self);
 static GDBusConnection  *client_session_bus                     (client_t *self);
 const char              *client_desktop_exec                    (client_t *self);
+const char              *client_sailjail_exec_dbus              (client_t *self);
 const char              *client_sailjail_organization_name      (client_t *self);
 const char              *client_sailjail_application_name       (client_t *self);
 const char              *client_sailjail_data_directory         (client_t *self);
@@ -334,6 +335,12 @@ const char *
 client_desktop_exec(client_t *self)
 {
     return client_get_appinfo_string(self, DESKTOP_KEY_EXEC);
+}
+
+const char *
+client_sailjail_exec_dbus(client_t *self)
+{
+    return client_get_appinfo_string(self, SAILJAIL_KEY_EXEC_DBUS);
 }
 
 const char *
@@ -737,6 +744,7 @@ client_launch_application(client_t *self)
         goto EXIT;
 
     const char  *exec        = client_desktop_exec(self);
+    const char  *exec_dbus   = client_sailjail_exec_dbus(self);
     const char  *org_name    = client_sailjail_organization_name(self);
     const char  *app_name    = client_sailjail_application_name(self);
     const char  *data_dir    = client_sailjail_data_directory(self);
@@ -764,11 +772,12 @@ client_launch_application(client_t *self)
     }
 
     if( log_p(LOG_DEBUG) ) {
-        log_debug("exec     = %s", exec);
-        log_debug("org_name = %s", org_name);
-        log_debug("app_name = %s", app_name);
-        log_debug("service  = %s", service);
-        log_debug("method   = %s", method);
+        log_debug("exec      = %s", exec);
+        log_debug("exec_dbus = %s", exec_dbus ?: "(none)");
+        log_debug("org_name  = %s", org_name);
+        log_debug("app_name  = %s", app_name);
+        log_debug("service   = %s", service);
+        log_debug("method    = %s", method);
         for( int i = 0; permissions && permissions[i]; ++i )
             log_debug("permissions += %s", permissions[i]);
         for( int i = 0; granted && granted[i]; ++i )
@@ -789,8 +798,17 @@ client_launch_application(client_t *self)
          * launch requrest from invoker.
          */
     }
-    else if( !sailjailclient_validate_argv(exec, argv, use_compatibility) ) {
-        log_err("Command line does not match template");
+    else if( !sailjailclient_validate_argv(exec, argv, use_compatibility) &&
+             !sailjailclient_validate_argv(exec_dbus, argv, use_compatibility) ) {
+        gchar *args = g_strjoinv(" ", (gchar **)argv);
+        log_err("Command line does not match template%s", exec_dbus ? "s" : "");
+        log_err("Exec: %s", exec);
+        if( exec_dbus )
+            log_err("ExecDBus: %s", exec_dbus);
+        log_err("Command: %s", args);
+        if( !log_p(LOG_INFO) )
+            log_err("Increase verbosity for more information");
+        g_free(args);
         goto EXIT;
     }
 
@@ -937,7 +955,7 @@ client_notify_launch_status(client_t *self, const char *method,
 static void
 client_notify_launch_canceled(client_t *self, const char *desktop)
 {
-    client_notify_launch_status(self,LAUNCHNOTIFY_METHOD_LAUNCH_CANCELED,
+    client_notify_launch_status(self, LAUNCHNOTIFY_METHOD_LAUNCH_CANCELED,
                                 desktop);
 }
 
@@ -985,7 +1003,7 @@ sailjailclient_match_argv(const char **tpl_argv, const char **app_argv)
             /* Template args exhausted */
             if( *app_argv ) {
                 /* Excess application args */
-                log_err("argv has unwanted '%s'", *app_argv);
+                log_info("argv has unwanted '%s'", *app_argv);
                 goto EXIT;
             }
             break;
@@ -997,7 +1015,7 @@ sailjailclient_match_argv(const char **tpl_argv, const char **app_argv)
             /* Exact match needed */
             if( g_strcmp0(*app_argv, want) ) {
                 /* Application args has something else */
-                log_err("argv is missing '%s'", want);
+                log_info("argv is missing '%s'", want);
                 goto EXIT;
             }
             ++app_argv;
@@ -1050,14 +1068,14 @@ sailjailclient_match_argv(const char **tpl_argv, const char **app_argv)
         if( code_args < 0 ) {
             /* Variable number of args */
             if( sailjailclient_get_field_code(*tpl_argv) ) {
-                log_err("Can't validate '%s %s' combination", want, *tpl_argv);
+                log_info("Can't validate '%s %s' combination", want, *tpl_argv);
                 goto EXIT;
             }
             for( ; code_args < 0; ++code_args ) {
                 if( !*app_argv || !g_strcmp0(*app_argv, *tpl_argv) )
                     break;
                 if( sailjailclient_is_option(*app_argv) ) {
-                    log_err("option '%s' at field code '%s'", *app_argv, want);
+                    log_info("option '%s' at field code '%s'", *app_argv, want);
                     goto EXIT;
                 }
                 ++app_argv;
@@ -1067,11 +1085,11 @@ sailjailclient_match_argv(const char **tpl_argv, const char **app_argv)
             /* Specified number of args */
             for( ; code_args > 0; --code_args ) {
                 if( !*app_argv ) {
-                    log_err("missing args for field code '%s'", want);
+                    log_info("missing args for field code '%s'", want);
                     goto EXIT;
                 }
                 if( sailjailclient_is_option(*app_argv) ) {
-                    log_err("option '%s' at field code '%s'", *app_argv, want);
+                    log_info("option '%s' at field code '%s'", *app_argv, want);
                     goto EXIT;
                 }
                 ++app_argv;
@@ -1091,6 +1109,11 @@ sailjailclient_validate_argv(const char *exec, const gchar **app_argv, bool use_
     bool          validated = false;
     GError       *err       = NULL;
     gchar       **exec_argv = NULL;
+
+    if( !exec ) {
+        /* No exec line provided -> invalid */
+        goto EXIT;
+    }
 
     if( !app_argv || !*app_argv ) {
         log_err("application argv not defined");
@@ -1142,11 +1165,7 @@ sailjailclient_validate_argv(const char *exec, const gchar **app_argv, bool use_
 
     /* Argument zero has been checked already */
     if( !sailjailclient_match_argv(tpl_argv + 1, app_argv + 1) ) {
-        gchar *args = g_strjoinv(" ", (gchar **)app_argv);
-        log_err("Application args do not match Exec line template");
-        log_err("exec: %s", exec);
-        log_err("args: %s", args);
-        g_free(args);
+        /* Leave error reporting to caller */
         goto EXIT;
     }
 
@@ -1408,9 +1427,17 @@ sailjailclient_main(int argc, char **argv)
     client_set_argv(client, argc, argv);
 
     if( match_exec ) {
-        if( sailjailclient_validate_argv(match_exec,
-                                         client_get_argv(client, NULL), false) )
+        if( !sailjailclient_validate_argv(match_exec,
+                                          client_get_argv(client, NULL), false) ) {
+            gchar *args = g_strjoinv(" ", (gchar **)client_get_argv(client, NULL));
+            log_err("Application args do not match template");
+            log_err("exec: %s", match_exec);
+            log_err("args: %s", args);
+            g_free(args);
+        }
+        else {
             exit_code = EXIT_SUCCESS;
+        }
         goto EXIT;
     }
 

@@ -1010,10 +1010,11 @@ appinfo_read_exec_dbus(appinfo_t *self, GKeyFile *ini, const gchar *group)
             gchar *single_instance = keyfile_get_string(ini, DESKTOP_SECTION,
                     NEMO_KEY_SINGLE_INSTANCE, NULL);
 
-            gchar *tmp = g_strdup_printf("/usr/bin/invoker --type=%s --id=%s %s%s",
+            gchar *tmp = g_strdup_printf("/usr/bin/invoker --type=%s --id=%s %s%s%s",
                                           booster,
                                           appinfo_id(self),
                                           g_strcmp0(single_instance, "no") ? "--single-instance " : "",
+                                          exec[0] != '/' ? BINDIR "/" : "",
                                           exec);
             g_free(exec);
             g_free(booster);
