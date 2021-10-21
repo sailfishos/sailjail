@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Test Application
+Type=Application
+Icon=test
+Exec=false
+
+[X-Sailjail]
+OrganizationName=org.example
+ApplicationName=ExecTest1
+Permissions=
+ExecDBus=false

@@ -66,6 +66,7 @@ test_options = [
     '-DSHAREDSTATEDIR="' + tests_sharedstatedir + '"',
     '-DDATADIR="' + tests_datadir + '"',
     '-DTESTDATADIR="' + testdatadir + '"',
+    '-DUNITTEST',
 ]
 
 tests = [
@@ -83,6 +84,14 @@ tests = [
     [files('test_permissions.c'), logging, permissions, stringset, util],
     [
       '-Wl,--wrap=control_on_permissions_change',
+    ]
+  ],
+  ['test_sailjailclient',
+    [files(['test_sailjailclient.c']), logging, sailjailclient, stringset, util],
+    [
+      '-Wl,--wrap=config_create',
+      '-Wl,--wrap=config_delete',
+      '-Wl,--wrap=main',
     ]
   ],
   ['test_settings',
@@ -126,6 +135,7 @@ unit_options = [
     '-DSHAREDSTATEDIR="' + unit_sharedstatedir + '"',
     '-DDATADIR="' + meson.current_source_dir() / 'sailjail' + '"',
     '-DTESTDATADIR="' + meson.current_source_dir() / 'data' + '"',
+    '-DUNITTEST',
 ]
 
 unit_bins = {}
@@ -178,4 +188,5 @@ units = [
   ['appinfo', 'test_appinfo', [], 'appinfo'],
   ['permissions', 'test_permissions', [], 'permissions'],
   ['settings', 'test_settings', ['-p', '/sailjaild/settings/settings'], 'settings'],
+  ['sailjailclient', 'test_sailjailclient', [], 'sailjailclient'],
 ]

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Test Application
+Type=Application
+Icon=test
+Exec=/usr/libexec/testapp
+X-Nemo-Single-Instance=no
+
+[X-Sailjail]
+OrganizationName=org.example
+ApplicationName=ExecTest2
+Permissions=
+ExecDBus=/usr/libexec/testapp --fork --dbus
