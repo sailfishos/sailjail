@@ -35,6 +35,9 @@
            <case name="settings" level="Component" type="Functional">
                <step>@BINDIR@/test_settings -p /sailjaild/settings/settings</step>
            </case>
+           <case name="sailjailclient" level="Component" type="Functional">
+               <step>@BINDIR@/test_sailjailclient -p /sailjaild/sailjailclient</step>
+           </case>
            <post_steps>
                <step>rm -rf @TESTTMPDATA@</step>
            </post_steps>

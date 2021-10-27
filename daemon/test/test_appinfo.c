@@ -157,6 +157,33 @@ void test_appinfo_permissions(gconstpointer user_data)
     appinfo_delete(appinfo);
 }
 
+void test_appinfo_exec(gconstpointer user_data)
+{
+    appinfo_t *appinfo = appinfo_create((applications_t *)user_data, "test-app");
+    g_assert_nonnull(appinfo);
+    g_assert_true(appinfo_parse_desktop(appinfo));
+    g_assert_true(appinfo_valid(appinfo));
+    g_assert_cmpstr(appinfo_get_exec(appinfo), ==, "/usr/bin/true");
+    g_assert_cmpstr(appinfo_get_exec_dbus(appinfo), ==, "(undefined)");
+    appinfo_delete(appinfo);
+
+    appinfo = appinfo_create((applications_t *)user_data, "exec-test1");
+    g_assert_nonnull(appinfo);
+    g_assert_true(appinfo_parse_desktop(appinfo));
+    g_assert_true(appinfo_valid(appinfo));
+    g_assert_cmpstr(appinfo_get_exec(appinfo), ==, "false");
+    g_assert_cmpstr(appinfo_get_exec_dbus(appinfo), ==, "/usr/bin/invoker --type=generic --id=exec-test1 --single-instance /usr/bin/false");
+    appinfo_delete(appinfo);
+
+    appinfo = appinfo_create((applications_t *)user_data, "exec-test2");
+    g_assert_nonnull(appinfo);
+    g_assert_true(appinfo_parse_desktop(appinfo));
+    g_assert_true(appinfo_valid(appinfo));
+    g_assert_cmpstr(appinfo_get_exec(appinfo), ==, "/usr/libexec/testapp");
+    g_assert_cmpstr(appinfo_get_exec_dbus(appinfo), ==, "/usr/bin/invoker --type=generic --id=exec-test2 /usr/libexec/testapp --fork --dbus");
+    appinfo_delete(appinfo);
+}
+
 /* ========================================================================= *
  * MAIN
  * ========================================================================= */
@@ -174,6 +201,7 @@ int main(int argc, char **argv)
     g_test_add_data_func("/sailjaild/appinfo/create_invalid", &mock, test_appinfo_create_invalid);
     g_test_add_data_func("/sailjaild/appinfo/read_properties", &mock, test_appinfo_read_properties);
     g_test_add_data_func("/sailjaild/appinfo/permissions", &mock, test_appinfo_permissions);
+    g_test_add_data_func("/sailjaild/appinfo/exec", &mock, test_appinfo_exec);
 
     return g_test_run();
 }
