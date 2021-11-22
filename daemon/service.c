@@ -168,7 +168,7 @@ struct service_t
     guint            srv_dbus_object_id;    // g_dbus_connection_register_object()
     guint            srv_notify_id;         // service_schedule_notify()
     stringset_t     *srv_dbus_applications; // signaled applications
-    stringset_t     *srv_permission_filter; // masking: Base,Privileged
+    stringset_t     *srv_permission_filter; // masking: Base,Privileged,Compatibility
 
     // downlink
     prompter_t      *srv_prompter;
@@ -195,6 +195,7 @@ service_ctor(service_t *self, control_t *control)
     self->srv_permission_filter = stringset_create();
     stringset_add_item(self->srv_permission_filter, PERMISSION_BASE);
     stringset_add_item(self->srv_permission_filter, PERMISSION_PRIVILEGED);
+    stringset_add_item(self->srv_permission_filter, PERMISSION_COMPATIBILITY);
 
     // downlink
     self->srv_prompter         = prompter_create(self);
