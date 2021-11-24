@@ -45,8 +45,9 @@ G_BEGIN_DECLS
  * Constants
  * ========================================================================= */
 
-# define PERMISSION_BASE       "Base"
-# define PERMISSION_PRIVILEGED "Privileged"
+# define PERMISSION_BASE          "Base"
+# define PERMISSION_PRIVILEGED    "Privileged"
+# define PERMISSION_COMPATIBILITY "Compatibility"
 
 /* ========================================================================= *
  * Types
