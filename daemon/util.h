@@ -126,6 +126,9 @@ G_BEGIN_DECLS
 # define MAEMO_KEY_OBJECT               "X-Maemo-Object-Path"
 # define MAEMO_KEY_METHOD               "X-Maemo-Method"
 
+/* Sharing desktop properties */
+# define SHARE_KEY_METHODS              "X-Share-Methods"
+
 /* Sailjail desktop properties */
 # define SAILJAIL_SECTION_PRIMARY       "X-Sailjail"
 # define SAILJAIL_SECTION_SECONDARY     "Sailjail"

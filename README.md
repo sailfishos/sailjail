@@ -64,7 +64,7 @@ Use of absolute paths is required, except for the desktop file which must be loc
 _/usr/share/applications_ or _/etc/sailjail/applications_.
 
 The ExecDBus value is an optional command line which will be used to auto start the application
-to provide the <OrganizationName>.<ApplicationName> DBus service.
+to provide the \<OrganizationName\>.\<ApplicationName\> DBus service.
 
 ## Sailjail daemon
 

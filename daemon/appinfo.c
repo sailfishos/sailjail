@@ -993,6 +993,13 @@ static gchar *
 appinfo_read_exec_dbus(appinfo_t *self, GKeyFile *ini, const gchar *group)
 {
     gchar *exec = keyfile_get_string(ini, group, SAILJAIL_KEY_EXEC_DBUS, 0);
+    if( !exec ) {
+        /* If application defines share methods, allow D-Bus activation with Exec */
+        gchar *share_methods = keyfile_get_string(ini, DESKTOP_SECTION, SHARE_KEY_METHODS, 0);
+        if( share_methods )
+            exec = keyfile_get_string(ini, DESKTOP_SECTION, DESKTOP_KEY_EXEC, 0);
+        g_free(share_methods);
+    }
     if( exec ) {
         /* As in libcontentaction, add invoker to the command line if it doesn't exist already. */
         if( g_strstr_len(exec, -1, "invoker") != exec &&
