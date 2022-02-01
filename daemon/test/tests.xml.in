@@ -12,31 +12,31 @@
                <step>cp -r @TESTSDIR@/etc @TESTTMPDATA@/etc</step>
            </pre_steps>
            <case name="util strip" level="Component" type="Functional">
-               <step>@BINDIR@/test_util -p "/sailjaild/util/strip"</step>
+               <step>@TESTBINDIR@/test_util -p "/sailjaild/util/strip"</step>
            </case>
            <case name="util path" level="Component" type="Functional">
-               <step>@BINDIR@/test_util -p "/sailjaild/util/path"</step>
+               <step>@TESTBINDIR@/test_util -p "/sailjaild/util/path"</step>
            </case>
            <case name="util change" level="Component" type="Functional">
-               <step>@BINDIR@/test_util -p "/sailjaild/util/change"</step>
+               <step>@TESTBINDIR@/test_util -p "/sailjaild/util/change"</step>
            </case>
            <case name="util keyfile" level="Component" type="Functional">
-               <step>@BINDIR@/test_util -p "/sailjaild/util/keyfile"</step>
+               <step>@TESTBINDIR@/test_util -p "/sailjaild/util/keyfile"</step>
            </case>
            <case name="stringset" level="Component" type="Functional">
-               <step>@BINDIR@/test_stringset</step>
+               <step>@TESTBINDIR@/test_stringset</step>
            </case>
            <case name="appinfo" level="Component" type="Functional">
-               <step>@BINDIR@/test_appinfo</step>
+               <step>@TESTBINDIR@/test_appinfo</step>
            </case>
            <case name="permissions" level="Component" type="Functional">
-               <step>@BINDIR@/test_permissions</step>
+               <step>@TESTBINDIR@/test_permissions</step>
            </case>
            <case name="settings" level="Component" type="Functional">
-               <step>@BINDIR@/test_settings -p /sailjaild/settings/settings</step>
+               <step>@TESTBINDIR@/test_settings -p /sailjaild/settings/settings</step>
            </case>
            <case name="sailjailclient" level="Component" type="Functional">
-               <step>@BINDIR@/test_sailjailclient -p /sailjaild/sailjailclient</step>
+               <step>@TESTBINDIR@/test_sailjailclient -p /sailjaild/sailjailclient</step>
            </case>
            <post_steps>
                <step>rm -rf @TESTTMPDATA@</step>

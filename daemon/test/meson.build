@@ -39,7 +39,7 @@ custom_target('tests.xml',
 	'-e', 's|@TESTSDIR@|' + testsdir + '|g',
 	'-e', 's|@TESTDATADIR@|' + testdatadir + '|g',
 	'-e', 's|@SHAREDSTATEDIR@|' + tests_sharedstatedir + '|g',
-	'-e', 's|@BINDIR@|' + tests_bindir + '|g',
+	'-e', 's|@TESTBINDIR@|' + tests_bindir + '|g',
 	'@INPUT@'],
   install : true,
   install_dir : testsdir)
@@ -61,7 +61,6 @@ create_permission_files = custom_target('permissions',
 # Tests for QA
 # ----------------------------------------------------------------------------
 test_options = [
-    '-DBINDIR="' + tests_bindir + '"',
     '-DSYSCONFDIR="' + tests_sysconfdir + '"',
     '-DSHAREDSTATEDIR="' + tests_sharedstatedir + '"',
     '-DDATADIR="' + tests_datadir + '"',
