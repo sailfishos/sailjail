@@ -16,8 +16,6 @@ Requires(pre): sailfish-setup
 Requires: glib2 >= %{glib_version}
 Requires: sailjail-daemon
 Provides: sailjail-launch-approval
-# This can be removed after next stop release after 4.4.0.
-Obsoletes: sailjail-homescreen-plugin <= 1.1.0
 
 BuildRequires: meson
 BuildRequires: pkgconfig(glib-2.0) >= %{glib_version}
