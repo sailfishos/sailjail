@@ -35,13 +35,16 @@ itself.
 
 ### 1.2. Execute the application
 
-Use the Exec line from desktop file, with --trace added in the mix.
+Use the Exec line from desktop file, with `--trace` added in the
+mix. `--trace` takes an existing directory as an argument.
 
-    [defaultuser@Sailfish ~]$ /usr/bin/sailjail --trace -p jolla-calculator.desktop /usr/bin/jolla-calculator
+    [defaultuser@Sailfish ~]$ mkdir jolla-calculator-trace
+    [defaultuser@Sailfish ~]$ /usr/bin/sailjail --trace=jolla-calculator-trace -p jolla-calculator.desktop /usr/bin/jolla-calculator
 
-After exiting application, log files should be in the current directory.
+After exiting application, log files should be in the directory given
+to --trace.
 
-    [defaultuser@Sailfish ~]$ ls -1 firejail-*.log*
+    [defaultuser@Sailfish ~]$ ls -1 jolla-calculator-trace/firejail-*.log*
     firejail-dbus.log
     firejail-stderr.log
     firejail-stderr.log.1
@@ -71,13 +74,8 @@ dbus autolauch configuration files
 ### 2.2. Enable sailjail/firejail tracing
 
 Basically one just needs to add suitable --trace option for sailjail
-Exec line.
-
-By default trace logs are written to working directory that is in use
-when firejail is executed. As this might vary / otherwise not be
-suitable, it is better to define target directory explicitly. And in
-case several programs need to be traced simultaneously, it might be
-better to use application specific target directory.
+Exec line. In case several programs need to be traced simultaneously,
+it might be better to use application specific target directory.
 
 In this example we use "/tmp/notest-trace" as destination directory.
 
