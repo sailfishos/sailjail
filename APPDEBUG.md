@@ -198,3 +198,9 @@ own a service name should still be relatively easy to spot via
 concentrating on hidden/skipped entries:
 
     grep -B2 -E '\*(HIDDEN|SKIPPED)\*' firejail-dbus.log
+
+### 3.4 Tips
+
+Once problems have been found in the firejail trace logs, quite often
+it's easy to locate the missing permissions by grepping the sailjail
+and sailjail-permissions repositories.
