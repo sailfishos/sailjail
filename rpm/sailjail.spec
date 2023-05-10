@@ -18,6 +18,7 @@ Requires: sailjail-daemon
 Provides: sailjail-launch-approval
 
 BuildRequires: meson
+BuildRequires: ccache
 BuildRequires: pkgconfig(glib-2.0) >= %{glib_version}
 BuildRequires: pkgconfig(gobject-2.0)
 BuildRequires: pkgconfig(gio-2.0)
