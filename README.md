@@ -17,7 +17,7 @@ Application desktop file changes are described in the [Sailjail Permissions
 documentation](https://github.com/sailfishos/sailjail-permissions#enable-sandboxing-for-an-application).
 
 Sailjail parses the desktop file and builds Firejail command line arguments out of the requested
-permissions.
+permissions and finally Sailjail executes Firejail with the command line arguments.
 
 ## Application data structure
 
