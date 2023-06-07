@@ -419,6 +419,24 @@ control_on_session_changed(control_t *self)
 
     self->ctl_session_user = session_current_user(session);
     log_notice("session uid = %d", (int)self->ctl_session_user);
+
+    const char *path = "/etc/sailjail/config/user-grantlist.conf";
+    GError *err = NULL;
+    GKeyFile *file = g_key_file_new();
+    bool ret = g_key_file_load_from_file(file, path, G_KEY_FILE_NONE, &err);
+    if ( ret ) {
+        gchar **keys = g_key_file_get_keys(file, "Grantlist", NULL, NULL);
+        if ( keys ) {
+            for ( size_t i = 0; keys[i]; ++i ) {
+                stringset_t *granted = keyfile_get_stringset(file, "Grantlist", keys[i]);
+                appsettings_t *appsettings = control_appsettings(self, session_current_user(session), keys[i]);
+                appsettings_set_granted(appsettings, granted);
+            }
+        }
+        g_strfreev(keys);
+    }
+    g_key_file_unref(file);
+    g_clear_error(&err);
 }
 
 void
