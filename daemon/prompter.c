@@ -1397,7 +1397,7 @@ static void
 watcher_watch(watcher_t *self)
 {
     self->wtc_watcher = g_bus_watch_name_on_connection(
-            self->wtc_connection, self->wtc_name, G_BUS_NAME_OWNER_FLAGS_NONE,
+            self->wtc_connection, self->wtc_name, G_BUS_NAME_WATCHER_FLAGS_NONE,
             NULL, watcher_handle_name_lost_cb, self, NULL);
     log_debug("watching for '%s' to leave bus", self->wtc_name);
 }
