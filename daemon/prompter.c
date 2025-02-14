@@ -743,7 +743,7 @@ prompter_try_finish_invocation(prompter_t            *self,
         if( !app ) {
             /* Should not be reached but it's an error to get here anyway */
             prompter_return_error(invocation, G_DBUS_ERROR_INVALID_ARGS,
-                                  SERVICE_MESSAGE_INVALID_APPLICATION, app);
+                                  SERVICE_MESSAGE_INVALID_APPLICATION, "<null>");
             handled = true;
         }
         else if( stringset_has_item(changed, app) ) {
@@ -771,7 +771,7 @@ prompter_check_invocation(prompter_t *self, GDBusMethodInvocation *invocation) {
     g_variant_get(parameters, "(&s)", &app);
     if( !app ) {
         prompter_return_error(invocation, G_DBUS_ERROR_INVALID_ARGS,
-                              SERVICE_MESSAGE_INVALID_APPLICATION, app);
+                              SERVICE_MESSAGE_INVALID_APPLICATION, "<null>");
         handled = true;
     }
     else if( !(appsettings = prompter_appsettings(self, uid, app)) ) {
@@ -1397,7 +1397,7 @@ static void
 watcher_watch(watcher_t *self)
 {
     self->wtc_watcher = g_bus_watch_name_on_connection(
-            self->wtc_connection, self->wtc_name, G_BUS_NAME_OWNER_FLAGS_NONE,
+            self->wtc_connection, self->wtc_name, G_BUS_NAME_WATCHER_FLAGS_NONE,
             NULL, watcher_handle_name_lost_cb, self, NULL);
     log_debug("watching for '%s' to leave bus", self->wtc_name);
 }
