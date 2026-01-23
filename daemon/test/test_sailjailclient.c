@@ -118,12 +118,12 @@ void test_sailjailclient_match_argv()
         g_assert_false(sailjailclient_match_argv_wrapper(tplt, args));
     }
     {
-        const char *tplt[] = {"%m", NULL};
+        const char *tplt[] = {"%m", NULL}; /* deprecated */
         const char *args[] = {"foo", NULL};
         g_assert_false(sailjailclient_match_argv_wrapper(tplt, args));
     }
     {
-        const char *tplt[] = {"%x", NULL};
+        const char *tplt[] = {"%x", NULL}; /* %x doesn't exist */
         const char *args[] = {"foo", NULL};
         g_assert_false(sailjailclient_match_argv_wrapper(tplt, args));
     }
