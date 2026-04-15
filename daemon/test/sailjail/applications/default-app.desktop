@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=Default Application
+Type=Application
+Icon=test
+Exec=/usr/bin/true

@@ -894,7 +894,11 @@ service_dbus_call_cb(GDBusConnection       *connection,
             const stringset_t *permissions = appinfo_get_permissions(appinfo);
             stringset_t *filtered = service_filter_permissions(self,
                                                                permissions);
-            if( stringset_empty(filtered) ) {
+            /* Empty permission sets are auto-allowed, except for Mode=None
+             * apps, which still need the warning-only prompt.
+             */
+            if( stringset_empty(filtered) &&
+                appinfo_get_mode(appinfo) != APP_MODE_NONE ) {
                 if( appsettings_get_allowed(appsettings) == APP_ALLOWED_UNSET )
                     appsettings_set_allowed(appsettings, APP_ALLOWED_ALWAYS);
             }

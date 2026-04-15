@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Disabled Application
+Type=Application
+Icon=test
+Exec=/usr/bin/true
+
+[X-Sailjail]
+Sandboxing=Disabled

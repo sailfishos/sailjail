@@ -66,6 +66,9 @@ typedef enum prompter_state_t {
     PROMPTER_STATE_FINAL
 } prompter_state_t;
 
+#define WINDOWPROMPT_KEY_REQUIRED "required"
+#define WINDOWPROMPT_KEY_MODE     "mode"
+
 /* ========================================================================= *
  * Prototypes
  * ========================================================================= */
@@ -998,8 +1001,11 @@ prompter_invocation_args(const prompter_t *self, appinfo_t *appinfo)
         vector[i] = path_from_permission_name(perm);
         g_free(perm);
     }
-    g_variant_builder_add(&builder, "{s^as}", "required", vector);
+    g_variant_builder_add(&builder, "{s^as}", WINDOWPROMPT_KEY_REQUIRED, vector);
     g_strfreev(vector);
+    const gchar *mode = appinfo_get_mode_name(appinfo);
+    const gchar *mode_vector[] = { mode, NULL };
+    g_variant_builder_add(&builder, "{s^as}", WINDOWPROMPT_KEY_MODE, mode_vector);
 
     args = g_variant_new("(s@a{sas})", desktop, g_variant_builder_end(&builder));
 
