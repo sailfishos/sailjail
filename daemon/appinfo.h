@@ -104,6 +104,7 @@ const gchar *appinfo_get_application_name (const appinfo_t *self);
 const gchar *appinfo_get_exec_dbus        (const appinfo_t *self);
 const gchar *appinfo_get_data_directory   (const appinfo_t *self);
 app_mode_t   appinfo_get_mode             (const appinfo_t *self);
+const gchar *appinfo_get_mode_name        (const appinfo_t *self);
 void         appinfo_set_name             (appinfo_t *self, const gchar *name);
 void         appinfo_set_type             (appinfo_t *self, const gchar *type);
 void         appinfo_set_icon             (appinfo_t *self, const gchar *icon);

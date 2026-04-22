@@ -150,7 +150,7 @@ const gchar            *appinfo_get_application_name (const appinfo_t *self);
 const gchar            *appinfo_get_exec_dbus        (const appinfo_t *self);
 const gchar            *appinfo_get_data_directory   (const appinfo_t *self);
 app_mode_t              appinfo_get_mode             (const appinfo_t *self);
-static const gchar     *appinfo_get_mode_string      (const appinfo_t *self);
+const gchar            *appinfo_get_mode_name        (const appinfo_t *self);
 void                    appinfo_set_name             (appinfo_t *self, const gchar *name);
 void                    appinfo_set_type             (appinfo_t *self, const gchar *type);
 void                    appinfo_set_icon             (appinfo_t *self, const gchar *icon);
@@ -387,7 +387,7 @@ appinfo_to_variant(const appinfo_t *self)
 
     if( self ) {
         add_string("Id", appinfo_id(self));
-        add_string("Mode", appinfo_get_mode_string(self));
+        add_string("Mode", appinfo_get_mode_name(self));
 
         /* Desktop properties
          */
@@ -592,15 +592,20 @@ appinfo_get_mode(const appinfo_t *self)
     return self->anf_mode;
 }
 
-static const gchar *
-appinfo_get_mode_string(const appinfo_t *self)
+const gchar *
+appinfo_get_mode_name(const appinfo_t *self)
 {
-    static const gchar * const lut[] = {
+    static const gchar * const mode_names[] = {
         [APP_MODE_NORMAL]        = "Normal",
         [APP_MODE_COMPATIBILITY] = "Compatibility",
         [APP_MODE_NONE]          = "None",
     };
-    return lut[self->anf_mode];
+    app_mode_t mode = appinfo_get_mode(self);
+
+    if( mode < APP_MODE_NORMAL || (size_t)mode >= G_N_ELEMENTS(mode_names) )
+        mode = APP_MODE_NORMAL;
+
+    return mode_names[mode];
 }
 
 /* - - - - - - - - - - - - - - - - - - - *
@@ -922,8 +927,9 @@ appinfo_parse_desktop(appinfo_t *self)
         group = SAILJAIL_SECTION_SECONDARY;
     /* else: legacy app => use default profile */
 
-    /* Sandboxing=Disabled means that the app opts out of sandboxing and
-     * launching via sailjail will result in use of compatibility mode.
+    /* Sandboxing=Disabled means that the app opts out of sandboxing.
+     * The daemon keeps such apps in APP_MODE_NONE so higher layers can
+     * show the warning-only launch prompt.
      */
     gchar *sandboxing = NULL;
     if( group )
@@ -954,17 +960,22 @@ appinfo_parse_desktop(appinfo_t *self)
     else {
         /* Read default profile from configuration */
         const config_t *config = appinfo_config(self);
-        set = config_stringset(config,
-                               APPINFO_DEFAULT_PROFILE_SECTION,
-                               SAILJAIL_KEY_PERMISSIONS);
+        bool default_profile_enabled =
+            config_boolean(config,
+                           APPINFO_DEFAULT_PROFILE_SECTION,
+                           APPINFO_KEY_ENABLED, false);
         if( !g_strcmp0(sandboxing, "Disabled") ||
-            !config_boolean(config,
-                            APPINFO_DEFAULT_PROFILE_SECTION,
-                            APPINFO_KEY_ENABLED, false) ||
-            needs_exclusion_from_sandboxing(appinfo_get_exec(self)) )
+            !default_profile_enabled ||
+            needs_exclusion_from_sandboxing(appinfo_get_exec(self)) ) {
+            set = stringset_create();
             appinfo_set_mode(self, APP_MODE_NONE);
-        else
+        }
+        else {
+            set = config_stringset(config,
+                                   APPINFO_DEFAULT_PROFILE_SECTION,
+                                   SAILJAIL_KEY_PERMISSIONS);
             appinfo_set_mode(self, APP_MODE_COMPATIBILITY);
+        }
     }
     appinfo_set_permissions(self, set);
     stringset_delete(set);
@@ -1026,9 +1037,6 @@ appinfo_read_exec_dbus(appinfo_t *self, GKeyFile *ini, const gchar *group)
     return exec;
 }
 
-/* ------------------------------------------------------------------------- *
- * UTILS
- * ------------------------------------------------------------------------- */
 static bool
 needs_exclusion_from_sandboxing(const gchar *exec)
 {

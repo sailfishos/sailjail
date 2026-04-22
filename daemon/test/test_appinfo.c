@@ -94,17 +94,20 @@ stringset_t *
 __wrap_config_stringset(config_t *self, const gchar *sec, const gchar *key)
 {
     (void)self; // unused
-    (void)sec; // unused
-    (void)key; // unused
-    return stringset_create();
+    stringset_t *set = stringset_create();
+    if( !g_strcmp0(sec, "Default Profile") &&
+        !g_strcmp0(key, "Permissions") )
+        stringset_add_item(set, "Internet");
+    return set;
 }
 
 bool
 __wrap_config_boolean(config_t *self, const gchar *sec, const gchar *key, bool def)
 {
     (void)self; // unused
-    (void)sec; // unused
-    (void)key; // unused
+    if( !g_strcmp0(sec, "Default Profile") &&
+        !g_strcmp0(key, "Enabled") )
+        return true;
     return def;
 }
 
@@ -184,6 +187,28 @@ void test_appinfo_exec(gconstpointer user_data)
     appinfo_delete(appinfo);
 }
 
+void test_appinfo_compatibility_mode(gconstpointer user_data)
+{
+    appinfo_t *appinfo = appinfo_create((applications_t *)user_data, "default-app");
+    g_assert_nonnull(appinfo);
+    g_assert_true(appinfo_parse_desktop(appinfo));
+    g_assert_true(appinfo_valid(appinfo));
+    g_assert_cmpint(appinfo_get_mode(appinfo), ==, APP_MODE_COMPATIBILITY);
+    g_assert_true(appinfo_has_permission(appinfo, "Internet"));
+    appinfo_delete(appinfo);
+}
+
+void test_appinfo_disabled_mode(gconstpointer user_data)
+{
+    appinfo_t *appinfo = appinfo_create((applications_t *)user_data, "disabled-app");
+    g_assert_nonnull(appinfo);
+    g_assert_true(appinfo_parse_desktop(appinfo));
+    g_assert_true(appinfo_valid(appinfo));
+    g_assert_cmpint(appinfo_get_mode(appinfo), ==, APP_MODE_NONE);
+    g_assert_cmpint(stringset_size(appinfo_get_permissions(appinfo)), ==, 0);
+    appinfo_delete(appinfo);
+}
+
 /* ========================================================================= *
  * MAIN
  * ========================================================================= */
@@ -202,6 +227,8 @@ int main(int argc, char **argv)
     g_test_add_data_func("/sailjaild/appinfo/read_properties", &mock, test_appinfo_read_properties);
     g_test_add_data_func("/sailjaild/appinfo/permissions", &mock, test_appinfo_permissions);
     g_test_add_data_func("/sailjaild/appinfo/exec", &mock, test_appinfo_exec);
+    g_test_add_data_func("/sailjaild/appinfo/compatibility_mode", &mock, test_appinfo_compatibility_mode);
+    g_test_add_data_func("/sailjaild/appinfo/disabled_mode", &mock, test_appinfo_disabled_mode);
 
     return g_test_run();
 }

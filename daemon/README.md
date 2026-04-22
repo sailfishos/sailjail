@@ -263,3 +263,31 @@ Directories Used
 - PERMISSIONS:  "/etc/sailjail/permissions"
 - APPLICATIONS: "/usr/share/applications" and "/etc/sailjail/applications"
 - SETTINGS:     "/home/.system/var/lib/sailjail/settings"
+
+Allowlisting system applications
+--------------------------------
+
+Applications that are part of the core system may be configured so that the
+user is never prompted about their permissions. Allowlist configuration is
+read from drop-in files under `/etc/sailjail/config/*.conf`. Distribution
+packages may provide files such as `50-sailfish-allowlist.conf` with an
+`[Allowlist]` section where keys are desktop file stems
+(for example `jolla-settings`) and values select the behaviour:
+
+* `default` – normal prompting rules apply
+* `always` – the application is automatically granted all permissions
+* `launch` – application launch is automatically allowed, but user settings
+  still control individual permissions
+
+Additional entries can be added via further drop-in files under
+`/etc/sailjail/config/*.conf`.
+
+Prompting applications with Sandboxing=Disabled
+-----------------------------------------------
+
+Applications that set `Sandboxing=Disabled` in their desktop file now show a
+single warning prompt the first time they are launched via Sailjail.  This
+warning explains that the application runs outside the sandbox.  Once the user
+accepts the warning the decision is remembered in
+`/home/.system/var/lib/sailjail/settings/user-UID.settings` and no further
+prompts are shown unless the settings file is cleared.

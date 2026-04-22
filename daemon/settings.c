@@ -226,6 +226,8 @@ static void appsettings_notify_change   (appsettings_t *self);
 app_agreed_t              appsettings_get_agreed        (const appsettings_t *self);
 static bool               appsettings_update_agreed     (appsettings_t *self, app_agreed_t agreed);
 void                      appsettings_set_agreed        (appsettings_t *self, app_agreed_t agreed);
+static app_mode_t         appsettings_get_current_mode  (const appsettings_t *self);
+static bool               appsettings_update_current_mode(appsettings_t *self, app_mode_t mode);
 static const stringset_t *appsettings_get_permissions   (const appsettings_t *self);
 static int                appsettings_update_permissions(appsettings_t *self, stringset_t *added);
 static app_grant_t        appsettings_get_autogrant     (const appsettings_t *self);
@@ -808,6 +810,7 @@ struct appsettings_t
     app_allowed_t   ast_allowed;
     app_grant_t     ast_autogrant;
     app_agreed_t    ast_agreed;
+    app_mode_t      ast_mode;
     stringset_t    *ast_granted;
     stringset_t    *ast_permissions;
 };
@@ -822,6 +825,7 @@ appsettings_ctor(appsettings_t *self, usersettings_t *usersettings,
     self->ast_allowed      = APP_ALLOWED_UNSET;
     self->ast_autogrant    = APP_GRANT_DEFAULT;
     self->ast_agreed       = APP_AGREED_UNSET;
+    self->ast_mode         = APP_MODE_NORMAL;
     self->ast_granted      = stringset_create();
     self->ast_permissions  = stringset_create();
 
@@ -970,6 +974,44 @@ void
 appsettings_set_agreed(appsettings_t *self, app_agreed_t agreed)
 {
     appsettings_update_agreed(self, agreed);
+}
+
+static app_mode_t
+appsettings_get_current_mode(const appsettings_t *self)
+{
+    app_mode_t mode = APP_MODE_NORMAL;
+
+    appinfo_t *appinfo = control_appinfo(appsettings_control(self),
+                                         appsettings_appname(self));
+    if( appinfo )
+        mode = appinfo_get_mode(appinfo);
+
+    return mode;
+}
+
+static bool
+appsettings_update_current_mode(appsettings_t *self, app_mode_t mode)
+{
+    bool changed = false;
+
+    if( mode < APP_MODE_NORMAL || mode > APP_MODE_NONE )
+        mode = APP_MODE_NORMAL;
+
+    if( self->ast_mode != mode ) {
+        log_info("%s(uid=%d): mode: %d -> %d",
+                 appsettings_appname(self),
+                 appsettings_uid(self),
+                 self->ast_mode,
+                 mode);
+        self->ast_mode = mode;
+        changed = true;
+    }
+
+    /* Note: mode is internal cache -> no D-Bus notifications */
+    if( changed )
+        appsettings_notify_change_ex(self, false);
+
+    return changed;
 }
 
 static const stringset_t *
@@ -1179,6 +1221,13 @@ appsettings_decode(appsettings_t *self, GKeyFile *file)
                                             APP_AGREED_UNSET);
     self->ast_autogrant = keyfile_get_integer(file, sec, "Autogrant",
                                               APP_GRANT_DEFAULT);
+    if( g_key_file_has_key(file, sec, "Mode", NULL) ) {
+        self->ast_mode = keyfile_get_integer(file, sec, "Mode",
+                                             APP_MODE_NORMAL);
+    }
+    else {
+        self->ast_mode = APP_MODE_NORMAL;
+    }
 
     stringset_delete_at(&self->ast_permissions);
     self->ast_permissions = keyfile_get_stringset(file, sec, "Permissions");
@@ -1197,6 +1246,7 @@ appsettings_encode(const appsettings_t *self, GKeyFile *file)
     keyfile_set_integer(file, sec, "Allowed", self->ast_allowed);
     keyfile_set_integer(file, sec, "Agreed", self->ast_agreed);
     keyfile_set_integer(file, sec, "Autogrant", self->ast_autogrant);
+    keyfile_set_integer(file, sec, "Mode", self->ast_mode);
     keyfile_set_stringset(file, sec, "Granted", self->ast_granted);
     keyfile_set_stringset(file, sec, "Permissions", self->ast_permissions);
 }
@@ -1214,9 +1264,16 @@ appsettings_rethink(appsettings_t *self)
 
     stringset_t *added = stringset_create();
     int permission_change = appsettings_update_permissions(self, added);
+    bool mode_change =
+        appsettings_update_current_mode(self, appsettings_get_current_mode(self));
 
     const stringset_t *permissions = appsettings_get_permissions(self);
     const stringset_t *granted = appsettings_get_granted(self);
+
+    if( mode_change ) {
+        if( appsettings_get_allowed(self) != APP_ALLOWED_NEVER )
+            appsettings_update_allowed(self, APP_ALLOWED_UNSET);
+    }
 
     if( appsettings_update_autogrant(self, appsettings_get_allowlisted(self)) ) {
         /* Autogrant config changed: choose all or nothing */
@@ -1267,6 +1324,7 @@ appsettings_get_allowlisted(const appsettings_t *self)
                                        APP_CONFIG_ALLOWLIST,
                                        appsettings_appname(self),
                                        app_grant_name[APP_GRANT_DEFAULT]);
+
     for( app_grant_t grant = 0; grant < APP_GRANT_COUNT; ++grant ) {
         if( !strcmp(conf, app_grant_name[grant]) ) {
             value = grant;

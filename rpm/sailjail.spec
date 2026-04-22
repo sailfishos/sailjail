@@ -74,6 +74,9 @@ Summary: QA tests for %{name}-daemon
 
 %meson_build
 
+%check
+%meson_test
+
 %install
 %meson_install
 
